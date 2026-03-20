@@ -106,7 +106,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Workspace and Durable Run Foundation | 0/3 | Not started | - |
+| 1. Workspace and Durable Run Foundation | 0/3 | Planned | - |
 | 2. Manager-Led Orchestration Core | 0/3 | Not started | - |
 | 3. Specialist Delegation and Routing Visibility | 0/3 | Not started | - |
 | 4. Autonomous Repo Execution and Validation Guardrails | 0/3 | Not started | - |
