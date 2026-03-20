@@ -67,15 +67,33 @@
 
 ## Traceability
 
-This section is populated during roadmap creation.
-
 | Requirement | Phase | Status |
 |-------------|-------|--------|
+| WKSP-01 | Phase 1 | Pending |
+| WKSP-02 | Phase 1 | Pending |
+| WKSP-03 | Phase 1 | Pending |
+| ORCH-01 | Phase 2 | Pending |
+| ORCH-02 | Phase 2 | Pending |
+| ORCH-03 | Phase 2 | Pending |
+| ORCH-04 | Phase 2 | Pending |
+| AGNT-01 | Phase 3 | Pending |
+| AGNT-02 | Phase 3 | Pending |
+| AGNT-03 | Phase 3 | Pending |
+| ROUT-01 | Phase 3 | Pending |
+| ROUT-02 | Phase 3 | Pending |
+| ROUT-03 | Phase 3 | Pending |
+| EXEC-01 | Phase 4 | Pending |
+| EXEC-02 | Phase 4 | Pending |
+| EXEC-03 | Phase 4 | Pending |
+| EXEC-04 | Phase 4 | Pending |
+| UI-01 | Phase 5 | Pending |
+| UI-02 | Phase 5 | Pending |
+| UI-03 | Phase 5 | Pending |
 
 **Coverage:**
 - v1 requirements: 20 total
-- Mapped to phases: 0
-- Unmapped: 20
+- Mapped to phases: 20
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-20*
