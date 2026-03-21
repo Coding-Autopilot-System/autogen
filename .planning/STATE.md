@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: ready
-stopped_at: Phase 2 executed (no transition)
-last_updated: "2026-03-21T12:15:00.000Z"
+stopped_at: Phase 3 context gathered
+last_updated: "2026-03-21T11:51:56.994Z"
 progress:
   total_phases: 5
   completed_phases: 2
@@ -23,8 +23,8 @@ See: .planning/PROJECT.md (updated 2026-03-21)
 
 ## Current Position
 
-Phase: 02 (manager-led-orchestration-core) - COMPLETE
-Plan: 3 of 3
+Phase: 03 (specialist-delegation-and-routing-visibility) - CONTEXT READY
+Plan: Not planned yet
 
 ## Performance Metrics
 
@@ -75,6 +75,9 @@ Recent decisions affecting current work:
 - Phase 02-01: Canonical stage state lives in `maf_starter/orchestration.py` and is shared by workflow builders and dashboard runtime
 - Phase 02-02: Planning pauses after plan output, while blocked or failed later stages resume from the same stage without replaying completed work
 - Phase 02-03: Operator-facing orchestration visibility is exposed through dashboard cards and API payloads, not only raw traces
+- Phase 03 context: Keep the manager as the only canonical run owner while surfacing `planner`, `researcher`, `implementer`, and `reviewer` as first-class visible specialists
+- Phase 03 context: Route control should be lane-first with advanced model pinning, using API-first fallbacks and CLI providers last unless explicitly pinned
+- Phase 03 context: Routing and specialist behavior should be exposed through dedicated operator views and route cards rather than transcript text or DevUI traces alone
 
 ### Pending Todos
 
@@ -88,6 +91,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-21T12:15:00.000Z
-Stopped at: Phase 2 executed (no transition)
-Resume file: .planning/ROADMAP.md
+Last session: 2026-03-21T11:51:56.994Z
+Stopped at: Phase 3 context gathered
+Resume file: .planning/phases/03-specialist-delegation-and-routing-visibility/03-CONTEXT.md
