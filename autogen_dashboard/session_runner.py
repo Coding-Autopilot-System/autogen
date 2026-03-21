@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import re
 import uuid
-from dataclasses import asdict, dataclass, replace
+from dataclasses import asdict, dataclass, field, replace
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, AsyncIterator
 
 from autogen_core import CancellationToken
@@ -13,6 +15,7 @@ from autogen_agentchat.messages import TextMessage
 
 from autogen_dashboard.schemas import (
     ApprovalDecision,
+    AutoAnswerRecordModel,
     ProviderListResponse,
     ProviderName,
     ProviderStatusModel,
@@ -26,12 +29,26 @@ from autogen_dashboard.schemas import (
     SessionRunRequest,
     SessionStatus,
     SessionSummary,
+    StageOutputModel,
+    StageTimelineEntry,
     TranscriptMessage,
 )
 from autogen_dashboard.repo_context import build_repo_brief, collect_repo_context, discover_local_repos, resolve_repo_root
 from autogen_dashboard.session_store import SessionStore
 from autogen_starter.config import Settings
 from autogen_starter.providers import ProviderConfigError, collect_provider_statuses, create_model_client
+from maf_starter.gsd_autofill import resolve_gsd_questions
+from maf_starter.orchestration import (
+    CANONICAL_STAGE_NAMES,
+    AutoAnswerRecord,
+    RunOrchestrationState,
+    RunStagePauseKind,
+    StageName,
+    StageSummary,
+)
+from maf_starter.tools import build_repo_context_snapshot
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 
 def utc_now() -> datetime:
@@ -62,6 +79,15 @@ class RunOutcome:
     provider_used: ProviderName
     model_used: str | None
     attempt_log: list[str]
+    current_stage: StageName | None = None
+    last_completed_stage: StageName | None = None
+    stage_timeline: list[dict[str, Any]] = field(default_factory=list)
+    stage_outputs: dict[str, dict[str, Any]] = field(default_factory=dict)
+    pause_kind: RunStagePauseKind | None = None
+    auto_answer_records: list[dict[str, Any]] = field(default_factory=list)
+    blocked_questions: list[str] = field(default_factory=list)
+    route_metadata: dict[str, Any] = field(default_factory=dict)
+    transition_events: list[tuple[str, dict[str, Any]]] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -86,11 +112,23 @@ class RunFailure(RuntimeError):
         attempt_log: list[str],
         provider_used: ProviderName | None = None,
         model_used: str | None = None,
+        current_stage: StageName | None = None,
+        orchestration_state: dict[str, Any] | None = None,
+        auto_answer_records: list[dict[str, Any]] | None = None,
+        blocked_questions: list[str] | None = None,
+        route_metadata: dict[str, Any] | None = None,
+        transition_events: list[tuple[str, dict[str, Any]]] | None = None,
     ) -> None:
         super().__init__(message)
         self.attempt_log = attempt_log
         self.provider_used = provider_used
         self.model_used = model_used
+        self.current_stage = current_stage
+        self.orchestration_state = orchestration_state or {}
+        self.auto_answer_records = auto_answer_records or []
+        self.blocked_questions = blocked_questions or []
+        self.route_metadata = route_metadata or {}
+        self.transition_events = transition_events or []
 
 
 class SessionService:
@@ -131,6 +169,7 @@ class SessionService:
         now = utc_now()
         transcript: list[TranscriptMessage] = []
         queued_prompt = task
+        orchestration = RunOrchestrationState.new(session_id)
 
         if queued_prompt:
             transcript.append(
@@ -168,8 +207,16 @@ class SessionService:
             repo_context=repo_context,
             status="queued",
             pause_reason=pause_reason,
+            pause_kind=None,
             pause_title=pause_title,
             pause_detail=pause_detail,
+            current_stage=orchestration.current_stage,
+            last_completed_stage=orchestration.last_completed_stage,
+            stage_timeline=self._stage_timeline_models(orchestration),
+            stage_outputs={},
+            auto_answer_records=[],
+            blocked_questions=[],
+            route_metadata={},
             system_message=system_message,
             queued_prompt=queued_prompt,
             last_prompt=None,
@@ -184,6 +231,9 @@ class SessionService:
         )
 
         detail = self.store.create_session(summary, transcript)
+        self.store.save_orchestration_state(session_id, orchestration.to_dict())
+        self.store.save_auto_answer_records(session_id, [])
+        self.store.save_blocked_questions(session_id, [])
         await self._emit_event(session_id, "session.created", {"session": detail.model_dump(mode="json")})
         return self.get_session(session_id)
 
@@ -318,6 +368,7 @@ class SessionService:
             )
             summary.status = "queued"
             summary.pause_reason = "not_started"
+            summary.pause_kind = None
             summary.pause_title = pause_title
             summary.pause_detail = pause_detail
             summary.queued_prompt = content
@@ -372,6 +423,7 @@ class SessionService:
             system_message = summary.system_message
             provider = summary.provider
             model_override = summary.model
+            operator_task = summary.original_task or prompt
             refresh = self._refresh_workspace_snapshot(summary)
             repo_context = refresh.repo_context
             attempt_id, created_attempt = self._resolve_attempt_id(summary, prompt_origin)
@@ -442,6 +494,7 @@ class SessionService:
                     prompt=prompt,
                     state=state,
                     model_override=model_override,
+                    operator_task=operator_task,
                     repo_context=repo_context,
                     attempt_id=attempt_id,
                 )
@@ -460,6 +513,7 @@ class SessionService:
         prompt: str,
         state: dict[str, Any] | None,
         model_override: str | None,
+        operator_task: str,
         repo_context,
         attempt_id: str,
     ) -> None:
@@ -472,6 +526,7 @@ class SessionService:
                 prompt=prompt,
                 state=state,
                 model_override=model_override,
+                operator_task=operator_task,
                 repo_context=repo_context,
             )
         except asyncio.CancelledError:
@@ -483,6 +538,7 @@ class SessionService:
                     return
                 summary.status = "error"
                 summary.pause_reason = "error"
+                summary.pause_kind = None
                 summary.pause_title = "Cancelled"
                 summary.pause_detail = "The run was cancelled."
                 summary.last_error = "The run was cancelled."
@@ -518,9 +574,10 @@ class SessionService:
                 if summary.status == "stopped":
                     return
                 summarized_error = self._summarize_exception(exc)
-                summary.status = "error"
-                summary.pause_reason = "error"
-                summary.pause_title = "Error"
+                summary.status = "waiting" if isinstance(exc, RunFailure) and exc.current_stage else "error"
+                summary.pause_reason = "retryable_error" if isinstance(exc, RunFailure) and exc.current_stage else "error"
+                summary.pause_kind = "retryable_error" if isinstance(exc, RunFailure) and exc.current_stage else None
+                summary.pause_title = "Retryable error" if isinstance(exc, RunFailure) and exc.current_stage else "Error"
                 summary.pause_detail = summarized_error
                 summary.last_error = summarized_error
                 if isinstance(exc, RunFailure):
@@ -528,6 +585,12 @@ class SessionService:
                     summary.last_model_used = exc.model_used
                     summary.last_attempts = exc.attempt_log
                     summary.last_fallback_count = max(0, len(exc.attempt_log) - 1)
+                    self._apply_orchestration_summary(summary, exc.orchestration_state)
+                    summary.blocked_questions = list(exc.blocked_questions)
+                    summary.route_metadata = dict(exc.route_metadata)
+                    self._persist_orchestration_artifacts(session_id, exc.orchestration_state)
+                    self.store.save_auto_answer_records(session_id, exc.auto_answer_records)
+                    self.store.save_blocked_questions(session_id, exc.blocked_questions)
                 summary.updated_at = utc_now()
                 summary.event_count = len(runtime.events) + 1
                 self.store.save_attempt_summary(
@@ -540,15 +603,27 @@ class SessionService:
                         "prompt": prompt,
                         "completed_at": utc_now().isoformat(),
                         "error": summarized_error,
+                        "current_stage": summary.current_stage,
                     },
                 )
+                if isinstance(exc, RunFailure):
+                    for event_type, payload in exc.transition_events:
+                        await self._emit_event(session_id, event_type, payload)
                 await self._emit_event(
                     session_id,
                     "run.attempt.failed",
-                    {"attempt_id": attempt_id, "error": summarized_error},
+                    {"attempt_id": attempt_id, "error": summarized_error, "current_stage": summary.current_stage},
                 )
                 self.store.save_summary(summary)
-                await self._emit_event(session_id, "run.failed", {"error": summarized_error})
+                await self._emit_event(
+                    session_id,
+                    "run.failed",
+                    {
+                        "error": summarized_error,
+                        "current_stage": summary.current_stage,
+                        "pause_kind": summary.pause_kind,
+                    },
+                )
                 return
 
         async with runtime.lock:
@@ -563,13 +638,22 @@ class SessionService:
             transcript.extend(outcome.assistant_messages)
 
             completion_status, pause_reason, pause_title, pause_detail = self._pause_for_result(outcome.stop_reason)
-            if len(outcome.attempt_log) > 1:
+            if outcome.pause_kind is not None:
+                completion_status = "completed" if outcome.pause_kind == "completed" else "waiting"
+                pause_reason = outcome.pause_kind
+                pause_title, pause_detail = self._pause_metadata_for_kind(
+                    outcome.pause_kind,
+                    current_stage=outcome.current_stage,
+                    blocked_questions=outcome.blocked_questions,
+                )
+            elif len(outcome.attempt_log) > 1:
                 pause_detail = (
                     f"{pause_detail} Fallback used {outcome.provider_used}"
                     f"{':' + outcome.model_used if outcome.model_used else ''}."
                 )
             summary.status = completion_status
             summary.pause_reason = pause_reason
+            summary.pause_kind = outcome.pause_kind
             summary.pause_title = pause_title
             summary.pause_detail = pause_detail
             summary.last_run_at = utc_now()
@@ -584,10 +668,20 @@ class SessionService:
             summary.last_model_used = outcome.model_used
             summary.last_attempts = outcome.attempt_log
             summary.last_fallback_count = max(0, len(outcome.attempt_log) - 1)
+            summary.route_metadata = dict(outcome.route_metadata)
+            summary.blocked_questions = list(outcome.blocked_questions)
+            summary.auto_answer_records = [
+                AutoAnswerRecordModel.model_validate(item)
+                for item in outcome.auto_answer_records
+            ]
+            self._apply_orchestration_summary(summary, outcome.state_snapshot.get("orchestration"))
             summary.transcript_count = len(transcript)
             summary.event_count = len(runtime.events) + 1
 
             self.store.save_state(session_id, outcome.state_snapshot)
+            self._persist_orchestration_artifacts(session_id, outcome.state_snapshot.get("orchestration"))
+            self.store.save_auto_answer_records(session_id, outcome.auto_answer_records)
+            self.store.save_blocked_questions(session_id, outcome.blocked_questions)
             self.store.save_transcript(session_id, transcript)
             self.store.save_attempt_summary(
                 session_id,
@@ -602,8 +696,13 @@ class SessionService:
                     "provider_used": outcome.provider_used,
                     "model_used": outcome.model_used,
                     "attempt_log": outcome.attempt_log,
+                    "current_stage": summary.current_stage,
+                    "last_completed_stage": summary.last_completed_stage,
+                    "pause_kind": summary.pause_kind,
                 },
             )
+            for event_type, payload in outcome.transition_events:
+                await self._emit_event(session_id, event_type, payload)
             await self._emit_event(
                 session_id,
                 "run.attempt.completed",
@@ -611,6 +710,8 @@ class SessionService:
                     "attempt_id": attempt_id,
                     "provider_used": outcome.provider_used,
                     "model_used": outcome.model_used,
+                    "current_stage": summary.current_stage,
+                    "pause_kind": summary.pause_kind,
                 },
             )
             self.store.save_summary(summary)
@@ -625,6 +726,9 @@ class SessionService:
                     "provider_used": outcome.provider_used,
                     "model_used": outcome.model_used,
                     "attempt_count": len(outcome.attempt_log),
+                    "current_stage": summary.current_stage,
+                    "last_completed_stage": summary.last_completed_stage,
+                    "pause_kind": summary.pause_kind,
                 },
             )
 
@@ -635,6 +739,7 @@ class SessionService:
             active_task = runtime.active_task
             summary.status = "stopped"
             summary.pause_reason = "stopped"
+            summary.pause_kind = "stopped"
             summary.pause_title = "Stopped"
             summary.pause_detail = stop_reason
             summary.last_stop_reason = stop_reason
@@ -972,11 +1077,193 @@ class SessionService:
         prompt: str,
         state: dict[str, Any] | None,
         model_override: str | None,
+        operator_task: str,
         repo_context,
     ) -> RunOutcome:
-        effective_prompt = self._prompt_with_repo_context(prompt, repo_context)
+        orchestration = self._load_orchestration_state(state)
+        workspace_snapshot = repo_context.model_dump(mode="json") if repo_context is not None else None
+        repo_snapshot = build_repo_context_snapshot(Path(repo_context.root)) if repo_context is not None else None
+        transition_events: list[tuple[str, dict[str, Any]]] = []
+        attempt_log: list[str] = []
+        auto_answer_records: list[dict[str, Any]] = []
+        last_provider_used: ProviderName = provider
+        last_model_used = model_override
+        last_route_metadata: dict[str, Any] = {}
+
+        while orchestration.current_stage is not None:
+            stage = orchestration.current_stage
+            record = orchestration.start_stage(stage)
+            transition_events.append(
+                (
+                    "stage.started",
+                    {
+                        "stage": stage,
+                        "status": record.status,
+                        "attempt_count": record.attempt_count,
+                    },
+                )
+            )
+
+            if stage == "validation":
+                summary = self._validation_summary(orchestration)
+                orchestration.complete_stage(stage, summary)
+                transition_events.append(self._stage_event_payload("stage.completed", stage, summary, orchestration))
+                orchestration.mark_completed()
+                last_route_metadata = summary.route_metadata
+                break
+
+            stage_prompt = self._build_stage_prompt(
+                stage=stage,
+                prompt=operator_task,
+                human_note=prompt,
+                orchestration=orchestration,
+                repo_context=repo_context,
+            )
+
+            try:
+                stage_text, provider_used, model_used, stage_attempt_log = await self._run_stage_prompt(
+                    provider=provider,
+                    system_message=self._stage_system_message(system_message, stage),
+                    prompt=stage_prompt,
+                    model_override=model_override,
+                    repo_context=repo_context,
+                )
+            except Exception as exc:
+                summarized_error = self._summarize_exception(exc)
+                orchestration.fail_stage(stage, summarized_error, retryable=True)
+                transition_events.append(
+                    (
+                        "stage.blocked",
+                        {
+                            "stage": stage,
+                            "status": "failed",
+                            "pause_kind": "retryable_error",
+                            "error": summarized_error,
+                        },
+                    )
+                )
+                raise RunFailure(
+                    summarized_error,
+                    attempt_log=attempt_log,
+                    provider_used=provider,
+                    model_used=model_override,
+                    current_stage=stage,
+                    orchestration_state={"orchestration": orchestration.to_dict()},
+                    auto_answer_records=auto_answer_records,
+                    blocked_questions=list(orchestration.blocked_questions),
+                    route_metadata=last_route_metadata,
+                    transition_events=transition_events,
+                ) from exc
+
+            attempt_log.extend(stage_attempt_log)
+            last_provider_used = provider_used
+            last_model_used = model_used
+            last_route_metadata = self._route_metadata(provider_used, model_used, stage_attempt_log, stage)
+            summary = self._parse_stage_summary(stage, stage_text, last_route_metadata)
+
+            answers, unresolved = self._resolve_stage_questions(
+                stage=stage,
+                questions=summary.blocked_questions,
+                workspace_snapshot=workspace_snapshot,
+                repo_snapshot=repo_snapshot,
+            )
+            for answer in answers:
+                orchestration.add_auto_answer(answer)
+                auto_answer_records.append(answer.to_dict())
+                transition_events.append(
+                    (
+                        "gsd.answer.generated",
+                        {
+                            "stage": stage,
+                            "question": answer.question,
+                            "answer": answer.answer,
+                            "confidence": answer.confidence,
+                            "sources": answer.sources,
+                        },
+                    )
+                )
+            summary.blocked_questions = unresolved
+            summary.needs_input = bool(unresolved) or (summary.needs_input and not answers)
+
+            if summary.needs_input or unresolved:
+                orchestration.pause_stage(
+                    stage,
+                    "needs_input",
+                    summary=summary,
+                    blocked_questions=unresolved,
+                )
+                transition_events.append(self._stage_event_payload("stage.paused", stage, summary, orchestration))
+                return self._build_orchestration_outcome(
+                    orchestration=orchestration,
+                    prompt=operator_task,
+                    provider_used=last_provider_used,
+                    model_used=last_model_used,
+                    attempt_log=attempt_log,
+                    route_metadata=last_route_metadata,
+                    auto_answer_records=auto_answer_records,
+                    blocked_questions=unresolved,
+                    transition_events=transition_events,
+                    pause_kind="needs_input",
+                )
+
+            if summary.needs_approval:
+                orchestration.complete_stage(stage, summary)
+                transition_events.append(self._stage_event_payload("stage.completed", stage, summary, orchestration))
+                orchestration.status = "paused"
+                orchestration.pause_kind = "needs_approval"
+                transition_events.append(
+                    (
+                        "stage.paused",
+                        {
+                            "stage": orchestration.current_stage,
+                            "status": "paused",
+                            "pause_kind": "needs_approval",
+                            "last_completed_stage": stage,
+                            "route_metadata": dict(summary.route_metadata),
+                        },
+                    )
+                )
+                return self._build_orchestration_outcome(
+                    orchestration=orchestration,
+                    prompt=operator_task,
+                    provider_used=last_provider_used,
+                    model_used=last_model_used,
+                    attempt_log=attempt_log,
+                    route_metadata=last_route_metadata,
+                    auto_answer_records=auto_answer_records,
+                    blocked_questions=[],
+                    transition_events=transition_events,
+                    pause_kind="needs_approval",
+                )
+
+            orchestration.complete_stage(stage, summary)
+            transition_events.append(self._stage_event_payload("stage.completed", stage, summary, orchestration))
+
+        orchestration.mark_completed()
+        return self._build_orchestration_outcome(
+            orchestration=orchestration,
+            prompt=operator_task,
+            provider_used=last_provider_used,
+            model_used=last_model_used,
+            attempt_log=attempt_log,
+            route_metadata=last_route_metadata,
+            auto_answer_records=auto_answer_records,
+            blocked_questions=[],
+            transition_events=transition_events,
+            pause_kind="completed",
+        )
+
+    async def _run_stage_prompt(
+        self,
+        *,
+        provider: ProviderName,
+        system_message: str,
+        prompt: str,
+        model_override: str | None,
+        repo_context,
+    ) -> tuple[str, ProviderName, str | None, list[str]]:
         working_directory = repo_context.root if repo_context is not None else None
-        assistant_state = self._normalize_assistant_state(state)
+        effective_prompt = self._prompt_with_repo_context(prompt, repo_context)
         targets = self._build_run_targets(provider, model_override)
         attempt_log: list[str] = []
         last_error: Exception | None = None
@@ -995,21 +1282,14 @@ class SessionService:
                     model_client=model_client,
                     system_message=system_message,
                 )
-                if assistant_state:
-                    await assistant.load_state(assistant_state)
                 result = await assistant.on_messages(
                     [TextMessage(content=effective_prompt, source="user")],
                     CancellationToken(),
                 )
                 attempt_log.append(f"{target_label} succeeded")
-                return RunOutcome(
-                    assistant_messages=self._assistant_response_messages(result),
-                    stop_reason="Maximum number of turns 1 reached.",
-                    state_snapshot=await assistant.save_state(),
-                    provider_used=target.provider,
-                    model_used=target.model,
-                    attempt_log=attempt_log,
-                )
+                messages = self._assistant_response_messages(result)
+                content = messages[-1].content if messages else ""
+                return content, target.provider, target.model, attempt_log
             except Exception as exc:
                 last_error = exc
                 attempt_log.append(f"{target_label} failed: {self._summarize_exception(exc)}")
@@ -1019,14 +1299,274 @@ class SessionService:
                 await model_client.close()
 
         if last_error is None:
-            raise RunFailure("No run targets were available for this session.", attempt_log=attempt_log)
-        final_target = targets[-1] if targets else None
-        raise RunFailure(
-            " | ".join(attempt_log),
+            raise RuntimeError("No run targets were available for this stage.")
+        raise last_error
+
+    def _load_orchestration_state(self, state: dict[str, Any] | None) -> RunOrchestrationState:
+        if isinstance(state, dict) and isinstance(state.get("orchestration"), dict):
+            return RunOrchestrationState.from_dict(state["orchestration"])
+        return RunOrchestrationState.new("run")
+
+    def _build_stage_prompt(
+        self,
+        *,
+        stage: StageName,
+        prompt: str,
+        human_note: str,
+        orchestration: RunOrchestrationState,
+        repo_context,
+    ) -> str:
+        prior_outputs = orchestration.stage_outputs()
+        rendered_outputs = []
+        for stage_name in CANONICAL_STAGE_NAMES:
+            if stage_name not in prior_outputs:
+                continue
+            rendered_outputs.append(
+                f"- {stage_name}: {prior_outputs[stage_name].get('summary', '')}"
+            )
+        auto_answers = [
+            f"- {record.question}: {record.answer}"
+            for record in orchestration.auto_answer_records
+            if record.answer
+        ]
+        repo_brief = build_repo_brief(repo_context)
+        return "\n".join(
+            part
+            for part in (
+                f"Current stage: {stage}",
+                f"Original operator request: {prompt}",
+                f"Latest human note: {human_note}" if human_note and human_note != prompt else "",
+                f"Prior stage outputs:\n{chr(10).join(rendered_outputs)}" if rendered_outputs else "",
+                f"Automatic GSD answers:\n{chr(10).join(auto_answers)}" if auto_answers else "",
+                f"Workspace context:\n{repo_brief}" if repo_brief else "",
+                "Return JSON with summary, artifacts, next_action, needs_approval, needs_input, blocked_questions.",
+            )
+            if part
+        )
+
+    def _stage_system_message(self, base_system_message: str, stage: StageName) -> str:
+        specialty = {
+            "planning": "Turn the request into an execution plan and surface risky assumptions.",
+            "research": "Gather repo facts, likely files, and evidence that implementation needs.",
+            "implementation": "Describe the concrete change set and validation path.",
+            "review": "Check the proposal for regressions, missing tests, and weak assumptions.",
+            "validation": "Summarize the final validation state.",
+        }[stage]
+        return (
+            f"{base_system_message} You are executing the {stage} stage of a manager-led engineering workflow. "
+            f"{specialty} Keep the answer concise and machine-readable."
+        )
+
+    def _parse_stage_summary(
+        self,
+        stage: StageName,
+        raw_text: str,
+        route_metadata: dict[str, Any],
+    ) -> StageSummary:
+        payload = self._extract_json_object(raw_text)
+        if payload is not None:
+            return StageSummary(
+                stage=stage,
+                summary=str(payload.get("summary", "")).strip() or self._strip_route_banner(raw_text),
+                artifacts=[str(item) for item in (payload.get("artifacts") or []) if str(item).strip()],
+                next_action=self._nullable_text(payload.get("next_action")),
+                needs_approval=bool(payload.get("needs_approval", stage == "planning")),
+                needs_input=bool(payload.get("needs_input", False)),
+                blocked_questions=[str(item).strip() for item in (payload.get("blocked_questions") or []) if str(item).strip()],
+                route_metadata=route_metadata,
+                raw_output=raw_text,
+            )
+
+        stripped = self._strip_route_banner(raw_text)
+        return StageSummary(
+            stage=stage,
+            summary=stripped,
+            artifacts=[],
+            next_action=None,
+            needs_approval=(stage == "planning"),
+            needs_input=False,
+            blocked_questions=self._extract_questions(stripped),
+            route_metadata=route_metadata,
+            raw_output=raw_text,
+        )
+
+    def _resolve_stage_questions(
+        self,
+        *,
+        stage: StageName,
+        questions: list[str],
+        workspace_snapshot: dict[str, Any] | None,
+        repo_snapshot: dict[str, Any] | None,
+    ) -> tuple[list[AutoAnswerRecord], list[str]]:
+        if not questions:
+            return [], []
+        phase_context_path = PROJECT_ROOT / ".planning" / "phases" / "02-manager-led-orchestration-core" / "02-CONTEXT.md"
+        results = resolve_gsd_questions(
+            questions,
+            project_root=PROJECT_ROOT,
+            workspace_snapshot=workspace_snapshot,
+            repo_snapshot=repo_snapshot,
+            phase_context_path=phase_context_path,
+        )
+        answered = [result.to_record(stage=stage) for result in results if not result.needs_input and result.answer]
+        unresolved = [result.question for result in results if result.needs_input or not result.answer]
+        return answered, unresolved
+
+    def _validation_summary(self, orchestration: RunOrchestrationState) -> StageSummary:
+        completed = [
+            record.stage
+            for record in orchestration.stage_records
+            if record.stage != "validation" and record.status == "completed"
+        ]
+        return StageSummary(
+            stage="validation",
+            summary=f"Validation placeholder completed after stages: {', '.join(completed) or 'none'}.",
+            artifacts=["artifacts/stages/validation/summary.json"],
+            next_action="Run final operator verification.",
+            route_metadata={"route_reason": "manager validation placeholder", "tools_available": False},
+        )
+
+    def _route_metadata(
+        self,
+        provider_used: ProviderName,
+        model_used: str | None,
+        attempt_log: list[str],
+        stage: StageName,
+    ) -> dict[str, Any]:
+        return {
+            "active_provider": provider_used,
+            "active_model": model_used,
+            "route_tier": "deep" if stage in {"planning", "implementation", "review"} else "standard",
+            "route_reason": f"{stage} stage execution",
+            "fallback_used": len(attempt_log) > 1,
+            "tools_available": provider_used not in {"gemini-cli", "claude-cli", "codex-cli"},
+        }
+
+    def _build_orchestration_outcome(
+        self,
+        *,
+        orchestration: RunOrchestrationState,
+        prompt: str,
+        provider_used: ProviderName,
+        model_used: str | None,
+        attempt_log: list[str],
+        route_metadata: dict[str, Any],
+        auto_answer_records: list[dict[str, Any]],
+        blocked_questions: list[str],
+        transition_events: list[tuple[str, dict[str, Any]]],
+        pause_kind: RunStagePauseKind,
+    ) -> RunOutcome:
+        current_stage = orchestration.current_stage
+        summary_text = self._render_manager_summary(orchestration, prompt, pause_kind)
+        return RunOutcome(
+            assistant_messages=[
+                TranscriptMessage(
+                    id=uuid.uuid4().hex,
+                    role="assistant",
+                    content=summary_text,
+                    source="manager",
+                    created_at=utc_now(),
+                    metadata={"current_stage": current_stage, "pause_kind": pause_kind},
+                )
+            ],
+            stop_reason=f"Manager paused with {pause_kind}.",
+            state_snapshot={"orchestration": orchestration.to_dict()},
+            provider_used=provider_used,
+            model_used=model_used,
             attempt_log=attempt_log,
-            provider_used=final_target.provider if final_target is not None else None,
-            model_used=final_target.model if final_target is not None else None,
-        ) from last_error
+            current_stage=current_stage,
+            last_completed_stage=orchestration.last_completed_stage,
+            stage_timeline=orchestration.stage_timeline(),
+            stage_outputs=orchestration.stage_outputs(),
+            pause_kind=pause_kind,
+            auto_answer_records=auto_answer_records,
+            blocked_questions=blocked_questions,
+            route_metadata=route_metadata,
+            transition_events=transition_events,
+        )
+
+    def _render_manager_summary(
+        self,
+        orchestration: RunOrchestrationState,
+        prompt: str,
+        pause_kind: RunStagePauseKind,
+    ) -> str:
+        current_stage = orchestration.current_stage or "completed"
+        last_stage = orchestration.last_completed_stage or "none"
+        stage_outputs = orchestration.stage_outputs()
+        current_summary = ""
+        if orchestration.current_stage and orchestration.current_stage in stage_outputs:
+            current_summary = stage_outputs[orchestration.current_stage].get("summary", "")
+        elif orchestration.last_completed_stage and orchestration.last_completed_stage in stage_outputs:
+            current_summary = stage_outputs[orchestration.last_completed_stage].get("summary", "")
+        lines = [
+            f"Manager update for task: {prompt}",
+            f"Current stage: {current_stage}",
+            f"Last completed stage: {last_stage}",
+            f"Pause kind: {pause_kind}",
+        ]
+        if current_summary:
+            lines.append(f"Summary: {current_summary}")
+        if orchestration.blocked_questions:
+            lines.append("Blocked questions:")
+            lines.extend(f"- {question}" for question in orchestration.blocked_questions)
+        return "\n".join(lines)
+
+    def _stage_event_payload(
+        self,
+        event_type: str,
+        stage: StageName,
+        summary: StageSummary,
+        orchestration: RunOrchestrationState,
+    ) -> tuple[str, dict[str, Any]]:
+        payload = {
+            "stage": stage,
+            "status": orchestration.get_record(stage).status,
+            "pause_kind": orchestration.get_record(stage).pause_kind,
+            "summary": summary.summary,
+            "artifacts": list(summary.artifacts),
+            "route_metadata": dict(summary.route_metadata),
+            "last_completed_stage": orchestration.last_completed_stage,
+        }
+        if orchestration.get_record(stage).blocked_questions:
+            payload["blocked_questions"] = list(orchestration.get_record(stage).blocked_questions)
+        return event_type, payload
+
+    def _extract_json_object(self, text: str) -> dict[str, Any] | None:
+        if not text.strip():
+            return None
+        candidates = []
+        fenced = re.findall(r"```(?:json)?\s*(\{.*?\})\s*```", text, flags=re.DOTALL)
+        candidates.extend(fenced)
+        brace_match = re.search(r"(\{.*\})", text, flags=re.DOTALL)
+        if brace_match:
+            candidates.append(brace_match.group(1))
+        for candidate in candidates:
+            try:
+                payload = json.loads(candidate)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(payload, dict):
+                return payload
+        return None
+
+    def _strip_route_banner(self, text: str) -> str:
+        cleaned = re.sub(r"^\[Route:[^\n]+\]\s*", "", text.strip())
+        return cleaned.strip()
+
+    def _extract_questions(self, text: str) -> list[str]:
+        questions = []
+        for match in re.findall(r"([A-Z0-9][^?\n]{3,}\?)", text, flags=re.IGNORECASE):
+            normalized = " ".join(match.split())
+            if normalized not in questions:
+                questions.append(normalized)
+        return questions[:5]
+
+    def _nullable_text(self, value: Any) -> str | None:
+        if value is None:
+            return None
+        text = str(value).strip()
+        return text or None
 
     def _pause_for_result(self, stop_reason: str | None) -> tuple[SessionStatus, str, str, str]:
         normalized = (stop_reason or "").strip().lower()
@@ -1037,6 +1577,89 @@ class SessionService:
         if re.search(r"\b(complete|completed|done|finished)\b", normalized):
             return ("completed", "completed", "Completed", stop_reason or "Session completed.")
         return ("waiting", "needs_approval", "Awaiting approval", stop_reason or "Assistant finished a turn and saved state.")
+
+    def _pause_metadata_for_kind(
+        self,
+        pause_kind: RunStagePauseKind,
+        *,
+        current_stage: StageName | None,
+        blocked_questions: list[str],
+    ) -> tuple[str, str]:
+        label_stage = current_stage or "workflow"
+        if pause_kind == "needs_approval":
+            return ("Awaiting approval", f"{label_stage} is ready for human approval.")
+        if pause_kind == "needs_input":
+            detail = f"{label_stage} needs more input."
+            if blocked_questions:
+                detail = f"{detail} First question: {blocked_questions[0]}"
+            return ("Needs input", detail)
+        if pause_kind == "retryable_error":
+            return ("Retryable error", f"{label_stage} failed and can be retried without replaying prior stages.")
+        if pause_kind == "blocked":
+            return ("Blocked", f"{label_stage} is blocked.")
+        if pause_kind == "completed":
+            return ("Completed", "All manager stages completed.")
+        return ("Stopped", f"{label_stage} was stopped.")
+
+    def _apply_orchestration_summary(self, summary: SessionSummary, orchestration_payload: dict[str, Any] | None) -> None:
+        if isinstance(orchestration_payload, dict) and isinstance(orchestration_payload.get("orchestration"), dict):
+            orchestration_payload = orchestration_payload["orchestration"]
+        orchestration = RunOrchestrationState.from_dict(orchestration_payload)
+        summary.current_stage = orchestration.current_stage
+        summary.last_completed_stage = orchestration.last_completed_stage
+        summary.stage_timeline = self._stage_timeline_models(orchestration)
+        summary.stage_outputs = {
+            stage: StageOutputModel.model_validate(payload)
+            for stage, payload in orchestration.stage_outputs().items()
+        }
+        summary.auto_answer_records = [
+            AutoAnswerRecordModel.model_validate(self._auto_answer_payload(record))
+            for record in orchestration.auto_answer_records
+        ]
+        summary.blocked_questions = list(orchestration.blocked_questions)
+        summary.pause_kind = orchestration.pause_kind
+
+    def _stage_timeline_models(self, orchestration: RunOrchestrationState) -> list[StageTimelineEntry]:
+        entries: list[StageTimelineEntry] = []
+        for record in orchestration.stage_records:
+            entries.append(
+                StageTimelineEntry.model_validate(
+                    {
+                        "stage": record.stage,
+                        "status": record.status,
+                        "pause_kind": record.pause_kind,
+                        "started_at": record.started_at,
+                        "completed_at": record.completed_at,
+                        "updated_at": record.updated_at,
+                        "attempt_count": record.attempt_count,
+                        "error": record.error,
+                        "blocked_questions": list(record.blocked_questions),
+                        "auto_answer_count": len(record.auto_answer_records),
+                    }
+                )
+            )
+        return entries
+
+    def _persist_orchestration_artifacts(self, session_id: str, orchestration_payload: dict[str, Any] | None) -> None:
+        if not orchestration_payload:
+            return
+        if isinstance(orchestration_payload, dict) and isinstance(orchestration_payload.get("orchestration"), dict):
+            orchestration_payload = orchestration_payload["orchestration"]
+        orchestration = RunOrchestrationState.from_dict(orchestration_payload)
+        self.store.save_orchestration_state(session_id, orchestration.to_dict())
+        for stage, payload in orchestration.stage_outputs().items():
+            persisted = dict(payload)
+            artifacts = list(persisted.get("artifacts") or [])
+            default_summary_path = f"artifacts/stages/{stage}/summary.json"
+            if default_summary_path not in artifacts:
+                artifacts.insert(0, default_summary_path)
+            persisted["artifacts"] = artifacts
+            self.store.save_stage_output(session_id, stage, persisted)
+
+    def _auto_answer_payload(self, record: AutoAnswerRecord) -> dict[str, Any]:
+        payload = record.to_dict()
+        payload["created_at"] = record.created_at
+        return payload
 
     def _decision_detail(self, decision: str, note: str) -> str:
         verb = "Approved" if decision == "approve" else "Rejected"

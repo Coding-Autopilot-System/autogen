@@ -57,6 +57,37 @@ def _read_text_file(path: Path) -> str | None:
     return data
 
 
+def build_repo_context_snapshot(repo_root: Path) -> dict[str, object]:
+    normalized_root = repo_root.resolve()
+    top_level = [
+        f"{item.name}/" if item.is_dir() else item.name
+        for item in normalized_root.iterdir()
+        if item.name not in SKIP_DIR_NAMES
+    ]
+    snapshot: dict[str, object] = {
+        "root": str(normalized_root),
+        "top_level_items": top_level[:20],
+        "file_count_hint": len(_iter_repo_files(normalized_root, "*")),
+    }
+
+    git_dir = normalized_root / ".git"
+    if git_dir.exists():
+        result = subprocess.run(
+            ["git", "status", "--short", "--branch"],
+            cwd=normalized_root,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+        )
+        if result.stdout.strip():
+            lines = result.stdout.strip().splitlines()
+            snapshot["git_status"] = lines
+            snapshot["branch"] = lines[0]
+    return snapshot
+
+
 def build_repo_tools(repo_root: Path) -> list[object]:
     default_root = repo_root.resolve()
 

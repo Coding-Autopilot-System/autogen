@@ -34,6 +34,24 @@ class SessionStore:
     def workspace_artifacts_dir(self, session_id: str) -> Path:
         return self.artifacts_dir(session_id) / "workspace"
 
+    def stage_artifacts_dir(self, session_id: str) -> Path:
+        return self.artifacts_dir(session_id) / "stages"
+
+    def stage_artifact_dir(self, session_id: str, stage: str) -> Path:
+        return self.stage_artifacts_dir(session_id) / stage
+
+    def stage_summary_path(self, session_id: str, stage: str) -> Path:
+        return self.stage_artifact_dir(session_id, stage) / "summary.json"
+
+    def gsd_artifacts_dir(self, session_id: str) -> Path:
+        return self.artifacts_dir(session_id) / "gsd"
+
+    def auto_answers_path(self, session_id: str) -> Path:
+        return self.gsd_artifacts_dir(session_id) / "auto_answers.json"
+
+    def blocked_questions_path(self, session_id: str) -> Path:
+        return self.gsd_artifacts_dir(session_id) / "blocked_questions.json"
+
     def workspace_creation_path(self, session_id: str) -> Path:
         return self.workspace_artifacts_dir(session_id) / "creation.json"
 
@@ -45,6 +63,12 @@ class SessionStore:
 
     def state_path(self, session_id: str) -> Path:
         return self.runtime_dir(session_id) / "state.json"
+
+    def orchestration_dir(self, session_id: str) -> Path:
+        return self.runtime_dir(session_id) / "orchestration"
+
+    def orchestration_state_path(self, session_id: str) -> Path:
+        return self.orchestration_dir(session_id) / "state.json"
 
     def attempts_dir(self, session_id: str) -> Path:
         return self.session_dir(session_id) / "attempts"
@@ -133,8 +157,34 @@ class SessionStore:
         self._write_json(self.state_path(session_id), state)
         self.save_artifact_manifest(session_id)
 
+    def load_orchestration_state(self, session_id: str) -> dict[str, Any] | None:
+        path = self.orchestration_state_path(session_id)
+        if not path.exists():
+            return None
+        return json.loads(path.read_text(encoding="utf-8"))
+
+    def save_orchestration_state(self, session_id: str, state: dict[str, Any]) -> None:
+        self._ensure_session_layout(session_id)
+        self._write_json(self.orchestration_state_path(session_id), state)
+        self.save_artifact_manifest(session_id)
+
+    def save_stage_output(self, session_id: str, stage: str, payload: dict[str, Any]) -> None:
+        self._ensure_session_layout(session_id)
+        self._write_json(self.stage_summary_path(session_id, stage), payload)
+        self.save_artifact_manifest(session_id)
+
+    def save_auto_answer_records(self, session_id: str, payload: list[dict[str, Any]]) -> None:
+        self._ensure_session_layout(session_id)
+        self._write_json(self.auto_answers_path(session_id), payload)
+        self.save_artifact_manifest(session_id)
+
+    def save_blocked_questions(self, session_id: str, payload: list[str]) -> None:
+        self._ensure_session_layout(session_id)
+        self._write_json(self.blocked_questions_path(session_id), payload)
+        self.save_artifact_manifest(session_id)
+
     def checkpoint_state_exists(self, session_id: str) -> bool:
-        if self.state_path(session_id).exists():
+        if self.state_path(session_id).exists() or self.orchestration_state_path(session_id).exists():
             return True
         checkpoint_dir = self.checkpoint_dir(session_id)
         return checkpoint_dir.exists() and any(checkpoint_dir.rglob("*"))
@@ -242,7 +292,10 @@ class SessionStore:
         self.session_dir(session_id).mkdir(parents=True, exist_ok=True)
         self.artifacts_dir(session_id).mkdir(parents=True, exist_ok=True)
         self.workspace_artifacts_dir(session_id).mkdir(parents=True, exist_ok=True)
+        self.stage_artifacts_dir(session_id).mkdir(parents=True, exist_ok=True)
+        self.gsd_artifacts_dir(session_id).mkdir(parents=True, exist_ok=True)
         self.runtime_dir(session_id).mkdir(parents=True, exist_ok=True)
+        self.orchestration_dir(session_id).mkdir(parents=True, exist_ok=True)
         self.checkpoint_dir(session_id).mkdir(parents=True, exist_ok=True)
         self.attempts_dir(session_id).mkdir(parents=True, exist_ok=True)
 
@@ -255,14 +308,33 @@ class SessionStore:
             for attempt_id in self.list_attempt_ids(session_id)
             if self.attempt_summary_path(session_id, attempt_id).exists()
         ]
+        stage_entries = []
+        for stage_dir in sorted(self.stage_artifacts_dir(session_id).iterdir()) if self.stage_artifacts_dir(session_id).exists() else []:
+            if not stage_dir.is_dir():
+                continue
+            summary_path = stage_dir / "summary.json"
+            stage_entries.append(
+                {
+                    "stage": stage_dir.name,
+                    "summary": self._relative_if_exists(session_id, summary_path),
+                }
+            )
         return {
             "metadata": self._relative_to_session(session_id, self.metadata_path(session_id)),
             "transcript": self._relative_to_session(session_id, self.transcript_path(session_id)),
             "events": self._relative_to_session(session_id, self.events_path(session_id)),
             "workspace_snapshot": self._relative_if_exists(session_id, self.workspace_creation_path(session_id)),
+            "stages": stage_entries,
+            "gsd": {
+                "directory": self._relative_to_session(session_id, self.gsd_artifacts_dir(session_id)),
+                "auto_answers": self._relative_if_exists(session_id, self.auto_answers_path(session_id)),
+                "blocked_questions": self._relative_if_exists(session_id, self.blocked_questions_path(session_id)),
+            },
             "runtime": {
                 "directory": self._relative_to_session(session_id, self.runtime_dir(session_id)),
                 "state": self._relative_if_exists(session_id, self.state_path(session_id)),
+                "orchestration_directory": self._relative_to_session(session_id, self.orchestration_dir(session_id)),
+                "orchestration_state": self._relative_if_exists(session_id, self.orchestration_state_path(session_id)),
                 "checkpoint_directory": self._relative_to_session(session_id, self.checkpoint_dir(session_id)),
                 "checkpoint_state_exists": self.checkpoint_state_exists(session_id),
             },

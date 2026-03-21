@@ -139,6 +139,20 @@ class RunPersistenceTests(unittest.TestCase):
         )
 
         store.save_state(summary.id, {"cursor": 1})
+        store.save_orchestration_state(
+            summary.id,
+            {"run_id": summary.id, "current_stage": "planning", "stage_records": []},
+        )
+        store.save_stage_output(
+            summary.id,
+            "planning",
+            {"stage": "planning", "summary": "Plan ready.", "artifacts": ["artifacts/stages/planning/summary.json"]},
+        )
+        store.save_auto_answer_records(
+            summary.id,
+            [{"question": "What phase are we in?", "answer": "Phase 2", "sources": [".planning/STATE.md"]}],
+        )
+        store.save_blocked_questions(summary.id, ["Which Azure resource group should I target?"])
         store.save_attempt_summary(
             summary.id,
             "attempt-001",
@@ -151,8 +165,11 @@ class RunPersistenceTests(unittest.TestCase):
         self.assertTrue((session_dir / "events.jsonl").exists())
         self.assertTrue((session_dir / "artifacts" / "manifest.json").exists())
         self.assertTrue((session_dir / "artifacts" / "workspace" / "creation.json").exists())
+        self.assertTrue((session_dir / "artifacts" / "stages" / "planning" / "summary.json").exists())
+        self.assertTrue((session_dir / "artifacts" / "gsd" / "auto_answers.json").exists())
         self.assertTrue((session_dir / "runtime").exists())
         self.assertTrue((session_dir / "runtime" / "state.json").exists())
+        self.assertTrue((session_dir / "runtime" / "orchestration" / "state.json").exists())
         self.assertTrue((session_dir / "attempts" / "attempt-001" / "summary.json").exists())
         self.assertEqual(detail.workspace_snapshot.root, str(repo_root.resolve()))
 
@@ -164,6 +181,19 @@ class RunPersistenceTests(unittest.TestCase):
         summary = make_summary("run-002", repo_root)
         store.create_session(summary, [])
         store.save_state(summary.id, {"checkpoint": True})
+        store.save_orchestration_state(
+            summary.id,
+            {"run_id": summary.id, "current_stage": "research", "stage_records": []},
+        )
+        store.save_stage_output(
+            summary.id,
+            "planning",
+            {"stage": "planning", "summary": "Plan ready.", "artifacts": ["artifacts/stages/planning/summary.json"]},
+        )
+        store.save_auto_answer_records(
+            summary.id,
+            [{"question": "What phase are we in?", "answer": "Phase 2", "sources": [".planning/STATE.md"]}],
+        )
         store.save_attempt_summary(
             summary.id,
             "attempt-001",
@@ -176,10 +206,13 @@ class RunPersistenceTests(unittest.TestCase):
         self.assertEqual(hydrated.latest_attempt_id, "attempt-001")
         self.assertIn("artifact_manifest", hydrated.model_dump())
         self.assertTrue(hydrated.artifact_manifest["runtime"]["checkpoint_state_exists"])
+        self.assertEqual(hydrated.artifact_manifest["runtime"]["orchestration_state"], "runtime/orchestration/state.json")
         self.assertEqual(
             hydrated.artifact_manifest["workspace_snapshot"],
             "artifacts/workspace/creation.json",
         )
+        self.assertEqual(hydrated.artifact_manifest["stages"][0]["summary"], "artifacts/stages/planning/summary.json")
+        self.assertEqual(hydrated.artifact_manifest["gsd"]["auto_answers"], "artifacts/gsd/auto_answers.json")
 
     def test_atomic_json_writes_leave_no_temp_files(self) -> None:
         scratch = self.make_scratch_dir()

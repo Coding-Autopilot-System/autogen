@@ -5,6 +5,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
+from maf_starter.orchestration import RunStagePauseKind, StageName, StageStatus
 
 ProviderName = Literal[
     "ollama",
@@ -19,7 +20,16 @@ ProviderName = Literal[
 WorkspaceKind = Literal["repo", "worktree", "manual"]
 
 SessionStatus = Literal["queued", "running", "waiting", "completed", "stopped", "error"]
-PauseReason = Literal["not_started", "needs_input", "needs_approval", "completed", "stopped", "error"]
+PauseReason = Literal[
+    "not_started",
+    "needs_input",
+    "needs_approval",
+    "blocked",
+    "retryable_error",
+    "completed",
+    "stopped",
+    "error",
+]
 
 
 class ProviderStatusModel(BaseModel):
@@ -94,6 +104,43 @@ class ApprovalDecision(BaseModel):
     created_at: datetime
 
 
+class AutoAnswerRecordModel(BaseModel):
+    question: str
+    answer: str | None = None
+    sources: list[str] = Field(default_factory=list)
+    confidence: float = 0.0
+    decision_type: str = "needs_input"
+    needs_input: bool = False
+    stage: StageName | None = None
+    created_at: datetime
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class StageOutputModel(BaseModel):
+    stage: StageName
+    summary: str
+    artifacts: list[str] = Field(default_factory=list)
+    next_action: str | None = None
+    needs_approval: bool = False
+    needs_input: bool = False
+    blocked_questions: list[str] = Field(default_factory=list)
+    route_metadata: dict[str, Any] = Field(default_factory=dict)
+    raw_output: str | None = None
+
+
+class StageTimelineEntry(BaseModel):
+    stage: StageName
+    status: StageStatus
+    pause_kind: RunStagePauseKind | None = None
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+    updated_at: datetime
+    attempt_count: int = 0
+    error: str | None = None
+    blocked_questions: list[str] = Field(default_factory=list)
+    auto_answer_count: int = 0
+
+
 class TranscriptMessage(BaseModel):
     id: str
     role: Literal["user", "assistant", "system", "event"]
@@ -137,8 +184,16 @@ class SessionSummary(BaseModel):
     repo_context: RepoContext | None = None
     status: SessionStatus
     pause_reason: PauseReason = "not_started"
+    pause_kind: RunStagePauseKind | None = None
     pause_title: str = "Ready"
     pause_detail: str = "No action has been taken yet."
+    current_stage: StageName | None = "planning"
+    last_completed_stage: StageName | None = None
+    stage_timeline: list[StageTimelineEntry] = Field(default_factory=list)
+    stage_outputs: dict[str, StageOutputModel] = Field(default_factory=dict)
+    auto_answer_records: list[AutoAnswerRecordModel] = Field(default_factory=list)
+    blocked_questions: list[str] = Field(default_factory=list)
+    route_metadata: dict[str, Any] = Field(default_factory=dict)
     system_message: str
     queued_prompt: str | None = None
     last_prompt: str | None = None
