@@ -19,6 +19,8 @@ You can give one prompt and watch a trustworthy multi-agent coding system drive 
 - Existing: provider and model routing with fallback across Gemini API, optional Anthropic, and CLI fallbacks
 - Existing: human-in-the-loop and route trace mechanisms in local form through tool approval, route metadata, and DevUI patching
 - Existing: legacy dashboard and session-management path in `autogen_dashboard/` and `autogen_starter/`
+- Phase 1: explicit repo or worktree run creation, durable run directories, and retry-safe run identity
+- Phase 1: run-scoped MAF repo-root and checkpoint overrides with workspace freshness and stale-workspace warnings
 
 ### Active
 
@@ -27,7 +29,6 @@ You can give one prompt and watch a trustworthy multi-agent coding system drive 
 - [ ] The operator UI feels professional and polished, with strong visual design, modern message bubbles, route cards, rounded panels, and readable traces
 - [ ] The UI exposes model selection, routing decisions, fallback history, and per-agent activity without forcing raw log reading
 - [ ] The system can autonomously edit files and run local validation by default, instead of asking for approval on every step
-- [ ] Repo-aware execution is first-class, so agent runs understand the selected codebase, current state, and working context
 - [ ] Sessions, traces, and outputs are inspectable and reusable so runs can be understood, resumed, and exported
 - [ ] The core orchestration runtime is designed so it can later be exposed through an Azure Function or REST API without a full rewrite
 
@@ -59,11 +60,17 @@ The current repo already proves some of the technical foundation: repo-aware too
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
 | Keep Microsoft Agent Framework as the active runtime base | The current repo already runs on MAF and has working entities, workflows, and DevUI integration | Pending |
-| Treat the product as a local-first orchestration workbench | Your main usage is on the local machine with installed CLIs, local repo access, and local validation | Pending |
+| Treat the product as a local-first orchestration workbench | Your main usage is on the local machine with installed CLIs, local repo access, and local validation | Validated in Phase 1 |
 | Use a manager-driven multi-agent workflow as the primary interaction model | The goal is one-prompt execution with specialist delegation rather than manual step-by-step prompting | Pending |
 | Make autonomous repo editing and validation the default behavior | You explicitly want the system to do the work automatically instead of asking on every step | Pending |
-| Defer Azure Function/REST hosting to a later stage | Cloud exposure matters, but local execution quality and operator UX are higher priority in v1 | Pending |
-| Prefer Gemini API first and local CLIs as fallback or specialist paths | This fits your installed tooling, cost preference, and current runtime capabilities | Pending |
+| Defer Azure Function/REST hosting to a later stage | Cloud exposure matters, but local execution quality and operator UX are higher priority in v1 | Validated in Phase 1 |
+| Prefer Gemini API first and local CLIs as fallback or specialist paths | This fits your installed tooling, cost preference, and current runtime capabilities | Validated in Phase 1 |
+
+## Current State
+
+- Phase 1 is complete: runs now start from an explicit workspace, persist under one durable run identity, and surface workspace drift visibly.
+- The active MAF runtime can be re-scoped per run for repo root and checkpoint storage instead of relying only on startup-time defaults.
+- The next execution focus is Phase 2, where the manager-led orchestration state machine will replace the current mostly single-turn runtime behavior.
 
 ## Evolution
 
@@ -83,4 +90,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-03-20 after initialization*
+*Last updated: 2026-03-21 after Phase 01 completion*
