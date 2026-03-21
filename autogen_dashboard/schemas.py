@@ -5,7 +5,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-from maf_starter.orchestration import RunStagePauseKind, StageName, StageStatus
+from maf_starter.orchestration import RunStagePauseKind, SpecialistRole, StageName, StageStatus
+from maf_starter.routing_types import RouteLane
 
 ProviderName = Literal[
     "ollama",
@@ -81,6 +82,7 @@ class SessionCreateRequest(BaseModel):
     task: str | None = None
     provider: ProviderName | None = None
     model: str | None = None
+    route_lane: RouteLane | None = None
     repo_root: str | None = None
     workspace_kind: WorkspaceKind | None = None
     system_message: str | None = None
@@ -141,6 +143,57 @@ class StageTimelineEntry(BaseModel):
     auto_answer_count: int = 0
 
 
+class SpecialistStateModel(BaseModel):
+    role: SpecialistRole
+    stage: StageName | None = None
+    status: str = "not_started"
+    current_task: str | None = None
+    latest_output_summary: str | None = None
+    last_handoff_target: SpecialistRole | None = None
+    last_handoff_reason: str | None = None
+    started_at: datetime | None = None
+    updated_at: datetime
+    completed_at: datetime | None = None
+
+
+class SpecialistHandoffModel(BaseModel):
+    from_role: SpecialistRole
+    to_role: SpecialistRole
+    reason: str
+    requested_by: SpecialistRole
+    status: str = "requested"
+    created_at: datetime
+    updated_at: datetime
+    completed_at: datetime | None = None
+
+
+class RoutePlanStepModel(BaseModel):
+    provider: str
+    model: str | None = None
+    label: str | None = None
+    execution_mode: str | None = None
+    tools_available: bool | None = None
+    order: int | None = None
+
+
+class RouteAttemptModel(BaseModel):
+    provider: str
+    model: str | None = None
+    status: str = "planned"
+    tools_available: bool = True
+    fallback_index: int = 0
+    error: str | None = None
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+
+
+class CapabilityChangeModel(BaseModel):
+    name: str
+    before: Any = None
+    after: Any = None
+    reason: str = ""
+
+
 class TranscriptMessage(BaseModel):
     id: str
     role: Literal["user", "assistant", "system", "event"]
@@ -163,6 +216,12 @@ class SessionSummary(BaseModel):
     title: str
     provider: ProviderName
     model: str | None = None
+    route_lane: RouteLane = "auto"
+    requested_provider: ProviderName | None = None
+    requested_model: str | None = None
+    route_plan: list[RoutePlanStepModel] = Field(default_factory=list)
+    route_attempts: list[RouteAttemptModel] = Field(default_factory=list)
+    capability_changes: list[CapabilityChangeModel] = Field(default_factory=list)
     original_task: str | None = None
     latest_human_note: str | None = None
     approval_decisions: list[ApprovalDecision] = Field(default_factory=list)
@@ -191,6 +250,8 @@ class SessionSummary(BaseModel):
     last_completed_stage: StageName | None = None
     stage_timeline: list[StageTimelineEntry] = Field(default_factory=list)
     stage_outputs: dict[str, StageOutputModel] = Field(default_factory=dict)
+    specialist_states: list[SpecialistStateModel] = Field(default_factory=list)
+    specialist_handoffs: list[SpecialistHandoffModel] = Field(default_factory=list)
     auto_answer_records: list[AutoAnswerRecordModel] = Field(default_factory=list)
     blocked_questions: list[str] = Field(default_factory=list)
     route_metadata: dict[str, Any] = Field(default_factory=dict)

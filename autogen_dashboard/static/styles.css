@@ -842,6 +842,205 @@ h1 {
     radial-gradient(circle at right top, rgba(15, 118, 110, 0.1), transparent 42%);
 }
 
+.operator-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.operator-tab {
+  border: 1px solid rgba(15, 118, 110, 0.12);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.8);
+  color: var(--muted);
+  padding: 10px 14px;
+  font: 700 0.88rem/1 var(--sans);
+  cursor: pointer;
+  transition:
+    transform 140ms ease,
+    border-color 140ms ease,
+    background-color 140ms ease,
+    color 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.operator-tab:hover {
+  transform: translateY(-1px);
+  border-color: rgba(15, 118, 110, 0.22);
+  color: var(--ink);
+}
+
+.operator-tab.active {
+  color: #fff;
+  border-color: transparent;
+  background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+  box-shadow: 0 12px 28px rgba(15, 118, 110, 0.18);
+}
+
+.operator-tab-content,
+.operator-grid,
+.operator-grid-two,
+.operator-summary-grid,
+.specialist-grid,
+.handoff-list,
+.routing-chain,
+.attempt-list,
+.capability-grid,
+.artifact-grid,
+.record-grid,
+.attempt-trail,
+.artifact-chip-row,
+.specialist-meta,
+.handoff-meta,
+.record-meta {
+  display: grid;
+  gap: 12px;
+}
+
+.operator-summary-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.operator-grid {
+  grid-template-columns: 1fr;
+}
+
+.operator-grid-two {
+  grid-template-columns: 1.15fr 1fr;
+}
+
+.operator-section,
+.operator-stat-card,
+.operator-alert,
+.specialist-card,
+.handoff-card,
+.routing-step,
+.attempt-card,
+.capability-card,
+.artifact-card,
+.record-card {
+  border: 1px solid rgba(15, 118, 110, 0.12);
+  border-radius: var(--radius-xs);
+  background: rgba(255, 255, 255, 0.8);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.3);
+}
+
+.operator-section,
+.operator-alert,
+.operator-stat-card,
+.specialist-card,
+.handoff-card,
+.routing-step,
+.attempt-card,
+.capability-card,
+.artifact-card,
+.record-card {
+  padding: 14px;
+}
+
+.operator-stat-card strong,
+.specialist-name,
+.handoff-route,
+.routing-step-label,
+.attempt-label,
+.artifact-name,
+.record-question,
+.capability-name {
+  color: var(--ink);
+  font-weight: 800;
+}
+
+.operator-stat-subtle,
+.specialist-note,
+.attempt-error,
+.capability-reason,
+.record-answer,
+.artifact-copy,
+.specialist-copy,
+.handoff-copy {
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.specialist-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.specialist-card-head,
+.handoff-top,
+.routing-step-top,
+.attempt-top,
+.artifact-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 10px;
+}
+
+.specialist-summary,
+.output-card-next {
+  margin-top: 10px;
+}
+
+.specialist-meta,
+.handoff-meta,
+.artifact-chip-row,
+.record-meta {
+  grid-template-columns: repeat(auto-fit, minmax(120px, max-content));
+}
+
+.routing-chain,
+.attempt-list,
+.capability-grid,
+.artifact-grid,
+.record-grid {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.routing-step.active {
+  border-color: rgba(15, 118, 110, 0.24);
+  background:
+    linear-gradient(135deg, rgba(238, 252, 249, 0.98), rgba(230, 247, 243, 0.9)),
+    radial-gradient(circle at top right, rgba(15, 118, 110, 0.08), transparent 50%);
+}
+
+.routing-step-meta,
+.attempt-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.capability-delta {
+  margin-top: 6px;
+  font-weight: 700;
+  color: var(--accent-strong);
+}
+
+.record-answer,
+.artifact-copy,
+.attempt-error,
+.specialist-copy,
+.handoff-copy {
+  margin-top: 8px;
+}
+
+.attempt-trail {
+  background: rgba(255, 255, 255, 0.54);
+  border-radius: var(--radius-xs);
+  padding: 6px;
+}
+
+.attempt-trail-item {
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(15, 118, 110, 0.08);
+  font-family: var(--mono);
+  font-size: 0.84rem;
+}
+
 .orchestration-top,
 .orchestration-grid,
 .stage-card-grid,
@@ -1280,6 +1479,12 @@ h1 {
     grid-template-columns: 1fr;
   }
 
+  .operator-summary-grid,
+  .operator-grid-two,
+  .specialist-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
   .orchestration-top,
   .orchestration-grid {
     grid-template-columns: 1fr;
@@ -1299,7 +1504,15 @@ h1 {
 
   .hero-meta,
   .meta-grid,
-  .control-grid {
+  .control-grid,
+  .operator-summary-grid,
+  .operator-grid-two,
+  .specialist-grid,
+  .routing-chain,
+  .attempt-list,
+  .capability-grid,
+  .artifact-grid,
+  .record-grid {
     grid-template-columns: 1fr;
   }
 
@@ -1356,7 +1569,8 @@ h1 {
   .ghost-button,
   .primary-button,
   .action-button,
-  .danger-button {
+  .danger-button,
+  .operator-tab {
     width: 100%;
   }
 

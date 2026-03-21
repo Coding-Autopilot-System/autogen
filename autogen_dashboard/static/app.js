@@ -49,6 +49,7 @@
       placeholder: "Add a note, correction, approval comment, or follow-up instruction.",
     },
   ];
+  const OPERATOR_TABS = ["overview", "agents", "routing", "artifacts"];
 
   const state = {
     providers: [],
@@ -71,6 +72,7 @@
       action: false,
       create: false,
     },
+    selectedOperatorTab: "overview",
     noticeTimer: null,
   };
 
@@ -89,6 +91,7 @@
     detailBadges: document.getElementById("detail-badges"),
     pauseBanner: document.getElementById("pause-banner"),
     orchestrationPanel: document.getElementById("orchestration-panel"),
+    operatorTabContent: document.getElementById("operator-tab-content"),
     workspaceWarning: document.getElementById("workspace-warning"),
     detailDisclosure: document.getElementById("detail-disclosure"),
     detailMeta: document.getElementById("detail-meta"),
@@ -106,6 +109,7 @@
     humanMessage: document.getElementById("human-message"),
     createForm: document.getElementById("create-session-form"),
     createProvider: document.getElementById("create-provider"),
+    createRouteLane: document.getElementById("create-route-lane"),
     createRepoRoot: document.getElementById("create-repo-root"),
     createManualRepoRoot: document.getElementById("create-manual-repo-root"),
     createWorkspaceSummary: document.getElementById("create-workspace-summary"),
@@ -337,6 +341,86 @@
       };
     });
     return entries;
+  }
+
+  function normalizeRoutePlan(value) {
+    const items = Array.isArray(value) ? value : [];
+    return items
+      .filter((item) => item && typeof item === "object")
+      .map((item, index) => ({
+        order: Number(pick(item, ["order"], index)) || index,
+        provider: pick(item, ["provider"], ""),
+        model: pick(item, ["model"], ""),
+        label: pick(item, ["label"], ""),
+        executionMode: pick(item, ["execution_mode", "executionMode"], ""),
+        toolsAvailable: Boolean(pick(item, ["tools_available", "toolsAvailable"], false)),
+      }));
+  }
+
+  function normalizeRouteAttempts(value) {
+    const items = Array.isArray(value) ? value : [];
+    return items
+      .filter((item) => item && typeof item === "object")
+      .map((item) => ({
+        provider: pick(item, ["provider"], ""),
+        model: pick(item, ["model"], ""),
+        status: pick(item, ["status"], "planned"),
+        toolsAvailable: Boolean(pick(item, ["tools_available", "toolsAvailable"], false)),
+        fallbackIndex: Number(pick(item, ["fallback_index", "fallbackIndex"], 0)) || 0,
+        error: pick(item, ["error"], ""),
+        startedAt: pick(item, ["started_at", "startedAt"], ""),
+        completedAt: pick(item, ["completed_at", "completedAt"], ""),
+      }));
+  }
+
+  function normalizeCapabilityChanges(value) {
+    const items = Array.isArray(value) ? value : [];
+    return items
+      .filter((item) => item && typeof item === "object")
+      .map((item) => ({
+        name: pick(item, ["name", "kind"], ""),
+        before: pick(item, ["before"], ""),
+        after: pick(item, ["after"], ""),
+        reason: pick(item, ["reason", "detail"], ""),
+      }));
+  }
+
+  function normalizeSpecialistStates(value) {
+    const items = Array.isArray(value) ? value : [];
+    return items
+      .filter((item) => item && typeof item === "object")
+      .map((item) => ({
+        role: pick(item, ["role"], ""),
+        stage: pick(item, ["stage"], ""),
+        status: pick(item, ["status"], "not_started"),
+        currentTask: pick(item, ["current_task", "currentTask"], ""),
+        latestOutputSummary: pick(
+          item,
+          ["latest_output_summary", "latestOutputSummary"],
+          ""
+        ),
+        lastHandoffTarget: pick(item, ["last_handoff_target", "lastHandoffTarget"], ""),
+        lastHandoffReason: pick(item, ["last_handoff_reason", "lastHandoffReason"], ""),
+        startedAt: pick(item, ["started_at", "startedAt"], ""),
+        updatedAt: pick(item, ["updated_at", "updatedAt"], ""),
+        completedAt: pick(item, ["completed_at", "completedAt"], ""),
+      }));
+  }
+
+  function normalizeSpecialistHandoffs(value) {
+    const items = Array.isArray(value) ? value : [];
+    return items
+      .filter((item) => item && typeof item === "object")
+      .map((item) => ({
+        fromRole: pick(item, ["from_role", "fromRole"], ""),
+        toRole: pick(item, ["to_role", "toRole"], ""),
+        reason: pick(item, ["reason"], ""),
+        requestedBy: pick(item, ["requested_by", "requestedBy"], ""),
+        status: pick(item, ["status"], "requested"),
+        createdAt: pick(item, ["created_at", "createdAt"], ""),
+        updatedAt: pick(item, ["updated_at", "updatedAt"], ""),
+        completedAt: pick(item, ["completed_at", "completedAt"], ""),
+      }));
   }
 
   function basenameFromPath(value) {
@@ -963,9 +1047,25 @@
     );
     const stageTimeline = normalizeStageTimeline(pick(item, ["stage_timeline", "stageTimeline"], []));
     const stageOutputs = normalizeStageOutputs(pick(item, ["stage_outputs", "stageOutputs"], {}));
+    const specialistStates = normalizeSpecialistStates(
+      pick(item, ["specialist_states", "specialistStates"], [])
+    );
+    const specialistHandoffs = normalizeSpecialistHandoffs(
+      pick(item, ["specialist_handoffs", "specialistHandoffs"], [])
+    );
     const autoAnswerRecords = normalizeArray(item, ["auto_answer_records", "autoAnswerRecords"]).filter(Boolean);
     const blockedQuestions = normalizeTextList(pick(item, ["blocked_questions", "blockedQuestions"], []));
     const routeMetadata = pick(item, ["route_metadata", "routeMetadata"], {}) || {};
+    const routeLane = pick(item, ["route_lane", "routeLane"], pick(routeMetadata, ["route_lane", "active_lane"], "auto"));
+    const routePlan = normalizeRoutePlan(
+      pick(item, ["route_plan", "routePlan"], pick(routeMetadata, ["route_plan"], []))
+    );
+    const routeAttempts = normalizeRouteAttempts(
+      pick(item, ["route_attempts", "routeAttempts"], pick(routeMetadata, ["route_attempts"], []))
+    );
+    const capabilityChanges = normalizeCapabilityChanges(
+      pick(item, ["capability_changes", "capabilityChanges"], pick(routeMetadata, ["capability_changes"], []))
+    );
     return {
       raw: item,
       id,
@@ -1015,8 +1115,16 @@
       lastCompletedStage: pick(item, ["last_completed_stage", "lastCompletedStage"], ""),
       stageTimeline,
       stageOutputs,
+      specialistStates,
+      specialistHandoffs,
       autoAnswerRecords,
       blockedQuestions,
+      routeLane,
+      requestedProvider: pick(item, ["requested_provider", "requestedProvider"], pick(routeMetadata, ["requested_provider"], "")),
+      requestedModel: pick(item, ["requested_model", "requestedModel"], pick(routeMetadata, ["requested_model"], "")),
+      routePlan,
+      routeAttempts,
+      capabilityChanges,
       routeMetadata,
       lastStopReason,
       lastProviderUsed,
@@ -1101,12 +1209,38 @@
       stageOutputs: normalizeStageOutputs(
         pick(item, ["stage_outputs", "stageOutputs"], session.stageOutputs || {})
       ),
+      specialistStates: normalizeSpecialistStates(
+        pick(item, ["specialist_states", "specialistStates"], session.specialistStates || [])
+      ),
+      specialistHandoffs: normalizeSpecialistHandoffs(
+        pick(item, ["specialist_handoffs", "specialistHandoffs"], session.specialistHandoffs || [])
+      ),
       autoAnswerRecords: normalizeArray(
         item,
         ["auto_answer_records", "autoAnswerRecords"]
       ).filter(Boolean),
       blockedQuestions: normalizeTextList(
         pick(item, ["blocked_questions", "blockedQuestions"], session.blockedQuestions || [])
+      ),
+      routeLane: pick(item, ["route_lane", "routeLane"], session.routeLane || "auto"),
+      requestedProvider: pick(
+        item,
+        ["requested_provider", "requestedProvider"],
+        session.requestedProvider || ""
+      ),
+      requestedModel: pick(
+        item,
+        ["requested_model", "requestedModel"],
+        session.requestedModel || ""
+      ),
+      routePlan: normalizeRoutePlan(
+        pick(item, ["route_plan", "routePlan"], session.routePlan || [])
+      ),
+      routeAttempts: normalizeRouteAttempts(
+        pick(item, ["route_attempts", "routeAttempts"], session.routeAttempts || [])
+      ),
+      capabilityChanges: normalizeCapabilityChanges(
+        pick(item, ["capability_changes", "capabilityChanges"], session.capabilityChanges || [])
       ),
       routeMetadata: pick(item, ["route_metadata", "routeMetadata"], session.routeMetadata || {}) || {},
       latestAttemptId: pick(item, ["latest_attempt_id", "latestAttemptId"], session.latestAttemptId || ""),
@@ -1370,15 +1504,21 @@
     `;
   }
 
-  function renderOrchestrationPanel(session) {
-    if (!els.orchestrationPanel) return;
-    if (!session || (!session.currentStage && !session.stageTimeline?.length)) {
-      els.orchestrationPanel.hidden = true;
-      els.orchestrationPanel.innerHTML = "";
-      return;
+  function setOperatorTab(tabId, { render = true } = {}) {
+    const normalized = OPERATOR_TABS.includes(tabId) ? tabId : "overview";
+    state.selectedOperatorTab = normalized;
+    document.querySelectorAll("[data-operator-tab]").forEach((node) => {
+      const active = node.getAttribute("data-operator-tab") === normalized;
+      node.classList.toggle("active", active);
+      node.setAttribute("aria-selected", active ? "true" : "false");
+    });
+    if (render && state.selectedSession) {
+      renderOrchestrationPanel(state.selectedSession);
     }
+  }
 
-    const stageCards = (session.stageTimeline || [])
+  function renderStageCards(session) {
+    return (session.stageTimeline || [])
       .map((entry) => {
         const stageOutput = session.stageOutputs?.[entry.stage];
         return `
@@ -1397,8 +1537,10 @@
         `;
       })
       .join("");
+  }
 
-    const outputCards = Object.values(session.stageOutputs || {})
+  function renderOutputCards(session) {
+    return Object.values(session.stageOutputs || {})
       .map((output) => {
         const route = output.routeMetadata || {};
         return `
@@ -1428,37 +1570,44 @@
         `;
       })
       .join("");
+  }
 
+  function renderOverviewTab(session) {
     const route = session.routeMetadata || {};
-    els.orchestrationPanel.hidden = false;
-    els.orchestrationPanel.innerHTML = `
-      <div class="orchestration-top">
-        <div class="orchestration-stat">
+    const stageCards = renderStageCards(session);
+    const outputCards = renderOutputCards(session);
+    return `
+      <div class="operator-summary-grid">
+        <article class="operator-stat-card">
           <span class="meta-label">Current stage</span>
           <strong>${escapeHtml(session.currentStage || "None")}</strong>
-        </div>
-        <div class="orchestration-stat">
-          <span class="meta-label">Last completed</span>
-          <strong>${escapeHtml(session.lastCompletedStage || "None")}</strong>
-        </div>
-        <div class="orchestration-stat">
-          <span class="meta-label">Pause kind</span>
-          <strong>${escapeHtml(session.pauseKind || "None")}</strong>
-        </div>
-        <div class="orchestration-stat">
-          <span class="meta-label">Route</span>
-          <strong>${escapeHtml([route.active_provider, route.active_model].filter(Boolean).join(" | ") || "Pending")}</strong>
-        </div>
+          <div class="operator-stat-subtle">${escapeHtml(session.pauseKind || session.pauseReason || "idle")}</div>
+        </article>
+        <article class="operator-stat-card">
+          <span class="meta-label">Active route</span>
+          <strong>${escapeHtml([route.active_provider, route.active_model].filter(Boolean).join(" / ") || "Pending")}</strong>
+          <div class="operator-stat-subtle">${escapeHtml(route.route_tier || session.routeLane || "auto")} lane</div>
+        </article>
+        <article class="operator-stat-card">
+          <span class="meta-label">Specialists</span>
+          <strong>${escapeHtml(String(session.specialistStates?.length || 0))}</strong>
+          <div class="operator-stat-subtle">${escapeHtml(String(session.specialistHandoffs?.length || 0))} handoffs tracked</div>
+        </article>
+        <article class="operator-stat-card">
+          <span class="meta-label">Artifacts</span>
+          <strong>${escapeHtml(String(Object.keys(session.stageOutputs || {}).length))}</strong>
+          <div class="operator-stat-subtle">${escapeHtml(String(session.autoAnswerRecords?.length || 0))} auto answers saved</div>
+        </article>
       </div>
-      <div class="orchestration-grid">
-        <section class="orchestration-section">
+      <div class="operator-grid operator-grid-two">
+        <section class="operator-section">
           <div class="orchestration-section-head">
             <span class="panel-kicker">Timeline</span>
             <h3>Stage progress</h3>
           </div>
           <div class="stage-card-grid">${stageCards || '<div class="empty-state">No stage timeline yet.</div>'}</div>
         </section>
-        <section class="orchestration-section">
+        <section class="operator-section">
           <div class="orchestration-section-head">
             <span class="panel-kicker">Outputs</span>
             <h3>Stage summaries</h3>
@@ -1468,7 +1617,7 @@
       </div>
       ${
         session.blockedQuestions?.length
-          ? `<div class="orchestration-alert">
+          ? `<div class="operator-alert">
               <span class="meta-label">Blocked questions</span>
               <div class="orchestration-list">${session.blockedQuestions
                 .map((question) => `<span class="tiny-chip">${escapeHtml(question)}</span>`)
@@ -1478,7 +1627,7 @@
       }
       ${
         session.autoAnswerRecords?.length
-          ? `<div class="orchestration-alert">
+          ? `<div class="operator-alert">
               <span class="meta-label">Automatic GSD answers</span>
               <div class="orchestration-list">${session.autoAnswerRecords
                 .map((record) => `<span class="tiny-chip">${escapeHtml(record.question || "question")}</span>`)
@@ -1487,6 +1636,271 @@
           : ""
       }
     `;
+  }
+
+  function renderAgentsTab(session) {
+    const specialistCards = (session.specialistStates || [])
+      .map((specialist) => {
+        const status = statusKind(specialist.status || "idle");
+        return `
+          <article class="specialist-card">
+            <div class="specialist-card-head">
+              <div>
+                <div class="specialist-name">${escapeHtml(specialist.role || "specialist")}</div>
+                <div class="specialist-note">${escapeHtml(specialist.stage || "unassigned stage")}</div>
+              </div>
+              <span class="status-pill ${escapeHtml(status)}">${escapeHtml(specialist.status || "not_started")}</span>
+            </div>
+            <div class="specialist-copy">${escapeHtml(specialist.currentTask || "No current task recorded.")}</div>
+            ${
+              specialist.latestOutputSummary
+                ? `<div class="specialist-summary"><span class="meta-label">Latest output</span><div>${escapeHtml(specialist.latestOutputSummary)}</div></div>`
+                : ""
+            }
+            <div class="specialist-meta">
+              ${specialist.lastHandoffTarget ? `<span class="tiny-chip">handoff to ${escapeHtml(specialist.lastHandoffTarget)}</span>` : ""}
+              ${specialist.lastHandoffReason ? `<span class="tiny-chip">${escapeHtml(specialist.lastHandoffReason)}</span>` : ""}
+              ${specialist.updatedAt ? `<span class="tiny-chip">${escapeHtml(formatRelative(specialist.updatedAt))}</span>` : ""}
+            </div>
+          </article>
+        `;
+      })
+      .join("");
+
+    const handoffCards = (session.specialistHandoffs || [])
+      .map((handoff) => {
+        const status = statusKind(handoff.status || "idle");
+        return `
+          <article class="handoff-card">
+            <div class="handoff-top">
+              <div class="handoff-route">${escapeHtml(handoff.fromRole)} <span aria-hidden="true">→</span> ${escapeHtml(handoff.toRole)}</div>
+              <span class="status-pill ${escapeHtml(status)}">${escapeHtml(handoff.status || "requested")}</span>
+            </div>
+            <div class="handoff-copy">${escapeHtml(handoff.reason || "No reason recorded.")}</div>
+            <div class="handoff-meta">
+              <span class="tiny-chip">requested by ${escapeHtml(handoff.requestedBy || "manager")}</span>
+              ${handoff.updatedAt ? `<span class="tiny-chip">${escapeHtml(formatTimestamp(handoff.updatedAt))}</span>` : ""}
+            </div>
+          </article>
+        `;
+      })
+      .join("");
+
+    return `
+      <div class="operator-summary-grid">
+        <article class="operator-stat-card">
+          <span class="meta-label">Visible specialists</span>
+          <strong>${escapeHtml(String(session.specialistStates?.length || 0))}</strong>
+          <div class="operator-stat-subtle">Manager, planner, researcher, implementer, reviewer</div>
+        </article>
+        <article class="operator-stat-card">
+          <span class="meta-label">Latest handoff</span>
+          <strong>${escapeHtml(
+            session.specialistHandoffs?.length
+              ? `${session.specialistHandoffs[session.specialistHandoffs.length - 1].fromRole} → ${session.specialistHandoffs[session.specialistHandoffs.length - 1].toRole}`
+              : "None"
+          )}</strong>
+          <div class="operator-stat-subtle">${escapeHtml(session.currentStage || "workflow idle")}</div>
+        </article>
+      </div>
+      <div class="operator-grid">
+        <section class="operator-section">
+          <div class="orchestration-section-head">
+            <span class="panel-kicker">Agents</span>
+            <h3>Specialist roster</h3>
+          </div>
+          <div class="specialist-grid">${specialistCards || '<div class="empty-state">No specialist state recorded yet.</div>'}</div>
+        </section>
+        <section class="operator-section">
+          <div class="orchestration-section-head">
+            <span class="panel-kicker">Handoffs</span>
+            <h3>Delegation flow</h3>
+          </div>
+          <div class="handoff-list">${handoffCards || '<div class="empty-state">No specialist handoffs recorded yet.</div>'}</div>
+        </section>
+      </div>
+    `;
+  }
+
+  function renderRoutingTab(session) {
+    const route = session.routeMetadata || {};
+    const planCards = (session.routePlan || [])
+      .map((step) => {
+        const active =
+          step.provider === route.active_provider &&
+          String(step.model || "") === String(route.active_model || "");
+        return `
+          <article class="routing-step ${active ? "active" : ""}">
+            <div class="routing-step-top">
+              <div class="routing-step-label">${escapeHtml(step.label || step.provider || "route step")}</div>
+              <span class="tiny-chip">${escapeHtml(step.executionMode || "unknown")}</span>
+            </div>
+            <div class="routing-step-meta">
+              <span class="tiny-chip">order ${escapeHtml(String(step.order ?? 0))}</span>
+              <span class="tiny-chip">${step.toolsAvailable ? "tools available" : "tool-light"}</span>
+            </div>
+          </article>
+        `;
+      })
+      .join("");
+
+    const attemptCards = (session.routeAttempts || [])
+      .map((attempt) => {
+        const tone = statusKind(attempt.status || "idle");
+        return `
+          <article class="attempt-card">
+            <div class="attempt-top">
+              <div class="attempt-label">${escapeHtml([attempt.provider, attempt.model].filter(Boolean).join(" / ") || "attempt")}</div>
+              <span class="status-pill ${escapeHtml(tone)}">${escapeHtml(attempt.status || "planned")}</span>
+            </div>
+            <div class="attempt-meta">
+              <span class="tiny-chip">fallback ${escapeHtml(String(attempt.fallbackIndex ?? 0))}</span>
+              <span class="tiny-chip">${attempt.toolsAvailable ? "tools available" : "tool-light"}</span>
+              ${attempt.startedAt ? `<span class="tiny-chip">${escapeHtml(formatTimestamp(attempt.startedAt))}</span>` : ""}
+            </div>
+            ${attempt.error ? `<div class="attempt-error">${escapeHtml(attempt.error)}</div>` : ""}
+          </article>
+        `;
+      })
+      .join("");
+
+    const capabilityCards = (session.capabilityChanges || [])
+      .map((change) => `
+        <article class="capability-card">
+          <div class="capability-name">${escapeHtml(change.name || "change")}</div>
+          <div class="capability-delta">${escapeHtml(String(change.before))} → ${escapeHtml(String(change.after))}</div>
+          <div class="capability-reason">${escapeHtml(change.reason || "No reason recorded.")}</div>
+        </article>
+      `)
+      .join("");
+
+    return `
+      <div class="operator-summary-grid">
+        <article class="operator-stat-card">
+          <span class="meta-label">Requested route</span>
+          <strong>${escapeHtml([session.requestedProvider, session.requestedModel].filter(Boolean).join(" / ") || session.provider || "None")}</strong>
+          <div class="operator-stat-subtle">${escapeHtml(session.routeLane || "auto")} lane</div>
+        </article>
+        <article class="operator-stat-card">
+          <span class="meta-label">Actual route</span>
+          <strong>${escapeHtml([route.active_provider, route.active_model].filter(Boolean).join(" / ") || "Pending")}</strong>
+          <div class="operator-stat-subtle">${escapeHtml(route.route_reason || "Waiting for execution metadata.")}</div>
+        </article>
+        <article class="operator-stat-card">
+          <span class="meta-label">Fallbacks used</span>
+          <strong>${escapeHtml(String(route.fallback_count ?? session.lastFallbackCount ?? 0))}</strong>
+          <div class="operator-stat-subtle">${escapeHtml(route.fallback_used ? "Fallback path was used" : "Primary route held")}</div>
+        </article>
+      </div>
+      <div class="operator-grid">
+        <section class="operator-section">
+          <div class="orchestration-section-head">
+            <span class="panel-kicker">Plan</span>
+            <h3>Planned route chain</h3>
+          </div>
+          <div class="routing-chain">${planCards || '<div class="empty-state">No route plan has been generated yet.</div>'}</div>
+        </section>
+        <section class="operator-section">
+          <div class="orchestration-section-head">
+            <span class="panel-kicker">Attempts</span>
+            <h3>Actual execution attempts</h3>
+          </div>
+          <div class="attempt-list">${attemptCards || '<div class="empty-state">No route attempts recorded yet.</div>'}</div>
+        </section>
+      </div>
+      <section class="operator-section">
+        <div class="orchestration-section-head">
+          <span class="panel-kicker">Capability drift</span>
+          <h3>What changed while routing</h3>
+        </div>
+        <div class="capability-grid">${capabilityCards || '<div class="empty-state">No capability changes were recorded.</div>'}</div>
+      </section>
+    `;
+  }
+
+  function renderArtifactsTab(session) {
+    const artifactCards = Object.values(session.stageOutputs || {})
+      .map((output) => `
+        <article class="artifact-card">
+          <div class="artifact-head">
+            <div class="artifact-name">${escapeHtml(output.stage)}</div>
+            <span class="tiny-chip">${escapeHtml(String(output.artifacts?.length || 0))} artifacts</span>
+          </div>
+          <div class="artifact-copy">${escapeHtml(output.summary || "No summary captured.")}</div>
+          <div class="artifact-chip-row">
+            ${(output.artifacts || [])
+              .map((artifact) => `<span class="tiny-chip">${escapeHtml(artifact)}</span>`)
+              .join("")}
+          </div>
+        </article>
+      `)
+      .join("");
+
+    const answerCards = (session.autoAnswerRecords || [])
+      .map((record) => `
+        <article class="record-card">
+          <div class="record-question">${escapeHtml(record.question || "question")}</div>
+          <div class="record-answer">${escapeHtml(record.answer || "Awaiting input")}</div>
+          <div class="record-meta">
+            ${record.stage ? `<span class="tiny-chip">${escapeHtml(record.stage)}</span>` : ""}
+            ${record.sources?.length ? `<span class="tiny-chip">${escapeHtml(record.sources.join(" | "))}</span>` : ""}
+            <span class="tiny-chip">${escapeHtml(String(record.confidence ?? 0))}</span>
+          </div>
+        </article>
+      `)
+      .join("");
+
+    const attemptTrail = normalizeTextList(session.lastAttempts || [])
+      .map((line) => `<div class="attempt-trail-item">${escapeHtml(line)}</div>`)
+      .join("");
+
+    return `
+      <div class="operator-grid">
+        <section class="operator-section">
+          <div class="orchestration-section-head">
+            <span class="panel-kicker">Artifacts</span>
+            <h3>Saved stage outputs</h3>
+          </div>
+          <div class="artifact-grid">${artifactCards || '<div class="empty-state">No artifacts saved yet.</div>'}</div>
+        </section>
+        <section class="operator-section">
+          <div class="orchestration-section-head">
+            <span class="panel-kicker">Auto answers</span>
+            <h3>Resolved GSD questions</h3>
+          </div>
+          <div class="record-grid">${answerCards || '<div class="empty-state">No automatic answers were recorded.</div>'}</div>
+        </section>
+      </div>
+      <section class="operator-section">
+        <div class="orchestration-section-head">
+          <span class="panel-kicker">Attempt trail</span>
+          <h3>Operator-visible execution log</h3>
+        </div>
+        <div class="attempt-trail">${attemptTrail || '<div class="empty-state">No attempt trail captured yet.</div>'}</div>
+      </section>
+    `;
+  }
+
+  function renderOrchestrationPanel(session) {
+    if (!els.orchestrationPanel) return;
+    if (!session) {
+      els.orchestrationPanel.hidden = true;
+      if (els.operatorTabContent) {
+        els.operatorTabContent.innerHTML = "";
+      }
+      return;
+    }
+    els.orchestrationPanel.hidden = false;
+    setOperatorTab(state.selectedOperatorTab, { render: false });
+    const contentByTab = {
+      overview: renderOverviewTab(session),
+      agents: renderAgentsTab(session),
+      routing: renderRoutingTab(session),
+      artifacts: renderArtifactsTab(session),
+    };
+    if (els.operatorTabContent) {
+      els.operatorTabContent.innerHTML = contentByTab[state.selectedOperatorTab] || contentByTab.overview;
+    }
   }
 
   function approvalItems() {
@@ -1628,10 +2042,7 @@
       els.detailBadges.innerHTML = "";
       els.pauseBanner.hidden = true;
       els.pauseBanner.innerHTML = "";
-      if (els.orchestrationPanel) {
-        els.orchestrationPanel.hidden = true;
-        els.orchestrationPanel.innerHTML = "";
-      }
+      renderOrchestrationPanel(null);
       if (els.workspaceWarning) {
         els.workspaceWarning.hidden = true;
         els.workspaceWarning.innerHTML = "";
@@ -1666,6 +2077,9 @@
       session.waitingForHuman ? `<span class="status-pill waiting">waiting for human</span>` : "",
       session.provider ? `<span class="badge">${escapeHtml(session.provider)}</span>` : "",
       session.model ? `<span class="badge">${escapeHtml(session.model)}</span>` : "",
+      session.routeLane ? `<span class="badge">${escapeHtml(session.routeLane)} lane</span>` : "",
+      session.requestedProvider ? `<span class="badge">requested ${escapeHtml(session.requestedProvider)}</span>` : "",
+      session.requestedModel ? `<span class="badge">requested ${escapeHtml(session.requestedModel)}</span>` : "",
       session.lastProviderUsed ? `<span class="badge">used ${escapeHtml(session.lastProviderUsed)}</span>` : "",
       session.lastFallbackCount ? `<span class="badge">${escapeHtml(session.lastFallbackCount)} fallbacks</span>` : "",
       session.latestAttemptId ? `<span class="badge">${escapeHtml(session.latestAttemptId)}</span>` : "",
@@ -2108,6 +2522,7 @@
         system_message: els.createSystemMessage.value.trim(),
         provider: els.createProvider.value,
         model: els.createModel.value.trim(),
+        route_lane: els.createRouteLane?.value || "auto",
         repo_root: createState.workspaceRoot || null,
       };
       const created = await apiFetch("/sessions", {
@@ -2117,6 +2532,9 @@
       showNotice("Session created", "success");
       els.createForm.reset();
       els.createProvider.value = body.provider;
+      if (els.createRouteLane) {
+        els.createRouteLane.value = "auto";
+      }
       syncCreateRepoToSelection(body.repo_root || "", true);
       if (els.createManualRepoRoot) {
         els.createManualRepoRoot.value = "";
@@ -2203,6 +2621,11 @@
     els.seedSmokeTest.addEventListener("click", seedSmokeTest);
     els.seedExample.addEventListener("click", seedExample);
     els.refreshProviders.addEventListener("click", loadProviders);
+    document.querySelectorAll("[data-operator-tab]").forEach((node) => {
+      node.addEventListener("click", () => {
+        setOperatorTab(node.getAttribute("data-operator-tab"));
+      });
+    });
     document.querySelectorAll("[data-session-mode]").forEach((node) => {
       node.addEventListener("click", () => {
         if (!state.selectedSessionId) return;
@@ -2368,6 +2791,7 @@
 
   async function boot() {
     wireEvents();
+    setOperatorTab(state.selectedOperatorTab, { render: false });
     renderAll();
     await Promise.allSettled([loadProviders(), loadRepos(), loadSessions(true)]);
     if (!state.selectedSessionId && state.sessions.length) {

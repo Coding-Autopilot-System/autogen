@@ -16,6 +16,7 @@ from autogen_agentchat.messages import TextMessage
 from autogen_dashboard.schemas import (
     ApprovalDecision,
     AutoAnswerRecordModel,
+    CapabilityChangeModel,
     ProviderListResponse,
     ProviderName,
     ProviderStatusModel,
@@ -29,9 +30,13 @@ from autogen_dashboard.schemas import (
     SessionRunRequest,
     SessionStatus,
     SessionSummary,
+    SpecialistHandoffModel,
+    SpecialistStateModel,
     StageOutputModel,
     StageTimelineEntry,
     TranscriptMessage,
+    RouteAttemptModel,
+    RoutePlanStepModel,
 )
 from autogen_dashboard.repo_context import build_repo_brief, collect_repo_context, discover_local_repos, resolve_repo_root
 from autogen_dashboard.session_store import SessionStore
@@ -43,8 +48,11 @@ from maf_starter.orchestration import (
     AutoAnswerRecord,
     RunOrchestrationState,
     RunStagePauseKind,
+    SpecialistHandoff,
+    SpecialistState,
     StageName,
     StageSummary,
+    specialist_role_for_stage,
 )
 from maf_starter.tools import build_repo_context_snapshot
 
@@ -86,6 +94,12 @@ class RunOutcome:
     pause_kind: RunStagePauseKind | None = None
     auto_answer_records: list[dict[str, Any]] = field(default_factory=list)
     blocked_questions: list[str] = field(default_factory=list)
+    route_lane: str = "auto"
+    route_plan: list[dict[str, Any]] = field(default_factory=list)
+    route_attempts: list[dict[str, Any]] = field(default_factory=list)
+    capability_changes: list[dict[str, Any]] = field(default_factory=list)
+    specialist_states: list[dict[str, Any]] = field(default_factory=list)
+    specialist_handoffs: list[dict[str, Any]] = field(default_factory=list)
     route_metadata: dict[str, Any] = field(default_factory=dict)
     transition_events: list[tuple[str, dict[str, Any]]] = field(default_factory=list)
 
@@ -116,6 +130,12 @@ class RunFailure(RuntimeError):
         orchestration_state: dict[str, Any] | None = None,
         auto_answer_records: list[dict[str, Any]] | None = None,
         blocked_questions: list[str] | None = None,
+        route_lane: str = "auto",
+        route_plan: list[dict[str, Any]] | None = None,
+        route_attempts: list[dict[str, Any]] | None = None,
+        capability_changes: list[dict[str, Any]] | None = None,
+        specialist_states: list[dict[str, Any]] | None = None,
+        specialist_handoffs: list[dict[str, Any]] | None = None,
         route_metadata: dict[str, Any] | None = None,
         transition_events: list[tuple[str, dict[str, Any]]] | None = None,
     ) -> None:
@@ -127,8 +147,35 @@ class RunFailure(RuntimeError):
         self.orchestration_state = orchestration_state or {}
         self.auto_answer_records = auto_answer_records or []
         self.blocked_questions = blocked_questions or []
+        self.route_lane = route_lane
+        self.route_plan = route_plan or []
+        self.route_attempts = route_attempts or []
+        self.capability_changes = capability_changes or []
+        self.specialist_states = specialist_states or []
+        self.specialist_handoffs = specialist_handoffs or []
         self.route_metadata = route_metadata or {}
         self.transition_events = transition_events or []
+
+
+class StageExecutionError(RuntimeError):
+    def __init__(
+        self,
+        message: str,
+        *,
+        attempt_log: list[str],
+        route_lane: str,
+        route_plan: list[dict[str, Any]],
+        route_attempts: list[dict[str, Any]],
+        capability_changes: list[dict[str, Any]],
+        route_metadata: dict[str, Any],
+    ) -> None:
+        super().__init__(message)
+        self.attempt_log = attempt_log
+        self.route_lane = route_lane
+        self.route_plan = route_plan
+        self.route_attempts = route_attempts
+        self.capability_changes = capability_changes
+        self.route_metadata = route_metadata
 
 
 class SessionService:
@@ -155,6 +202,7 @@ class SessionService:
         provider = request.provider or self.settings.provider
         self._validate_provider(provider)
         model = self._normalize_model(request.model)
+        route_lane = self._normalize_route_lane(request.route_lane)
         task = (request.task or "").strip()
         if not task:
             raise ValueError("An engineering prompt is required to create a run.")
@@ -162,6 +210,7 @@ class SessionService:
         if repo_path is None:
             raise ValueError("Select a workspace inside the allowed scan root before creating a run.")
         repo_context = collect_repo_context(repo_path)
+        planned_route = self._planned_route_steps(provider, model, route_lane, stage=None)
 
         session_id = uuid.uuid4().hex
         title = request.title or self._default_title(provider, task, repo_context.name)
@@ -190,6 +239,12 @@ class SessionService:
             title=title,
             provider=provider,
             model=model,
+            route_lane=route_lane,
+            requested_provider=provider,
+            requested_model=model,
+            route_plan=[RoutePlanStepModel.model_validate(item) for item in planned_route],
+            route_attempts=[],
+            capability_changes=[],
             original_task=task,
             latest_human_note=None,
             approval_decisions=[],
@@ -214,9 +269,16 @@ class SessionService:
             last_completed_stage=orchestration.last_completed_stage,
             stage_timeline=self._stage_timeline_models(orchestration),
             stage_outputs={},
+            specialist_states=self._specialist_state_models(orchestration),
+            specialist_handoffs=[],
             auto_answer_records=[],
             blocked_questions=[],
-            route_metadata={},
+            route_metadata={
+                "route_lane": route_lane,
+                "route_plan": planned_route,
+                "route_attempts": [],
+                "capability_changes": [],
+            },
             system_message=system_message,
             queued_prompt=queued_prompt,
             last_prompt=None,
@@ -417,6 +479,15 @@ class SessionService:
             summary.last_model_used = None
             summary.last_attempts = []
             summary.last_fallback_count = 0
+            planned_route = self._planned_route_steps(
+                summary.requested_provider or summary.provider,
+                summary.requested_model or summary.model,
+                summary.route_lane,
+                stage=summary.current_stage,
+            )
+            summary.route_plan = [RoutePlanStepModel.model_validate(item) for item in planned_route]
+            summary.route_attempts = []
+            summary.capability_changes = []
             summary.updated_at = now
             summary.last_prompt = prompt
             state = self.store.load_state(session_id)
@@ -480,6 +551,9 @@ class SessionService:
                     "prompt": prompt,
                     "prompt_origin": prompt_origin,
                     "attempt_id": attempt_id,
+                    "route_lane": summary.route_lane,
+                    "requested_provider": summary.requested_provider,
+                    "requested_model": summary.requested_model,
                     "repo_root": repo_context.root if repo_context is not None else None,
                     "checkpoint_dir": str(self.store.checkpoint_dir(session_id)),
                 },
@@ -494,6 +568,7 @@ class SessionService:
                     prompt=prompt,
                     state=state,
                     model_override=model_override,
+                    route_lane=summary.route_lane,
                     operator_task=operator_task,
                     repo_context=repo_context,
                     attempt_id=attempt_id,
@@ -513,6 +588,7 @@ class SessionService:
         prompt: str,
         state: dict[str, Any] | None,
         model_override: str | None,
+        route_lane: str,
         operator_task: str,
         repo_context,
         attempt_id: str,
@@ -526,6 +602,7 @@ class SessionService:
                 prompt=prompt,
                 state=state,
                 model_override=model_override,
+                route_lane=route_lane,
                 operator_task=operator_task,
                 repo_context=repo_context,
             )
@@ -587,6 +664,16 @@ class SessionService:
                     summary.last_fallback_count = max(0, len(exc.attempt_log) - 1)
                     self._apply_orchestration_summary(summary, exc.orchestration_state)
                     summary.blocked_questions = list(exc.blocked_questions)
+                    summary.route_lane = exc.route_lane or summary.route_lane
+                    summary.route_plan = [
+                        RoutePlanStepModel.model_validate(item) for item in exc.route_plan
+                    ]
+                    summary.route_attempts = [
+                        RouteAttemptModel.model_validate(item) for item in exc.route_attempts
+                    ]
+                    summary.capability_changes = [
+                        CapabilityChangeModel.model_validate(item) for item in exc.capability_changes
+                    ]
                     summary.route_metadata = dict(exc.route_metadata)
                     self._persist_orchestration_artifacts(session_id, exc.orchestration_state)
                     self.store.save_auto_answer_records(session_id, exc.auto_answer_records)
@@ -668,6 +755,12 @@ class SessionService:
             summary.last_model_used = outcome.model_used
             summary.last_attempts = outcome.attempt_log
             summary.last_fallback_count = max(0, len(outcome.attempt_log) - 1)
+            summary.route_lane = outcome.route_lane or summary.route_lane
+            summary.route_plan = [RoutePlanStepModel.model_validate(item) for item in outcome.route_plan]
+            summary.route_attempts = [RouteAttemptModel.model_validate(item) for item in outcome.route_attempts]
+            summary.capability_changes = [
+                CapabilityChangeModel.model_validate(item) for item in outcome.capability_changes
+            ]
             summary.route_metadata = dict(outcome.route_metadata)
             summary.blocked_questions = list(outcome.blocked_questions)
             summary.auto_answer_records = [
@@ -695,12 +788,16 @@ class SessionService:
                     "stop_reason": outcome.stop_reason,
                     "provider_used": outcome.provider_used,
                     "model_used": outcome.model_used,
-                    "attempt_log": outcome.attempt_log,
-                    "current_stage": summary.current_stage,
-                    "last_completed_stage": summary.last_completed_stage,
-                    "pause_kind": summary.pause_kind,
-                },
-            )
+                        "attempt_log": outcome.attempt_log,
+                        "route_lane": outcome.route_lane,
+                        "route_plan": outcome.route_plan,
+                        "route_attempts": outcome.route_attempts,
+                        "capability_changes": outcome.capability_changes,
+                        "current_stage": summary.current_stage,
+                        "last_completed_stage": summary.last_completed_stage,
+                        "pause_kind": summary.pause_kind,
+                    },
+                )
             for event_type, payload in outcome.transition_events:
                 await self._emit_event(session_id, event_type, payload)
             await self._emit_event(
@@ -710,6 +807,7 @@ class SessionService:
                     "attempt_id": attempt_id,
                     "provider_used": outcome.provider_used,
                     "model_used": outcome.model_used,
+                    "route_lane": outcome.route_lane,
                     "current_stage": summary.current_stage,
                     "pause_kind": summary.pause_kind,
                 },
@@ -726,6 +824,7 @@ class SessionService:
                     "provider_used": outcome.provider_used,
                     "model_used": outcome.model_used,
                     "attempt_count": len(outcome.attempt_log),
+                    "route_lane": outcome.route_lane,
                     "current_stage": summary.current_stage,
                     "last_completed_stage": summary.last_completed_stage,
                     "pause_kind": summary.pause_kind,
@@ -1007,9 +1106,124 @@ class SessionService:
                 models.append(model)
         return models
 
-    def _build_run_targets(self, provider: ProviderName, model_override: str | None) -> list[RunTarget]:
+    def _normalize_route_lane(self, value: str | None) -> str:
+        normalized = (value or "auto").strip().lower()
+        if normalized not in {"auto", "deep", "balanced", "fast"}:
+            return "auto"
+        return normalized
+
+    def _effective_route_lane(self, route_lane: str | None, stage: StageName | None) -> str:
+        selected = self._normalize_route_lane(route_lane)
+        if selected != "auto":
+            return selected
+        if stage in {"planning", "implementation", "review"}:
+            return "deep"
+        return "balanced"
+
+    def _provider_tools_available(self, provider: ProviderName) -> bool:
+        return provider not in {"gemini-cli", "claude-cli", "codex-cli"}
+
+    def _provider_execution_mode(self, provider: ProviderName) -> str:
+        return "cli" if provider.endswith("-cli") else "api"
+
+    def _route_step_payload(self, target: RunTarget, *, order: int) -> dict[str, Any]:
+        return {
+            "order": order,
+            "provider": target.provider,
+            "model": target.model,
+            "label": f"{target.provider}:{target.model}" if target.model else target.provider,
+            "execution_mode": self._provider_execution_mode(target.provider),
+            "tools_available": self._provider_tools_available(target.provider),
+        }
+
+    def _route_attempt_payload(
+        self,
+        target: RunTarget,
+        *,
+        status: str,
+        fallback_index: int,
+        error: str | None = None,
+    ) -> dict[str, Any]:
+        return {
+            "provider": target.provider,
+            "model": target.model,
+            "status": status,
+            "tools_available": self._provider_tools_available(target.provider),
+            "fallback_index": fallback_index,
+            "error": error,
+            "started_at": None,
+            "completed_at": None,
+        }
+
+    def _capability_changes(self, attempts: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        changes: list[dict[str, Any]] = []
+        for previous, current in zip(attempts, attempts[1:]):
+            if previous.get("tools_available") != current.get("tools_available"):
+                changes.append(
+                    {
+                        "name": "tools_available",
+                        "before": previous.get("tools_available"),
+                        "after": current.get("tools_available"),
+                        "reason": "Fallback changed the available tool surface.",
+                    }
+                )
+            if previous.get("provider") != current.get("provider"):
+                changes.append(
+                    {
+                        "name": "provider",
+                        "before": previous.get("provider"),
+                        "after": current.get("provider"),
+                        "reason": "Fallback moved execution to a different provider.",
+                    }
+                )
+            if previous.get("model") != current.get("model"):
+                changes.append(
+                    {
+                        "name": "model",
+                        "before": previous.get("model"),
+                        "after": current.get("model"),
+                        "reason": "Fallback moved execution to a different model.",
+                    }
+                )
+            previous_mode = self._provider_execution_mode(previous.get("provider", "gemini"))  # type: ignore[arg-type]
+            current_mode = self._provider_execution_mode(current.get("provider", "gemini"))  # type: ignore[arg-type]
+            if previous_mode != current_mode:
+                changes.append(
+                    {
+                        "name": "execution_mode",
+                        "before": previous_mode,
+                        "after": current_mode,
+                        "reason": "Fallback moved execution between API and CLI.",
+                    }
+                )
+        return changes
+
+    def _planned_route_steps(
+        self,
+        provider: ProviderName,
+        model_override: str | None,
+        route_lane: str | None,
+        *,
+        stage: StageName | None,
+    ) -> list[dict[str, Any]]:
+        return [
+            self._route_step_payload(target, order=index)
+            for index, target in enumerate(
+                self._build_run_targets(provider, model_override, route_lane=route_lane, stage=stage)
+            )
+        ]
+
+    def _build_run_targets(
+        self,
+        provider: ProviderName,
+        model_override: str | None,
+        *,
+        route_lane: str | None,
+        stage: StageName | None,
+    ) -> list[RunTarget]:
         ready_providers = self._ready_provider_names()
         normalized_model = self._normalize_model(model_override)
+        effective_lane = self._effective_route_lane(route_lane, stage)
         targets: list[RunTarget] = []
         seen: set[tuple[ProviderName, str | None]] = set()
 
@@ -1024,18 +1238,27 @@ class SessionService:
             targets.append(RunTarget(provider=target_provider, model=normalized_target_model))
 
         if provider in {"gemini", "gemini-cli"}:
-            gemini_models = self._gemini_fallback_models(normalized_model or self.settings.gemini_model)
+            lane_default = {
+                "deep": "gemini-2.5-pro",
+                "balanced": "gemini-2.5-flash",
+                "fast": "gemini-2.5-flash-lite",
+            }.get(effective_lane, self.settings.gemini_model)
+            gemini_models = self._gemini_fallback_models(normalized_model or lane_default or self.settings.gemini_model)
             if provider == "gemini":
                 for model in gemini_models:
                     add_target("gemini", model)
+                if "anthropic" in ready_providers and effective_lane != "fast":
+                    add_target("anthropic", self.settings.anthropic_model)
+                for model in gemini_models:
                     add_target("gemini-cli", model)
                 add_target("gemini-cli", None)
             else:
                 add_target("gemini-cli", normalized_model)
                 add_target("gemini-cli", None)
                 for model in gemini_models:
-                    add_target("gemini-cli", model)
                     add_target("gemini", model)
+                if "anthropic" in ready_providers and effective_lane != "fast":
+                    add_target("anthropic", self.settings.anthropic_model)
             add_target("claude-cli", None)
             add_target("codex-cli", None)
             return targets
@@ -1077,6 +1300,7 @@ class SessionService:
         prompt: str,
         state: dict[str, Any] | None,
         model_override: str | None,
+        route_lane: str,
         operator_task: str,
         repo_context,
     ) -> RunOutcome:
@@ -1088,7 +1312,12 @@ class SessionService:
         auto_answer_records: list[dict[str, Any]] = []
         last_provider_used: ProviderName = provider
         last_model_used = model_override
-        last_route_metadata: dict[str, Any] = {}
+        last_route_metadata: dict[str, Any] = {
+            "route_lane": route_lane,
+            "route_plan": self._planned_route_steps(provider, model_override, route_lane, stage=orchestration.current_stage),
+            "route_attempts": [],
+            "capability_changes": [],
+        }
 
         while orchestration.current_stage is not None:
             stage = orchestration.current_stage
@@ -1121,15 +1350,35 @@ class SessionService:
             )
 
             try:
-                stage_text, provider_used, model_used, stage_attempt_log = await self._run_stage_prompt(
+                stage_result = await self._run_stage_prompt(
                     provider=provider,
                     system_message=self._stage_system_message(system_message, stage),
                     prompt=stage_prompt,
                     model_override=model_override,
                     repo_context=repo_context,
+                    route_lane=route_lane,
+                    stage=stage,
                 )
+                if len(stage_result) == 4:
+                    stage_text, provider_used, model_used, stage_attempt_log = stage_result
+                    stage_route_metadata = self._route_metadata(
+                        route_lane=route_lane,
+                        provider_used=provider_used,
+                        model_used=model_used,
+                        route_plan=self._planned_route_steps(provider, model_override, route_lane, stage=stage),
+                        route_attempts=[],
+                        stage=stage,
+                        requested_provider=provider,
+                        requested_model=model_override,
+                    )
+                else:
+                    stage_text, provider_used, model_used, stage_attempt_log, stage_route_metadata = stage_result
             except Exception as exc:
                 summarized_error = self._summarize_exception(exc)
+                stage_error = exc if isinstance(exc, StageExecutionError) else None
+                if stage_error is not None:
+                    attempt_log.extend(stage_error.attempt_log)
+                    last_route_metadata = dict(stage_error.route_metadata)
                 orchestration.fail_stage(stage, summarized_error, retryable=True)
                 transition_events.append(
                     (
@@ -1139,6 +1388,8 @@ class SessionService:
                             "status": "failed",
                             "pause_kind": "retryable_error",
                             "error": summarized_error,
+                            "route_lane": last_route_metadata.get("route_lane"),
+                            "route_attempts": list(last_route_metadata.get("route_attempts") or []),
                         },
                     )
                 )
@@ -1151,6 +1402,12 @@ class SessionService:
                     orchestration_state={"orchestration": orchestration.to_dict()},
                     auto_answer_records=auto_answer_records,
                     blocked_questions=list(orchestration.blocked_questions),
+                    route_lane=str(last_route_metadata.get("route_lane") or "auto"),
+                    route_plan=list(last_route_metadata.get("route_plan") or []),
+                    route_attempts=list(last_route_metadata.get("route_attempts") or []),
+                    capability_changes=list(last_route_metadata.get("capability_changes") or []),
+                    specialist_states=orchestration.specialist_payloads(),
+                    specialist_handoffs=orchestration.handoff_payloads(),
                     route_metadata=last_route_metadata,
                     transition_events=transition_events,
                 ) from exc
@@ -1158,8 +1415,18 @@ class SessionService:
             attempt_log.extend(stage_attempt_log)
             last_provider_used = provider_used
             last_model_used = model_used
-            last_route_metadata = self._route_metadata(provider_used, model_used, stage_attempt_log, stage)
+            last_route_metadata = dict(stage_route_metadata)
             summary = self._parse_stage_summary(stage, stage_text, last_route_metadata)
+            specialist_payload = self._extract_specialist_payload(stage, stage_text, summary)
+            orchestration.update_specialist(
+                specialist_role_for_stage(stage),
+                stage=stage,
+                status="running",
+                current_task=specialist_payload.get("current_task"),
+                latest_output_summary=specialist_payload.get("latest_output_summary"),
+                last_handoff_target=specialist_payload.get("handoff_to"),
+                last_handoff_reason=specialist_payload.get("handoff_reason"),
+            )
 
             answers, unresolved = self._resolve_stage_questions(
                 stage=stage,
@@ -1199,6 +1466,10 @@ class SessionService:
                     provider_used=last_provider_used,
                     model_used=last_model_used,
                     attempt_log=attempt_log,
+                    route_lane=str(last_route_metadata.get("route_lane") or "auto"),
+                    route_plan=list(last_route_metadata.get("route_plan") or []),
+                    route_attempts=list(last_route_metadata.get("route_attempts") or []),
+                    capability_changes=list(last_route_metadata.get("capability_changes") or []),
                     route_metadata=last_route_metadata,
                     auto_answer_records=auto_answer_records,
                     blocked_questions=unresolved,
@@ -1229,6 +1500,10 @@ class SessionService:
                     provider_used=last_provider_used,
                     model_used=last_model_used,
                     attempt_log=attempt_log,
+                    route_lane=str(last_route_metadata.get("route_lane") or "auto"),
+                    route_plan=list(last_route_metadata.get("route_plan") or []),
+                    route_attempts=list(last_route_metadata.get("route_attempts") or []),
+                    capability_changes=list(last_route_metadata.get("capability_changes") or []),
                     route_metadata=last_route_metadata,
                     auto_answer_records=auto_answer_records,
                     blocked_questions=[],
@@ -1246,6 +1521,10 @@ class SessionService:
             provider_used=last_provider_used,
             model_used=last_model_used,
             attempt_log=attempt_log,
+            route_lane=str(last_route_metadata.get("route_lane") or "auto"),
+            route_plan=list(last_route_metadata.get("route_plan") or []),
+            route_attempts=list(last_route_metadata.get("route_attempts") or []),
+            capability_changes=list(last_route_metadata.get("capability_changes") or []),
             route_metadata=last_route_metadata,
             auto_answer_records=auto_answer_records,
             blocked_questions=[],
@@ -1261,14 +1540,17 @@ class SessionService:
         prompt: str,
         model_override: str | None,
         repo_context,
-    ) -> tuple[str, ProviderName, str | None, list[str]]:
+        route_lane: str,
+        stage: StageName,
+    ) -> tuple[str, ProviderName, str | None, list[str], dict[str, Any]]:
         working_directory = repo_context.root if repo_context is not None else None
         effective_prompt = self._prompt_with_repo_context(prompt, repo_context)
-        targets = self._build_run_targets(provider, model_override)
+        targets = self._build_run_targets(provider, model_override, route_lane=route_lane, stage=stage)
         attempt_log: list[str] = []
+        route_attempts: list[dict[str, Any]] = []
         last_error: Exception | None = None
 
-        for target in targets:
+        for index, target in enumerate(targets):
             run_settings = replace(self.settings, provider=target.provider)
             model_client = create_model_client(
                 run_settings,
@@ -1287,12 +1569,35 @@ class SessionService:
                     CancellationToken(),
                 )
                 attempt_log.append(f"{target_label} succeeded")
+                route_attempts.append(
+                    self._route_attempt_payload(target, status="succeeded", fallback_index=index)
+                )
                 messages = self._assistant_response_messages(result)
                 content = messages[-1].content if messages else ""
-                return content, target.provider, target.model, attempt_log
+                route_plan = [self._route_step_payload(item, order=order) for order, item in enumerate(targets)]
+                route_metadata = self._route_metadata(
+                    route_lane=route_lane,
+                    provider_used=target.provider,
+                    model_used=target.model,
+                    route_plan=route_plan,
+                    route_attempts=route_attempts,
+                    stage=stage,
+                    requested_provider=provider,
+                    requested_model=model_override,
+                )
+                return content, target.provider, target.model, attempt_log, route_metadata
             except Exception as exc:
                 last_error = exc
-                attempt_log.append(f"{target_label} failed: {self._summarize_exception(exc)}")
+                error_text = self._summarize_exception(exc)
+                attempt_log.append(f"{target_label} failed: {error_text}")
+                route_attempts.append(
+                    self._route_attempt_payload(
+                        target,
+                        status="failed",
+                        fallback_index=index,
+                        error=error_text,
+                    )
+                )
                 if not self._is_fallback_worthy_error(exc) or target == targets[-1]:
                     break
             finally:
@@ -1300,7 +1605,26 @@ class SessionService:
 
         if last_error is None:
             raise RuntimeError("No run targets were available for this stage.")
-        raise last_error
+        route_plan = [self._route_step_payload(item, order=order) for order, item in enumerate(targets)]
+        route_metadata = self._route_metadata(
+            route_lane=route_lane,
+            provider_used=targets[min(len(route_attempts), len(targets)) - 1].provider if targets else provider,
+            model_used=targets[min(len(route_attempts), len(targets)) - 1].model if targets else model_override,
+            route_plan=route_plan,
+            route_attempts=route_attempts,
+            stage=stage,
+            requested_provider=provider,
+            requested_model=model_override,
+        )
+        raise StageExecutionError(
+            self._summarize_exception(last_error),
+            attempt_log=attempt_log,
+            route_lane=route_metadata.get("route_lane", "auto"),
+            route_plan=route_plan,
+            route_attempts=route_attempts,
+            capability_changes=list(route_metadata.get("capability_changes") or []),
+            route_metadata=route_metadata,
+        ) from last_error
 
     def _load_orchestration_state(self, state: dict[str, Any] | None) -> RunOrchestrationState:
         if isinstance(state, dict) and isinstance(state.get("orchestration"), dict):
@@ -1354,7 +1678,8 @@ class SessionService:
         }[stage]
         return (
             f"{base_system_message} You are executing the {stage} stage of a manager-led engineering workflow. "
-            f"{specialty} Keep the answer concise and machine-readable."
+            f"{specialty} Keep the answer concise and machine-readable. Include `current_task`, "
+            "`latest_output_summary`, `handoff_to`, and `handoff_reason` in the JSON when they are known."
         )
 
     def _parse_stage_summary(
@@ -1390,6 +1715,27 @@ class SessionService:
             raw_output=raw_text,
         )
 
+    def _extract_specialist_payload(
+        self,
+        stage: StageName,
+        raw_text: str,
+        summary: StageSummary,
+    ) -> dict[str, Any]:
+        payload = self._extract_json_object(raw_text) or {}
+        handoff_to = payload.get("handoff_to")
+        normalized_handoff = None
+        if isinstance(handoff_to, str):
+            normalized = handoff_to.strip().lower()
+            if normalized in {"manager", "planner", "researcher", "implementer", "reviewer"}:
+                normalized_handoff = normalized
+        return {
+            "stage": stage,
+            "current_task": self._nullable_text(payload.get("current_task")) or summary.next_action or f"Own the {stage} stage.",
+            "latest_output_summary": self._nullable_text(payload.get("latest_output_summary")) or summary.summary,
+            "handoff_to": normalized_handoff,
+            "handoff_reason": self._nullable_text(payload.get("handoff_reason")) or summary.next_action,
+        }
+
     def _resolve_stage_questions(
         self,
         *,
@@ -1423,23 +1769,46 @@ class SessionService:
             summary=f"Validation placeholder completed after stages: {', '.join(completed) or 'none'}.",
             artifacts=["artifacts/stages/validation/summary.json"],
             next_action="Run final operator verification.",
-            route_metadata={"route_reason": "manager validation placeholder", "tools_available": False},
+            route_metadata={
+                "route_lane": "balanced",
+                "route_reason": "manager validation placeholder",
+                "route_plan": [],
+                "route_attempts": [],
+                "capability_changes": [],
+                "tools_available": False,
+            },
         )
 
     def _route_metadata(
         self,
+        *,
+        route_lane: str,
         provider_used: ProviderName,
         model_used: str | None,
-        attempt_log: list[str],
+        route_plan: list[dict[str, Any]],
+        route_attempts: list[dict[str, Any]],
         stage: StageName,
+        requested_provider: ProviderName,
+        requested_model: str | None,
     ) -> dict[str, Any]:
+        effective_lane = self._effective_route_lane(route_lane, stage)
         return {
+            "route_lane": route_lane,
+            "active_lane": effective_lane,
             "active_provider": provider_used,
             "active_model": model_used,
-            "route_tier": "deep" if stage in {"planning", "implementation", "review"} else "standard",
-            "route_reason": f"{stage} stage execution",
-            "fallback_used": len(attempt_log) > 1,
-            "tools_available": provider_used not in {"gemini-cli", "claude-cli", "codex-cli"},
+            "primary_provider": route_plan[0]["provider"] if route_plan else provider_used,
+            "primary_model": route_plan[0].get("model") if route_plan else model_used,
+            "requested_provider": requested_provider,
+            "requested_model": requested_model,
+            "route_plan": route_plan,
+            "route_attempts": route_attempts,
+            "fallback_count": max(0, len(route_attempts) - 1),
+            "fallback_used": len(route_attempts) > 1,
+            "tools_available": self._provider_tools_available(provider_used),
+            "capability_changes": self._capability_changes(route_attempts),
+            "route_tier": "deep" if effective_lane == "deep" else "simple" if effective_lane == "fast" else "standard",
+            "route_reason": f"{stage} stage execution through the {effective_lane} lane.",
         }
 
     def _build_orchestration_outcome(
@@ -1450,6 +1819,10 @@ class SessionService:
         provider_used: ProviderName,
         model_used: str | None,
         attempt_log: list[str],
+        route_lane: str,
+        route_plan: list[dict[str, Any]],
+        route_attempts: list[dict[str, Any]],
+        capability_changes: list[dict[str, Any]],
         route_metadata: dict[str, Any],
         auto_answer_records: list[dict[str, Any]],
         blocked_questions: list[str],
@@ -1481,6 +1854,12 @@ class SessionService:
             pause_kind=pause_kind,
             auto_answer_records=auto_answer_records,
             blocked_questions=blocked_questions,
+            route_lane=route_lane,
+            route_plan=route_plan,
+            route_attempts=route_attempts,
+            capability_changes=capability_changes,
+            specialist_states=orchestration.specialist_payloads(),
+            specialist_handoffs=orchestration.handoff_payloads(),
             route_metadata=route_metadata,
             transition_events=transition_events,
         )
@@ -1526,6 +1905,10 @@ class SessionService:
             "summary": summary.summary,
             "artifacts": list(summary.artifacts),
             "route_metadata": dict(summary.route_metadata),
+            "route_lane": summary.route_metadata.get("route_lane"),
+            "route_attempts": list(summary.route_metadata.get("route_attempts") or []),
+            "specialist_states": orchestration.specialist_payloads(),
+            "specialist_handoffs": orchestration.handoff_payloads(),
             "last_completed_stage": orchestration.last_completed_stage,
         }
         if orchestration.get_record(stage).blocked_questions:
@@ -1612,12 +1995,36 @@ class SessionService:
             stage: StageOutputModel.model_validate(payload)
             for stage, payload in orchestration.stage_outputs().items()
         }
+        summary.specialist_states = self._specialist_state_models(orchestration)
+        summary.specialist_handoffs = self._specialist_handoff_models(orchestration)
         summary.auto_answer_records = [
             AutoAnswerRecordModel.model_validate(self._auto_answer_payload(record))
             for record in orchestration.auto_answer_records
         ]
         summary.blocked_questions = list(orchestration.blocked_questions)
         summary.pause_kind = orchestration.pause_kind
+        if summary.stage_outputs:
+            latest_output = summary.stage_outputs.get(orchestration.last_completed_stage or "") or next(
+                reversed(list(summary.stage_outputs.values())),
+                None,
+            )
+            if latest_output is not None:
+                route_metadata = dict(latest_output.route_metadata or {})
+                if route_metadata:
+                    summary.route_metadata = route_metadata
+                    summary.route_lane = str(route_metadata.get("route_lane") or summary.route_lane)
+                    summary.route_plan = [
+                        RoutePlanStepModel.model_validate(item)
+                        for item in (route_metadata.get("route_plan") or [])
+                    ]
+                    summary.route_attempts = [
+                        RouteAttemptModel.model_validate(item)
+                        for item in (route_metadata.get("route_attempts") or [])
+                    ]
+                    summary.capability_changes = [
+                        CapabilityChangeModel.model_validate(item)
+                        for item in (route_metadata.get("capability_changes") or [])
+                    ]
 
     def _stage_timeline_models(self, orchestration: RunOrchestrationState) -> list[StageTimelineEntry]:
         entries: list[StageTimelineEntry] = []
@@ -1639,6 +2046,18 @@ class SessionService:
                 )
             )
         return entries
+
+    def _specialist_state_models(self, orchestration: RunOrchestrationState) -> list[SpecialistStateModel]:
+        return [
+            SpecialistStateModel.model_validate(payload)
+            for payload in orchestration.specialist_payloads()
+        ]
+
+    def _specialist_handoff_models(self, orchestration: RunOrchestrationState) -> list[SpecialistHandoffModel]:
+        return [
+            SpecialistHandoffModel.model_validate(payload)
+            for payload in orchestration.handoff_payloads()
+        ]
 
     def _persist_orchestration_artifacts(self, session_id: str, orchestration_payload: dict[str, Any] | None) -> None:
         if not orchestration_payload:

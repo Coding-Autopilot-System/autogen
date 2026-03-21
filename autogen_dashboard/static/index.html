@@ -101,6 +101,18 @@
               <select id="create-provider" name="provider" class="input select" required></select>
             </label>
             <label>
+              <span>Route lane</span>
+              <select id="create-route-lane" name="route_lane" class="input select">
+                <option value="auto">Auto</option>
+                <option value="deep">Deep</option>
+                <option value="balanced">Balanced</option>
+                <option value="fast">Fast</option>
+              </select>
+              <span class="inline-help">
+                Auto chooses per-stage depth. Deep favors stronger models first, balanced keeps cost steadier, and fast prefers cheaper routes.
+              </span>
+            </label>
+            <label>
               <span>Workspace</span>
               <select id="create-repo-root" name="repo_root" class="input select" required>
                 <option value="">Select a workspace</option>
@@ -192,7 +204,15 @@
             <div id="detail-badges" class="badge-row"></div>
           </div>
           <div id="pause-banner" class="pause-banner" hidden></div>
-          <section id="orchestration-panel" class="orchestration-panel" hidden></section>
+          <section id="orchestration-panel" class="orchestration-panel" hidden>
+            <div class="operator-tabs" role="tablist" aria-label="Run views">
+              <button class="operator-tab active" id="operator-tab-overview" type="button" data-operator-tab="overview">Overview</button>
+              <button class="operator-tab" id="operator-tab-agents" type="button" data-operator-tab="agents">Agents</button>
+              <button class="operator-tab" id="operator-tab-routing" type="button" data-operator-tab="routing">Routing</button>
+              <button class="operator-tab" id="operator-tab-artifacts" type="button" data-operator-tab="artifacts">Artifacts/Traces</button>
+            </div>
+            <div id="operator-tab-content" class="operator-tab-content"></div>
+          </section>
           <div id="workspace-warning" class="workspace-warning" hidden></div>
           <div id="detail-empty" class="empty-state">
             Select a session from the queue or create a new one to inspect its state.
