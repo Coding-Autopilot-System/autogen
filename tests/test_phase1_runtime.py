@@ -8,11 +8,14 @@ from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
-from autogen_dashboard.schemas import SessionCreateRequest, SessionDecisionRequest, TranscriptMessage
+from autogen_dashboard.schemas import SessionCreateRequest, SessionDecisionRequest, SessionMessageRequest, TranscriptMessage
 from autogen_dashboard.session_runner import RunOutcome, SessionService
 from autogen_dashboard.session_store import SessionStore
-from autogen_starter.config import Settings
+from autogen_starter.config import Settings as DashboardSettings
 from autogen_starter.providers import ProviderStatus
+from maf_starter.config import activate_run_scope, current_checkpoint_dir, load_settings as load_maf_settings, reset_run_scope
+from maf_starter.tools import build_repo_tools
+from maf_starter.workflow_factory import build_workflow
 
 
 SCRATCH_ROOT = Path(__file__).resolve().parents[1] / ".tmp-tests"
@@ -57,8 +60,8 @@ def init_repo(path: Path) -> None:
     )
 
 
-def make_settings(project_root: Path, scan_root: Path, state_dir: Path) -> Settings:
-    return Settings(
+def make_settings(project_root: Path, scan_root: Path, state_dir: Path) -> DashboardSettings:
+    return DashboardSettings(
         provider="gemini",
         approval_word="APPROVE",
         state_dir=state_dir,
@@ -175,6 +178,81 @@ class Phase1RuntimeTests(unittest.IsolatedAsyncioTestCase):
                 self.assertGreaterEqual(len(reopened.events), 5)
                 self.assertIn("attempts", reopened.artifact_manifest)
                 self.assertEqual(reopened.artifact_manifest["attempts"][-1]["attempt_id"], "attempt-002")
+
+    async def test_workspace_refresh_marks_session_stale_when_repo_changes_between_steps(self) -> None:
+        scratch = self.make_scratch_dir()
+        repo_root = scratch / "repo"
+        init_repo(repo_root)
+        settings = make_settings(scratch, scratch, scratch / "state")
+        store = SessionStore(settings.state_dir / "sessions")
+        service = SessionService(settings=settings, store=store)
+
+        ready_providers = [ProviderStatus("gemini", True, "ready")]
+
+        with patch("autogen_dashboard.session_runner.collect_provider_statuses", return_value=ready_providers):
+            created = await service.create_session(
+                SessionCreateRequest(
+                    title="repo run",
+                    task="Inspect the repo",
+                    provider="gemini",
+                    model="gemini-2.5-pro",
+                    repo_root=str(repo_root),
+                )
+            )
+
+            initial_checked_at = created.workspace_last_checked_at
+            (repo_root / "README.md").write_text("# repo\nchanged\n", encoding="utf-8")
+
+            updated = await service.append_message(created.id, SessionMessageRequest(content="Continue"))
+            self.assertTrue(updated.workspace_stale)
+            self.assertIn("dirty", updated.workspace_drift_fields)
+            self.assertTrue(updated.workspace_stale_detail)
+            self.assertNotEqual(updated.workspace_last_checked_at, initial_checked_at)
+            self.assertTrue(any(event.type == "workspace.stale" for event in updated.events))
+            self.assertEqual(Path(updated.repo_context.root).resolve(), repo_root.resolve())
+
+    async def test_maf_run_scope_updates_dynamic_repo_root_and_checkpoint_dir(self) -> None:
+        scratch = self.make_scratch_dir()
+        entities = scratch / "entities"
+        repo_a = scratch / "repo-a"
+        repo_b = scratch / "repo-b"
+        checkpoint_dir = scratch / "state" / "sessions" / "run-001" / "runtime" / "checkpoint"
+        entities.mkdir()
+        init_repo(repo_a)
+        init_repo(repo_b)
+        (repo_a / "README.md").write_text("alpha\n", encoding="utf-8")
+        (repo_b / "README.md").write_text("beta\n", encoding="utf-8")
+
+        with patch.dict(
+            "os.environ",
+            {
+                "MAF_API_KEY": "test-key",
+                "MAF_MODEL": "gemini-2.5-flash",
+                "MAF_REPO_ROOT": str(repo_a),
+                "MAF_ENTITIES_DIR": str(entities),
+                "MAF_CHECKPOINT_DIR": str(scratch / "state" / "maf-default"),
+            },
+            clear=False,
+        ):
+            settings = load_maf_settings(project_root=scratch, env_path=scratch / ".missing-env")
+
+        tools = {tool.name: tool for tool in build_repo_tools(settings.repo_root)}
+        self.assertIn("alpha", tools["read_repo_file"]("README.md"))
+
+        scoped_settings, tokens = activate_run_scope(
+            settings,
+            repo_root=repo_b,
+            checkpoint_dir=checkpoint_dir,
+        )
+        try:
+            self.assertEqual(scoped_settings.repo_root, repo_b.resolve())
+            self.assertEqual(current_checkpoint_dir(settings.checkpoint_dir), checkpoint_dir.resolve())
+            self.assertIn("beta", tools["read_repo_file"]("README.md"))
+            workflow = build_workflow(scoped_settings)
+            self.assertEqual(workflow.name, "repo_copilot_workflow")
+            self.assertTrue(checkpoint_dir.exists())
+        finally:
+            reset_run_scope(tokens)
 
 
 if __name__ == "__main__":

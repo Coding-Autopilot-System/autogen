@@ -160,7 +160,7 @@ class WorkspaceContractTests(RepoScratchTestCase):
             last_fallback_count=0,
             repo_root=snapshot.root,
             repo_context=snapshot,
-            status="idle",
+            status="queued",
             pause_reason="not_started",
             pause_title="Queued prompt",
             pause_detail="The initial prompt is ready to run.",

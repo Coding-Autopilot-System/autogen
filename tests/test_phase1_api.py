@@ -41,6 +41,10 @@ class FakeSessionService:
             retry_seed_prompt=None,
             workspace_kind="repo",
             workspace_snapshot=snapshot,
+            workspace_stale=False,
+            workspace_stale_detail=None,
+            workspace_last_checked_at=snapshot.scanned_at,
+            workspace_drift_fields=[],
             attempt_count=0,
             latest_attempt_id=None,
             artifact_manifest={"workspace_snapshot": "artifacts/workspace/creation.json", "attempts": []},
@@ -128,6 +132,8 @@ class Phase1ApiTests(unittest.TestCase):
         self.assertEqual(created_body["workspace_snapshot"]["root"], "C:\\repo\\autogen")
         self.assertEqual(created_body["original_task"], "Inspect the repo")
         self.assertEqual(created_body["attempt_count"], 0)
+        self.assertFalse(created_body["workspace_stale"])
+        self.assertEqual(created_body["workspace_drift_fields"], [])
 
         fetched = self.client.get("/api/sessions/run-001")
         self.assertEqual(fetched.status_code, 200)
