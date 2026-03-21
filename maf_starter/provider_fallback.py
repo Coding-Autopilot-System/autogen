@@ -8,10 +8,58 @@ import subprocess
 from collections.abc import AsyncIterable
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Generic, TypeVar
 
-from agent_framework import ChatContext, ChatResponse, ChatResponseUpdate, Content, Message, ResponseStream, chat_middleware
+from agent_framework import ChatContext, ChatMessage, ChatResponse, ChatResponseUpdate, chat_middleware
+from agent_framework._types import Content
 from agent_framework.openai import OpenAIChatClient
+
+try:
+    from agent_framework import ResponseStream
+except ImportError:  # pragma: no cover - compatibility with older MAF package builds
+    TUpdate = TypeVar("TUpdate")
+    TResponse = TypeVar("TResponse")
+
+    class ResponseStream(Generic[TUpdate, TResponse]):
+        def __init__(self, stream: AsyncIterable[TUpdate], finalizer):
+            self._stream = stream
+            self._finalizer = finalizer
+            self._updates: list[TUpdate] = []
+            self._transform_hook = None
+            self._result_hook = None
+            self._final_response = None
+
+        def with_transform_hook(self, hook):
+            self._transform_hook = hook
+            return self
+
+        def with_result_hook(self, hook):
+            self._result_hook = hook
+            return self
+
+        def __aiter__(self):
+            async def _iterate():
+                async for item in self._stream:
+                    transformed = self._transform_hook(item) if self._transform_hook else item
+                    self._updates.append(transformed)
+                    yield transformed
+
+            return _iterate()
+
+        async def get_final_response(self):
+            if self._final_response is None:
+                result = self._finalizer(self._updates)
+                if asyncio.iscoroutine(result):
+                    result = await result
+                if self._result_hook is not None:
+                    result = self._result_hook(result)
+                    if asyncio.iscoroutine(result):
+                        result = await result
+                self._final_response = result
+            return self._final_response
+
+
+Message = ChatMessage
 
 try:
     from agent_framework_anthropic import AnthropicClient
@@ -54,7 +102,7 @@ def build_fallback_middleware(settings: Settings, *, primary_provider: str, prim
             context.options = _override_model(context.options, route.primary_model)
             try:
                 await call_next()
-                if context.stream and context.result is not None:
+                if _context_is_streaming(context) and context.result is not None:
                     context.result = _wrap_stream_with_fallback(
                         settings=scoped_settings,
                         original_stream=context.result,
@@ -129,6 +177,18 @@ def _resolve_run_scope(settings: Settings, context: ChatContext):
     context.metadata["repo_root"] = str(scoped_settings.repo_root)
     context.metadata["checkpoint_dir"] = str(scoped_settings.checkpoint_dir)
     return scoped_settings, tokens
+
+
+def _context_is_streaming(context: ChatContext) -> bool:
+    return bool(getattr(context, "is_streaming", False) or getattr(context, "stream", False))
+
+
+def _context_response_kwargs(context: ChatContext, options: dict[str, Any]) -> dict[str, Any]:
+    response_kwargs = {"options": options, **(context.kwargs or {})}
+    invocation_kwargs = getattr(context, "function_invocation_kwargs", None)
+    if invocation_kwargs:
+        response_kwargs["function_invocation_kwargs"] = invocation_kwargs
+    return response_kwargs
 
 
 def _wrap_stream_with_fallback(
@@ -266,15 +326,16 @@ async def _execute_chain_step(
             api_key=settings.api_key,
             base_url=settings.base_url,
         )
-        response = client.get_response(
-            context.messages,
-            stream=context.stream,
-            options=_override_model(context.options, step.model),
-            function_invocation_kwargs=context.function_invocation_kwargs,
-            **(context.kwargs or {}),
-        )
-        if not context.stream:
-            response = await response
+        if _context_is_streaming(context):
+            response = client.get_streaming_response(
+                context.messages,
+                **_context_response_kwargs(context, _override_model(context.options, step.model)),
+            )
+        else:
+            response = await client.get_response(
+                context.messages,
+                **_context_response_kwargs(context, _override_model(context.options, step.model)),
+            )
         if attempt_log is not None:
             attempt_log.append(
                 _build_route_attempt(
@@ -304,15 +365,22 @@ async def _execute_chain_step(
             api_key=settings.anthropic_api_key,
             model_id=step.model or settings.anthropic_model,
         )
-        response = client.get_response(
-            context.messages,
-            stream=context.stream,
-            options=_override_model(context.options, step.model or settings.anthropic_model),
-            function_invocation_kwargs=context.function_invocation_kwargs,
-            **(context.kwargs or {}),
-        )
-        if not context.stream:
-            response = await response
+        if _context_is_streaming(context):
+            response = client.get_streaming_response(
+                context.messages,
+                **_context_response_kwargs(
+                    context,
+                    _override_model(context.options, step.model or settings.anthropic_model),
+                ),
+            )
+        else:
+            response = await client.get_response(
+                context.messages,
+                **_context_response_kwargs(
+                    context,
+                    _override_model(context.options, step.model or settings.anthropic_model),
+                ),
+            )
         if attempt_log is not None:
             attempt_log.append(
                 _build_route_attempt(
@@ -371,7 +439,7 @@ async def _execute_chain_step(
                     tools_available=False,
                 )
             )
-        if context.stream:
+        if _context_is_streaming(context):
             return _stream_from_response(response)
         return response
 
@@ -613,7 +681,7 @@ def _response_from_updates(updates: list[ChatResponseUpdate]) -> ChatResponse:
         model_id=last.model_id,
         created_at=last.created_at,
         finish_reason=last.finish_reason,
-        continuation_token=last.continuation_token,
+        continuation_token=getattr(last, "continuation_token", None),
         additional_properties=last.additional_properties,
         raw_representation=last.raw_representation,
     )

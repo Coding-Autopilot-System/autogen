@@ -1,13 +1,12 @@
 from __future__ import annotations
 
 import shutil
-import os
 import unittest
 import uuid
 from pathlib import Path
 from unittest.mock import patch
 
-from agent_framework import Message
+from agent_framework import ChatMessage
 
 from maf_starter.config import Settings, load_settings
 from maf_starter.provider_fallback import _merge_route_metadata
@@ -50,7 +49,7 @@ class Phase3RoutingTests(RepoScratchTestCase):
         plan = build_routing_plan(
             settings,
             routing_mode="auto",
-            messages=[Message(role="user", text="hello")],
+            messages=[ChatMessage(role="user", text="hello")],
             primary_provider="gemini",
             primary_model="gemini-2.5-pro",
         )
@@ -68,7 +67,7 @@ class Phase3RoutingTests(RepoScratchTestCase):
         plan = build_routing_plan(
             settings,
             routing_mode="auto",
-            messages=[Message(role="user", text="review this repo")],
+            messages=[ChatMessage(role="user", text="review this repo")],
             primary_provider="gemini",
             primary_model="gemini-2.5-flash",
         )

@@ -35,6 +35,7 @@ VISIBLE_SPECIALIST_ROLES: tuple[SpecialistRole, ...] = (
     "implementer",
     "reviewer",
 )
+SPECIALIST_ROLES: tuple[SpecialistRole, ...] = VISIBLE_SPECIALIST_ROLES
 SPECIALIST_STAGE_MAP: dict[SpecialistRole, StageName | None] = {
     "manager": None,
     "planner": "planning",
@@ -49,6 +50,12 @@ SPECIALIST_DEFAULT_HANDOFF_TARGETS: dict[SpecialistRole, SpecialistRole | None] 
     "implementer": "reviewer",
     "reviewer": "manager",
 }
+SPECIALIST_HANDOFF_FIELDS: tuple[str, ...] = (
+    "current_task",
+    "latest_output_summary",
+    "handoff_to",
+    "handoff_reason",
+)
 
 
 def utc_now_iso() -> str:

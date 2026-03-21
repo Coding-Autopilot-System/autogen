@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Iterable
 
-from agent_framework import Message
+from agent_framework import ChatMessage
 
 from maf_starter.config import Settings
 from maf_starter.routing_types import CapabilityChange, ChainStep, RouteAttempt, RouteLane, parse_chain_steps
@@ -79,7 +79,7 @@ def build_routing_plan(
     settings: Settings,
     *,
     routing_mode: str,
-    messages: Iterable[Message],
+    messages: Iterable[ChatMessage],
     primary_provider: str,
     primary_model: str,
     route_lane: str | None = None,
@@ -216,7 +216,7 @@ def _classify_tier(last_user_text: str) -> tuple[str, str]:
     return "standard", "The prompt looks like normal repo work, so the standard route was used."
 
 
-def _extract_last_user_text(messages: Iterable[Message]) -> str:
+def _extract_last_user_text(messages: Iterable[ChatMessage]) -> str:
     for message in reversed(list(messages)):
         role = str(getattr(message, "role", "")).lower()
         if role != "user":

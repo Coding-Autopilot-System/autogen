@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import replace
 from pathlib import Path
 
-from agent_framework import Agent
+from agent_framework import ChatAgent
 from agent_framework.openai import OpenAIChatClient
 
 from maf_starter.config import Settings, load_settings
@@ -16,14 +16,6 @@ def create_client(settings: Settings, *, routing_mode: str = "auto"):
         model_id=settings.model,
         api_key=settings.api_key,
         base_url=settings.base_url,
-        middleware=[
-            build_fallback_middleware(
-                settings,
-                primary_provider="gemini",
-                primary_model=settings.model,
-                routing_mode=routing_mode,
-            )
-        ],
     )
 
 
@@ -34,7 +26,7 @@ def build_agent(
     description: str | None = None,
     role_instructions: str | None = None,
     routing_mode: str = "auto",
-) -> Agent:
+) -> ChatAgent:
     current = settings or load_settings()
     instructions = (
         "You are a repo-aware software engineering assistant working in the configured local repository. "
@@ -47,13 +39,21 @@ def build_agent(
     )
     if role_instructions:
         instructions = f"{instructions} {role_instructions}"
-    return Agent(
+    return ChatAgent(
         create_client(current, routing_mode=routing_mode),
         name=agent_name,
         description=description or "Repo assistant with fallback across API models and CLI providers.",
         instructions=instructions,
         tools=build_repo_tools(current.repo_root),
         default_options={"model_id": current.model},
+        middleware=[
+            build_fallback_middleware(
+                current,
+                primary_provider="gemini",
+                primary_model=current.model,
+                routing_mode=routing_mode,
+            )
+        ],
     )
 
 
@@ -66,7 +66,7 @@ def build_run_scoped_agent(
     description: str | None = None,
     role_instructions: str | None = None,
     routing_mode: str = "auto",
-) -> Agent:
+) -> ChatAgent:
     return build_agent(
         settings.with_run_scope(repo_root=repo_root, checkpoint_dir=checkpoint_dir),
         agent_name=agent_name,
@@ -84,7 +84,7 @@ def build_agent_for_model(
     description: str | None = None,
     role_instructions: str | None = None,
     routing_mode: str = "fixed",
-) -> Agent:
+) -> ChatAgent:
     current = settings or load_settings()
     return build_agent(
         replace(current, model=model_id),

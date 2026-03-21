@@ -6,7 +6,8 @@ import shutil
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
-from agent_framework import ChatContext, ChatResponse, ChatResponseUpdate, Content, Message, ResponseStream
+from agent_framework import ChatContext, ChatMessage, ChatResponse, ChatResponseUpdate
+from agent_framework._types import Content
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
 from fastapi.testclient import TestClient
@@ -16,9 +17,7 @@ from maf_starter.config import current_checkpoint_dir, load_settings, mask_secre
 from maf_starter.devui_overrides import OLD_GD_RENDERER
 from maf_starter.devui_overrides import _patch_devui_bundle
 from maf_starter.devui_overrides import install_devui_ui_overrides
-from maf_starter.provider_fallback import _merge_route_metadata
-from maf_starter.provider_fallback import _resolve_run_scope
-from maf_starter.provider_fallback import _wrap_stream_with_fallback
+from maf_starter.provider_fallback import ResponseStream, _merge_route_metadata, _resolve_run_scope, _wrap_stream_with_fallback
 from maf_starter.routing_policy import RoutingPlan, build_routing_plan
 from maf_starter.routing_types import ChainStep, parse_chain_steps
 from maf_starter.team_factory import build_repo_team
@@ -183,7 +182,12 @@ class MafSetupTests(RepoScratchTestCase):
             yield  # pragma: no cover
 
         original_stream = ResponseStream(failing_stream(), finalizer=lambda updates: ChatResponse(messages=[]))
-        context = ChatContext(client=object(), messages=[Message(role="user", text="Reply with READY")], options={}, stream=True)
+        context = ChatContext(
+            chat_client=object(),
+            messages=[ChatMessage(role="user", text="Reply with READY")],
+            options={},
+            is_streaming=True,
+        )
         settings = load_settings(project_root=Path.cwd(), env_path=Path.cwd() / ".env")
 
         async def fallback_updates():
@@ -243,8 +247,8 @@ class MafSetupTests(RepoScratchTestCase):
         run_repo.mkdir()
         run_checkpoint = root / "state" / "sessions" / "run-001" / "runtime" / "checkpoint"
         context = ChatContext(
-            client=object(),
-            messages=[Message(role="user", text="hello")],
+            chat_client=object(),
+            messages=[ChatMessage(role="user", text="hello")],
             options={},
             kwargs={"repo_root": str(run_repo), "checkpoint_dir": str(run_checkpoint)},
         )
@@ -266,7 +270,7 @@ class MafSetupTests(RepoScratchTestCase):
         plan = build_routing_plan(
             settings,
             routing_mode="auto",
-            messages=[Message(role="user", text="hello")],
+            messages=[ChatMessage(role="user", text="hello")],
             primary_provider="gemini",
             primary_model="gemini-2.5-pro",
         )
@@ -278,7 +282,7 @@ class MafSetupTests(RepoScratchTestCase):
         plan = build_routing_plan(
             settings,
             routing_mode="auto",
-            messages=[Message(role="user", text="Review this repo and propose an architecture plan")],
+            messages=[ChatMessage(role="user", text="Review this repo and propose an architecture plan")],
             primary_provider="gemini",
             primary_model="gemini-2.5-pro",
         )

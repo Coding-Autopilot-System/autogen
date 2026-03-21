@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from agent_framework_orchestrations import SequentialBuilder
+from agent_framework import SequentialBuilder
 
 from maf_starter.agent_factory import build_agent, build_agent_for_model
 from maf_starter.config import Settings, load_settings
@@ -143,11 +143,16 @@ def build_repo_team(settings: Settings | None = None):
     )
 
     workflow = (
-        SequentialBuilder(
-            participants=[planner, researcher, implementer, reviewer],
-            checkpoint_storage=RunScopedFileCheckpointStorage(artifact_layout.checkpoint_dir),
-            intermediate_outputs=True,
+        SequentialBuilder()
+        .register_participants(
+            [
+                lambda: planner,
+                lambda: researcher,
+                lambda: implementer,
+                lambda: reviewer,
+            ]
         )
+        .with_checkpointing(RunScopedFileCheckpointStorage(artifact_layout.checkpoint_dir))
         .with_request_info(agents=["planner", "implementer", "reviewer"])
         .build()
     )
