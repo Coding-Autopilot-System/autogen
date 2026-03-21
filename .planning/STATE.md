@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: paused
-stopped_at: Phase 3 complete
-last_updated: "2026-03-21T13:05:00.000Z"
+stopped_at: Phase 4 context gathered
+last_updated: "2026-03-21T15:07:51.2152796+02:00"
 progress:
   total_phases: 5
   completed_phases: 3
@@ -23,8 +23,8 @@ See: .planning/PROJECT.md (updated 2026-03-21)
 
 ## Current Position
 
-Phase: 03 (specialist-delegation-and-routing-visibility) - COMPLETE
-Plan: 3 of 3 complete
+Phase: 04 (autonomous-repo-execution-and-validation-guardrails) - context gathered
+Plan: 0 of 3 complete
 
 ## Performance Metrics
 
@@ -88,6 +88,10 @@ Recent decisions affecting current work:
 - Phase 03-01: Specialist state and handoff metadata live in the shared orchestration contract and are projected into workflow metadata directly
 - Phase 03-02: Route lanes and fallback capability drift are durable run data, not transient trace-only output
 - Phase 03-03: The dashboard operator surface is organized into Overview, Agents, Routing, and Artifacts tabs so operator context is visible without raw logs
+- Phase 04 context: Autonomous runs should write directly inside the selected repo or worktree; automatic branch or worktree isolation stays deferred
+- Phase 04 context: Each implementation-capable run should persist changed-file lists, operation records, and unified diff artifacts under the run manifest
+- Phase 04 context: Validation should run as a targeted ladder and record command, cwd, exit code, duration, and output summary
+- Phase 04 context: Approval is reserved for destructive or externally visible actions with explicit scope and reason
 
 ### Pending Todos
 
@@ -101,6 +105,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-21T13:05:00.000Z
-Stopped at: Phase 3 complete
-Resume file: .planning/ROADMAP.md
+Last session: 2026-03-21T15:07:51.2152796+02:00
+Stopped at: Phase 4 context gathered
+Resume file: .planning/phases/04-autonomous-repo-execution-and-validation-guardrails/04-CONTEXT.md
