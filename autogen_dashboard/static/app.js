@@ -88,6 +88,7 @@
     detailTitle: document.getElementById("detail-title"),
     detailBadges: document.getElementById("detail-badges"),
     pauseBanner: document.getElementById("pause-banner"),
+    workspaceWarning: document.getElementById("workspace-warning"),
     detailDisclosure: document.getElementById("detail-disclosure"),
     detailMeta: document.getElementById("detail-meta"),
     detailEmpty: document.getElementById("detail-empty"),
@@ -405,6 +406,10 @@
       `<span class="tiny-chip">${escapeHtml(session.status)}</span>`,
       session.provider ? `<span class="tiny-chip">${escapeHtml(session.provider)}</span>` : "",
       session.model ? `<span class="tiny-chip">${escapeHtml(session.model)}</span>` : "",
+      session.latestAttemptId ? `<span class="tiny-chip">${escapeHtml(session.latestAttemptId)}</span>` : "",
+      session.workspaceStale
+        ? '<span class="status-pill waiting">workspace stale</span>'
+        : '<span class="status-pill completed">workspace fresh</span>',
       `<span class="tiny-chip">${escapeHtml(sessionRuntimeLabel(session))}</span>`,
     ]
       .filter(Boolean)
@@ -911,6 +916,11 @@
     );
     const repoContext = normalizeRepoContext(pick(item, ["repo_context", "repoContext"], null), repoRoot);
     const effectiveRepoContext = repoContext.root || repoContext.name ? repoContext : workspaceSnapshot;
+    const workspaceLastCheckedAt = pick(
+      item,
+      ["workspace_last_checked_at", "workspaceLastCheckedAt"],
+      effectiveRepoContext.scannedAt || ""
+    );
     return {
       raw: item,
       id,
@@ -940,8 +950,15 @@
       eventCount: Number(pick(item, ["event_count", "eventCount"], 0)) || 0,
       stateSaved: Boolean(pick(item, ["state_saved", "stateSaved"], false)),
       attemptCount: Number(pick(item, ["attempt_count", "attemptCount"], 0)) || 0,
+      latestAttemptId: pick(item, ["latest_attempt_id", "latestAttemptId"], ""),
       workspaceKind: workspaceKind || effectiveRepoContext.kind || "",
       workspaceSnapshot,
+      workspaceStale: Boolean(pick(item, ["workspace_stale", "workspaceStale"], false)),
+      workspaceStaleDetail: pick(item, ["workspace_stale_detail", "workspaceStaleDetail"], ""),
+      workspaceLastCheckedAt,
+      workspaceDriftFields: normalizeTextList(
+        pick(item, ["workspace_drift_fields", "workspaceDriftFields"], [])
+      ),
       sessionMode: lookupSessionMode(id),
       repoRoot: repoRoot || effectiveRepoContext.root || "",
       repoContext: effectiveRepoContext,
@@ -998,6 +1015,27 @@
         pick(item, ["repo_root", "repoRoot"], session.repoRoot || "")
       ),
       workspaceKind: pick(item, ["workspace_kind", "workspaceKind"], session.workspaceKind || ""),
+      workspaceStale: Boolean(
+        pick(item, ["workspace_stale", "workspaceStale"], session.workspaceStale || false)
+      ),
+      workspaceStaleDetail: pick(
+        item,
+        ["workspace_stale_detail", "workspaceStaleDetail"],
+        session.workspaceStaleDetail || ""
+      ),
+      workspaceLastCheckedAt: pick(
+        item,
+        ["workspace_last_checked_at", "workspaceLastCheckedAt"],
+        session.workspaceLastCheckedAt || ""
+      ),
+      workspaceDriftFields: normalizeTextList(
+        pick(
+          item,
+          ["workspace_drift_fields", "workspaceDriftFields"],
+          session.workspaceDriftFields || []
+        )
+      ),
+      latestAttemptId: pick(item, ["latest_attempt_id", "latestAttemptId"], session.latestAttemptId || ""),
       sessionMode: lookupSessionMode(session.id),
       raw: item,
     };
@@ -1177,7 +1215,15 @@
       repoContext?.kind ? `<span class="tiny-chip">${escapeHtml(repoContext.kind)}</span>` : "",
       repoContext?.branch ? `<span class="tiny-chip">${escapeHtml(repoContext.branch)}</span>` : "",
       `<span class="tiny-chip">${escapeHtml(repoDirtyLabel(repoContext?.dirty))}</span>`,
-      repoContext?.scannedAt ? `<span class="tiny-chip">Scanned ${escapeHtml(formatTimestamp(repoContext.scannedAt))}</span>` : "",
+      session?.latestAttemptId ? `<span class="tiny-chip">${escapeHtml(session.latestAttemptId)}</span>` : "",
+      session?.workspaceStale
+        ? '<span class="status-pill waiting">stale</span>'
+        : '<span class="status-pill completed">fresh</span>',
+      session?.workspaceLastCheckedAt
+        ? `<span class="tiny-chip">Checked ${escapeHtml(formatTimestamp(session.workspaceLastCheckedAt))}</span>`
+        : repoContext?.scannedAt
+          ? `<span class="tiny-chip">Scanned ${escapeHtml(formatTimestamp(repoContext.scannedAt))}</span>`
+          : "",
     ]
       .filter(Boolean)
       .join("");
@@ -1212,6 +1258,41 @@
         </section>
       </div>
       ${errorBlock}
+    `;
+  }
+
+  function renderWorkspaceWarning(session) {
+    if (!els.workspaceWarning) return;
+    if (!session?.workspaceStale) {
+      els.workspaceWarning.hidden = true;
+      els.workspaceWarning.innerHTML = "";
+      return;
+    }
+
+    const driftFields = normalizeTextList(session.workspaceDriftFields);
+    const driftChips = driftFields.length
+      ? driftFields.map((field) => `<span class="tiny-chip">${escapeHtml(field)}</span>`).join("")
+      : '<span class="tiny-chip">workspace drift</span>';
+
+    els.workspaceWarning.hidden = false;
+    els.workspaceWarning.innerHTML = `
+      <div class="workspace-warning-copy">
+        <div class="workspace-warning-label">Workspace drift detected</div>
+        <div class="workspace-warning-title">The repo changed after this run was created.</div>
+        <div class="workspace-warning-detail">${escapeHtml(
+          session.workspaceStaleDetail || "Refresh the repo summary before trusting older context."
+        )}</div>
+      </div>
+      <div class="workspace-warning-meta">
+        <div class="workspace-warning-chips">${driftChips}</div>
+        <div class="workspace-warning-time">
+          ${
+            session.workspaceLastCheckedAt
+              ? `Last checked ${escapeHtml(formatTimestamp(session.workspaceLastCheckedAt))}`
+              : "Last checked time unavailable"
+          }
+        </div>
+      </div>
     `;
   }
 
@@ -1354,6 +1435,10 @@
       els.detailBadges.innerHTML = "";
       els.pauseBanner.hidden = true;
       els.pauseBanner.innerHTML = "";
+      if (els.workspaceWarning) {
+        els.workspaceWarning.hidden = true;
+        els.workspaceWarning.innerHTML = "";
+      }
       if (els.detailDisclosure) {
         els.detailDisclosure.hidden = true;
         els.detailDisclosure.open = false;
@@ -1386,6 +1471,11 @@
       session.model ? `<span class="badge">${escapeHtml(session.model)}</span>` : "",
       session.lastProviderUsed ? `<span class="badge">used ${escapeHtml(session.lastProviderUsed)}</span>` : "",
       session.lastFallbackCount ? `<span class="badge">${escapeHtml(session.lastFallbackCount)} fallbacks</span>` : "",
+      session.latestAttemptId ? `<span class="badge">${escapeHtml(session.latestAttemptId)}</span>` : "",
+      session.attemptCount ? `<span class="badge">${escapeHtml(session.attemptCount)} attempts</span>` : "",
+      session.workspaceStale
+        ? `<span class="status-pill waiting">workspace stale</span>`
+        : `<span class="status-pill completed">workspace fresh</span>`,
       `<span class="badge">mode: ${escapeHtml(sessionModeConfig(session.sessionMode).label)}</span>`,
       session.repoRoot || session.repoContext?.root ? `<span class="badge">repo</span>` : "",
     ]
@@ -1393,6 +1483,7 @@
       .join("");
 
     renderRepoContextBanner(session);
+    renderWorkspaceWarning(session);
 
     const hasPauseState =
       session.waitingForHuman || session.pauseReason || session.pauseTitle || session.pauseDetail || session.lastStopReason;
@@ -1435,6 +1526,11 @@
       ["Repo branch", session.repoContext?.branch || "None"],
       ["Repo dirty", repoDirtyLabel(session.repoContext?.dirty)],
       ["Repo scanned", session.repoContext?.scannedAt ? formatTimestamp(session.repoContext.scannedAt) : "None"],
+      ["Latest attempt", session.latestAttemptId || "None"],
+      ["Attempt count", String(session.attemptCount || 0)],
+      ["Workspace freshness", session.workspaceStale ? "Stale" : "Fresh"],
+      ["Workspace checked", session.workspaceLastCheckedAt ? formatTimestamp(session.workspaceLastCheckedAt) : "None"],
+      ["Workspace drift", session.workspaceDriftFields?.length ? session.workspaceDriftFields.join(" | ") : "None"],
       ["Pause reason", session.pauseReason || "None"],
       ["Pause title", session.pauseTitle || "None"],
       ["Pause detail", session.pauseDetail || "None"],

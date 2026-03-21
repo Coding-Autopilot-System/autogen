@@ -70,6 +70,14 @@ class RunTarget:
     model: str | None
 
 
+@dataclass(frozen=True)
+class WorkspaceRefresh:
+    repo_context: Any | None
+    stale: bool
+    detail: str | None
+    drift_fields: list[str]
+
+
 class RunFailure(RuntimeError):
     def __init__(
         self,
@@ -149,6 +157,10 @@ class SessionService:
             retry_seed_prompt=None,
             workspace_kind=repo_context.kind,
             workspace_snapshot=repo_context,
+            workspace_stale=False,
+            workspace_stale_detail=None,
+            workspace_last_checked_at=repo_context.scanned_at,
+            workspace_drift_fields=[],
             attempt_count=0,
             latest_attempt_id=None,
             artifact_manifest={},
@@ -314,12 +326,18 @@ class SessionService:
                 summary.approval_decisions.append(
                     ApprovalDecision(decision=decision, note=content, created_at=now)
                 )
+            refresh = self._refresh_workspace_snapshot(summary)
             summary.last_error = None
             summary.updated_at = now
             summary.transcript_count = len(transcript)
-            summary.event_count = len(runtime.events) + 1
+            summary.event_count = len(runtime.events) + (3 if refresh.stale else 2)
             self.store.save_transcript(session_id, transcript)
             self.store.save_summary(summary)
+            await self._emit_workspace_refresh_events(
+                session_id,
+                refresh,
+                reason="human-input",
+            )
             await self._emit_event(session_id, "message.added", {"content": content, "source": source})
             return self.get_session(session_id)
 
@@ -354,7 +372,8 @@ class SessionService:
             system_message = summary.system_message
             provider = summary.provider
             model_override = summary.model
-            repo_context = self._refresh_repo_context(summary)
+            refresh = self._refresh_workspace_snapshot(summary)
+            repo_context = refresh.repo_context
             attempt_id, created_attempt = self._resolve_attempt_id(summary, prompt_origin)
             summary.latest_attempt_id = attempt_id
             if created_attempt:
@@ -395,9 +414,24 @@ class SessionService:
                 summary.retry_seed_prompt = prompt
 
             summary.queued_prompt = None
-            summary.event_count = len(runtime.events) + 1
+            summary.event_count = len(runtime.events) + (3 if refresh.stale else 2)
             self.store.save_summary(summary)
-            await self._emit_event(session_id, "run.started", {"prompt": prompt, "prompt_origin": prompt_origin})
+            await self._emit_workspace_refresh_events(
+                session_id,
+                refresh,
+                reason=f"run-start:{prompt_origin}",
+            )
+            await self._emit_event(
+                session_id,
+                "run.started",
+                {
+                    "prompt": prompt,
+                    "prompt_origin": prompt_origin,
+                    "attempt_id": attempt_id,
+                    "repo_root": repo_context.root if repo_context is not None else None,
+                    "checkpoint_dir": str(self.store.checkpoint_dir(session_id)),
+                },
+            )
 
             run_task = asyncio.create_task(
                 self._finish_prompt_run(
@@ -668,18 +702,130 @@ class SessionService:
             "If you need clarification, ask for it directly and briefly."
         )
 
-    def _refresh_repo_context(self, summary: SessionSummary):
+    def _refresh_workspace_snapshot(self, summary: SessionSummary) -> WorkspaceRefresh:
+        previous_snapshot = summary.workspace_snapshot or summary.repo_context
         if not summary.repo_root:
             summary.repo_context = None
             summary.workspace_snapshot = None
-            return None
-        repo_path = resolve_repo_root(summary.repo_root, self.settings.repo_scan_root)
-        repo_context = collect_repo_context(repo_path) if repo_path is not None else None
+            summary.workspace_stale = False
+            summary.workspace_stale_detail = None
+            summary.workspace_last_checked_at = None
+            summary.workspace_drift_fields = []
+            return WorkspaceRefresh(
+                repo_context=None,
+                stale=False,
+                detail=None,
+                drift_fields=[],
+            )
+
+        try:
+            repo_path = resolve_repo_root(summary.repo_root, self.settings.repo_scan_root)
+            repo_context = collect_repo_context(repo_path) if repo_path is not None else None
+        except Exception as exc:
+            repo_context = previous_snapshot.model_copy(deep=True) if previous_snapshot is not None else None
+            if repo_context is not None:
+                repo_context.error = self._summarize_exception(exc)
+                repo_context.scanned_at = utc_now()
+            summary.repo_context = repo_context
+            summary.workspace_snapshot = repo_context
+            summary.workspace_stale = True
+            summary.workspace_stale_detail = f"Workspace refresh failed: {self._summarize_exception(exc)}"
+            summary.workspace_last_checked_at = utc_now()
+            summary.workspace_drift_fields = ["unavailable"]
+            return WorkspaceRefresh(
+                repo_context=repo_context,
+                stale=True,
+                detail=summary.workspace_stale_detail,
+                drift_fields=["unavailable"],
+            )
+
+        drift_fields = self._workspace_drift_fields(previous_snapshot, repo_context)
+        stale = bool(drift_fields)
+        detail = self._workspace_stale_detail(previous_snapshot, repo_context, drift_fields) if stale else None
+
         summary.repo_root = repo_context.root if repo_context is not None else None
         summary.repo_context = repo_context
         summary.workspace_snapshot = repo_context
         summary.workspace_kind = repo_context.kind if repo_context is not None else summary.workspace_kind
-        return repo_context
+        summary.workspace_stale = stale
+        summary.workspace_stale_detail = detail
+        summary.workspace_last_checked_at = repo_context.scanned_at if repo_context is not None else utc_now()
+        summary.workspace_drift_fields = drift_fields
+        return WorkspaceRefresh(
+            repo_context=repo_context,
+            stale=stale,
+            detail=detail,
+            drift_fields=drift_fields,
+        )
+
+    async def _emit_workspace_refresh_events(
+        self,
+        session_id: str,
+        refresh: WorkspaceRefresh,
+        *,
+        reason: str,
+    ) -> None:
+        await self._emit_event(
+            session_id,
+            "workspace.refreshed",
+            {
+                "reason": reason,
+                "repo_root": refresh.repo_context.root if refresh.repo_context is not None else None,
+                "stale": refresh.stale,
+                "drift_fields": refresh.drift_fields,
+                "detail": refresh.detail,
+            },
+        )
+        if refresh.stale:
+            await self._emit_event(
+                session_id,
+                "workspace.stale",
+                {
+                    "reason": reason,
+                    "detail": refresh.detail,
+                    "drift_fields": refresh.drift_fields,
+                    "repo_root": refresh.repo_context.root if refresh.repo_context is not None else None,
+                },
+            )
+
+    def _workspace_drift_fields(self, previous_snapshot, current_snapshot) -> list[str]:
+        if previous_snapshot is None or current_snapshot is None:
+            return []
+        drift_fields: list[str] = []
+        if previous_snapshot.root != current_snapshot.root:
+            drift_fields.append("root")
+        if (previous_snapshot.branch or "") != (current_snapshot.branch or ""):
+            drift_fields.append("branch")
+        if previous_snapshot.dirty != current_snapshot.dirty:
+            drift_fields.append("dirty")
+        if previous_snapshot.changed_files != current_snapshot.changed_files:
+            drift_fields.append("changed_files")
+        if previous_snapshot.signature != current_snapshot.signature and "changed_files" not in drift_fields:
+            drift_fields.append("signature")
+        return drift_fields
+
+    def _workspace_stale_detail(self, previous_snapshot, current_snapshot, drift_fields: list[str]) -> str:
+        parts: list[str] = []
+        if "branch" in drift_fields:
+            parts.append(
+                f"branch {previous_snapshot.branch or 'unknown'} -> {current_snapshot.branch or 'unknown'}"
+            )
+        if "dirty" in drift_fields:
+            parts.append(
+                f"dirty {self._bool_label(previous_snapshot.dirty)} -> {self._bool_label(current_snapshot.dirty)}"
+            )
+        if "changed_files" in drift_fields or "signature" in drift_fields:
+            previous_changed = len(previous_snapshot.changed_files or [])
+            current_changed = len(current_snapshot.changed_files or [])
+            parts.append(f"changed files {previous_changed} -> {current_changed}")
+        if "root" in drift_fields:
+            parts.append("workspace root changed")
+        if "unavailable" in drift_fields:
+            return "Workspace refresh failed. The recorded repo snapshot may be stale."
+        return "Workspace changed since the last saved snapshot: " + ", ".join(parts)
+
+    def _bool_label(self, value: bool) -> str:
+        return "dirty" if value else "clean"
 
     def _assistant_messages(self, messages: list[Any]) -> list[TranscriptMessage]:
         assistant_messages: list[TranscriptMessage] = []

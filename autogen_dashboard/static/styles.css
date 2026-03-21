@@ -830,6 +830,61 @@ h1 {
     radial-gradient(circle at right top, rgba(180, 83, 9, 0.08), transparent 40%);
 }
 
+.workspace-warning {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+  margin-bottom: 14px;
+  padding: 16px;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(180, 83, 9, 0.24);
+  background:
+    linear-gradient(135deg, rgba(255, 247, 237, 0.97), rgba(254, 215, 170, 0.54)),
+    radial-gradient(circle at right top, rgba(217, 119, 6, 0.14), transparent 42%);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.42);
+}
+
+.workspace-warning-label {
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--warning);
+  font-weight: 800;
+}
+
+.workspace-warning-title {
+  margin-top: 6px;
+  font-size: 1.02rem;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.workspace-warning-detail {
+  margin-top: 8px;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.workspace-warning-meta {
+  display: grid;
+  gap: 10px;
+  justify-items: end;
+}
+
+.workspace-warning-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.workspace-warning-time {
+  color: var(--muted);
+  font-size: 0.86rem;
+  text-align: right;
+}
+
 .pause-label {
   font-size: 0.74rem;
   text-transform: uppercase;
@@ -1156,6 +1211,20 @@ h1 {
 
   .pause-banner {
     grid-template-columns: 1fr;
+  }
+
+  .workspace-warning {
+    grid-template-columns: 1fr;
+  }
+
+  .workspace-warning-meta,
+  .workspace-warning-chips {
+    justify-items: start;
+    justify-content: flex-start;
+  }
+
+  .workspace-warning-time {
+    text-align: left;
   }
 
   .pause-tags {

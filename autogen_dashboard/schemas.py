@@ -122,6 +122,10 @@ class SessionSummary(BaseModel):
     retry_seed_prompt: str | None = None
     workspace_kind: WorkspaceKind | None = None
     workspace_snapshot: RepoContext | None = None
+    workspace_stale: bool = False
+    workspace_stale_detail: str | None = None
+    workspace_last_checked_at: datetime | None = None
+    workspace_drift_fields: list[str] = Field(default_factory=list)
     attempt_count: int = 0
     latest_attempt_id: str | None = None
     artifact_manifest: dict[str, Any] = Field(default_factory=dict)
