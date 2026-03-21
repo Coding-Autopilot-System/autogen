@@ -21,6 +21,9 @@ You can give one prompt and watch a trustworthy multi-agent coding system drive 
 - Existing: legacy dashboard and session-management path in `autogen_dashboard/` and `autogen_starter/`
 - Phase 1: explicit repo or worktree run creation, durable run directories, and retry-safe run identity
 - Phase 1: run-scoped MAF repo-root and checkpoint overrides with workspace freshness and stale-workspace warnings
+- Phase 2: manager-owned orchestration state machine with canonical stages, stage-scoped persistence, and explicit pause semantics
+- Phase 2: automatic GSD clarification answers for common planning-context questions plus blocked-question persistence
+- Phase 2: dashboard orchestration summary cards with stage timeline, stage outputs, and route metadata
 
 ### Active
 
@@ -59,9 +62,11 @@ The current repo already proves some of the technical foundation: repo-aware too
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Keep Microsoft Agent Framework as the active runtime base | The current repo already runs on MAF and has working entities, workflows, and DevUI integration | Pending |
+| Keep Microsoft Agent Framework as the active runtime base | The current repo already runs on MAF and has working entities, workflows, and DevUI integration | Validated in Phase 2 |
 | Treat the product as a local-first orchestration workbench | Your main usage is on the local machine with installed CLIs, local repo access, and local validation | Validated in Phase 1 |
-| Use a manager-driven multi-agent workflow as the primary interaction model | The goal is one-prompt execution with specialist delegation rather than manual step-by-step prompting | Pending |
+| Use a manager-driven multi-agent workflow as the primary interaction model | The goal is one-prompt execution with specialist delegation rather than manual step-by-step prompting | Validated in Phase 2 |
+| Make orchestration state explicit and durable | Phase 2 needs a shared contract for pause/resume/retry and operator visibility | Validated in Phase 2 |
+| Answer routine GSD clarification locally from planning context first | Common planning questions should not burn extra model turns or always block the operator | Validated in Phase 2 |
 | Make autonomous repo editing and validation the default behavior | You explicitly want the system to do the work automatically instead of asking on every step | Pending |
 | Defer Azure Function/REST hosting to a later stage | Cloud exposure matters, but local execution quality and operator UX are higher priority in v1 | Validated in Phase 1 |
 | Prefer Gemini API first and local CLIs as fallback or specialist paths | This fits your installed tooling, cost preference, and current runtime capabilities | Validated in Phase 1 |
@@ -69,8 +74,9 @@ The current repo already proves some of the technical foundation: repo-aware too
 ## Current State
 
 - Phase 1 is complete: runs now start from an explicit workspace, persist under one durable run identity, and surface workspace drift visibly.
-- The active MAF runtime can be re-scoped per run for repo root and checkpoint storage instead of relying only on startup-time defaults.
-- The next execution focus is Phase 2, where the manager-led orchestration state machine will replace the current mostly single-turn runtime behavior.
+- Phase 2 is complete: the active dashboard runtime now executes against a manager-owned stage machine with durable stage artifacts, stage-aware pause kinds, and retry-scoped resume behavior.
+- The operator shell now shows current stage, last completed stage, route metadata, stage timeline, stage summaries, and automatic GSD answers without raw-log digging.
+- The next execution focus is Phase 3, where specialist ownership and routing visibility become richer and more agent-specific instead of manager-summary-only.
 
 ## Evolution
 
@@ -90,4 +96,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-03-21 after Phase 01 completion*
+*Last updated: 2026-03-21 after Phase 02 completion*
