@@ -223,6 +223,47 @@ class Phase2RuntimeTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("gsd.answer.generated", event_types)
         self.assertIn("stage.completed", event_types)
 
+    async def test_failed_validation_pauses_run_with_recorded_results(self) -> None:
+        service, _store, created, _repo_root = await self._create_service_and_session()
+
+        stage_calls = [
+            (stage_json("Plan ready.", needs_approval=True), "gemini", "gemini-2.5-pro", ["gemini:gemini-2.5-pro succeeded"]),
+            (stage_json("Research complete."), "gemini", "gemini-2.5-pro", ["gemini:gemini-2.5-pro succeeded"]),
+            (
+                stage_json(
+                    "Implementation complete.",
+                    file_operations=[
+                        {
+                            "action": "create_file",
+                            "path": "maf_starter/broken.py",
+                            "content": "def broken(:\n",
+                            "reason": "Create a failing validation target.",
+                        }
+                    ],
+                ),
+                "gemini",
+                "gemini-2.5-pro",
+                ["gemini:gemini-2.5-pro succeeded"],
+            ),
+            (stage_json("Review complete."), "gemini", "gemini-2.5-pro", ["gemini:gemini-2.5-pro succeeded"]),
+        ]
+
+        with patch.object(service, "_run_stage_prompt", new=AsyncMock(side_effect=stage_calls)):
+            await service.run_step(created.id)
+            await service._session_runtime(created.id).active_task
+            await service.approve(created.id, SessionDecisionRequest(note="Proceed"))
+            await service.run_step(created.id)
+            await service._session_runtime(created.id).active_task
+
+        updated = service.get_session(created.id)
+        self.assertEqual(updated.pause_kind, "retryable_error")
+        self.assertEqual(updated.current_stage, "validation")
+        self.assertIn("validation", updated.stage_outputs)
+        validation_output = updated.stage_outputs["validation"]
+        self.assertTrue(validation_output.validation_results)
+        self.assertTrue(any(item["status"] == "failed" for item in validation_output.validation_results))
+        self.assertEqual(updated.stage_timeline[-1].status, "paused")
+
 
 if __name__ == "__main__":
     unittest.main()

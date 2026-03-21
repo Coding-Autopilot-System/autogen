@@ -43,6 +43,24 @@ class SessionStore:
     def stage_summary_path(self, session_id: str, stage: str) -> Path:
         return self.stage_artifact_dir(session_id, stage) / "summary.json"
 
+    def stage_changes_dir(self, session_id: str, stage: str = "implementation") -> Path:
+        return self.stage_artifact_dir(session_id, stage) / "changes"
+
+    def stage_changed_files_path(self, session_id: str, stage: str = "implementation") -> Path:
+        return self.stage_changes_dir(session_id, stage) / "files.json"
+
+    def stage_write_operations_path(self, session_id: str, stage: str = "implementation") -> Path:
+        return self.stage_changes_dir(session_id, stage) / "operations.json"
+
+    def stage_diff_patch_path(self, session_id: str, stage: str = "implementation") -> Path:
+        return self.stage_changes_dir(session_id, stage) / "diff.patch"
+
+    def stage_validation_commands_path(self, session_id: str, stage: str = "validation") -> Path:
+        return self.stage_artifact_dir(session_id, stage) / "commands.json"
+
+    def stage_validation_results_path(self, session_id: str, stage: str = "validation") -> Path:
+        return self.stage_artifact_dir(session_id, stage) / "results.json"
+
     def gsd_artifacts_dir(self, session_id: str) -> Path:
         return self.artifacts_dir(session_id) / "gsd"
 
@@ -172,6 +190,48 @@ class SessionStore:
         self._ensure_session_layout(session_id)
         self._write_json(self.stage_summary_path(session_id, stage), payload)
         self.save_artifact_manifest(session_id)
+
+    def save_stage_change_artifacts(
+        self,
+        session_id: str,
+        *,
+        stage: str,
+        changed_files: list[str],
+        write_operations: list[dict[str, Any]],
+        diff_patch: str | None,
+    ) -> dict[str, str | None]:
+        self._ensure_session_layout(session_id)
+        self._write_json(self.stage_changed_files_path(session_id, stage), changed_files)
+        self._write_json(self.stage_write_operations_path(session_id, stage), write_operations)
+        diff_path = self.stage_diff_patch_path(session_id, stage)
+        if diff_patch and diff_patch.strip():
+            diff_path.parent.mkdir(parents=True, exist_ok=True)
+            diff_path.write_text(diff_patch, encoding="utf-8", newline="\n")
+        elif diff_path.exists():
+            diff_path.unlink()
+        self.save_artifact_manifest(session_id)
+        return {
+            "files": self._relative_to_session(session_id, self.stage_changed_files_path(session_id, stage)),
+            "operations": self._relative_to_session(session_id, self.stage_write_operations_path(session_id, stage)),
+            "diff": self._relative_if_exists(session_id, diff_path),
+        }
+
+    def save_validation_artifacts(
+        self,
+        session_id: str,
+        *,
+        stage: str,
+        commands: list[dict[str, Any]],
+        results: list[dict[str, Any]],
+    ) -> dict[str, str]:
+        self._ensure_session_layout(session_id)
+        self._write_json(self.stage_validation_commands_path(session_id, stage), commands)
+        self._write_json(self.stage_validation_results_path(session_id, stage), results)
+        self.save_artifact_manifest(session_id)
+        return {
+            "commands": self._relative_to_session(session_id, self.stage_validation_commands_path(session_id, stage)),
+            "results": self._relative_to_session(session_id, self.stage_validation_results_path(session_id, stage)),
+        }
 
     def save_auto_answer_records(self, session_id: str, payload: list[dict[str, Any]]) -> None:
         self._ensure_session_layout(session_id)
@@ -313,10 +373,20 @@ class SessionStore:
             if not stage_dir.is_dir():
                 continue
             summary_path = stage_dir / "summary.json"
+            stage_name = stage_dir.name
             stage_entries.append(
                 {
-                    "stage": stage_dir.name,
+                    "stage": stage_name,
                     "summary": self._relative_if_exists(session_id, summary_path),
+                    "changes": {
+                        "files": self._relative_if_exists(session_id, self.stage_changed_files_path(session_id, stage_name)),
+                        "operations": self._relative_if_exists(session_id, self.stage_write_operations_path(session_id, stage_name)),
+                        "diff": self._relative_if_exists(session_id, self.stage_diff_patch_path(session_id, stage_name)),
+                    },
+                    "validation": {
+                        "commands": self._relative_if_exists(session_id, self.stage_validation_commands_path(session_id, stage_name)),
+                        "results": self._relative_if_exists(session_id, self.stage_validation_results_path(session_id, stage_name)),
+                    },
                 }
             )
         return {

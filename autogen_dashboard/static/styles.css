@@ -1101,6 +1101,10 @@ h1 {
   font-size: 1rem;
 }
 
+.orchestration-note {
+  margin: 10px 0 0;
+}
+
 .stage-card-grid,
 .output-card-grid {
   display: grid;
@@ -1110,6 +1114,56 @@ h1 {
 .stage-card,
 .output-card {
   padding: 12px;
+}
+
+.approval-scope {
+  margin: 14px 0;
+  padding: 14px;
+  border-radius: var(--radius-xs);
+  border: 1px solid rgba(146, 64, 14, 0.16);
+  background:
+    linear-gradient(135deg, rgba(255, 247, 237, 0.96), rgba(255, 255, 255, 0.78)),
+    radial-gradient(circle at right top, rgba(217, 119, 6, 0.12), transparent 38%);
+}
+
+.approval-scope-compact {
+  margin: 10px 0 0;
+  padding: 12px;
+}
+
+.approval-scope-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: start;
+}
+
+.approval-scope-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--warning);
+  font-weight: 800;
+}
+
+.approval-scope-title {
+  margin-top: 6px;
+  font-weight: 800;
+  color: var(--ink);
+  text-transform: capitalize;
+}
+
+.approval-scope-copy {
+  margin-top: 10px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.approval-scope-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
 }
 
 .stage-card-head,

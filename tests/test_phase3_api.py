@@ -163,6 +163,14 @@ class FakePhase3SessionService:
                     needs_approval=True,
                     needs_input=False,
                     blocked_questions=[],
+                    pending_approval={
+                        "action_kind": "file_write",
+                        "risk_level": "destructive",
+                        "reason": "Deleting README.md requires explicit approval.",
+                        "affected_paths": ["README.md"],
+                        "commands": [],
+                        "external_targets": [],
+                    },
                     route_metadata={
                         "route_lane": "deep",
                         "active_provider": "gemini-cli",
@@ -195,6 +203,14 @@ class FakePhase3SessionService:
                                 "reason": "Fallback moved execution from API to CLI.",
                             }
                         ],
+                        "pending_approval": {
+                            "action_kind": "file_write",
+                            "risk_level": "destructive",
+                            "reason": "Deleting README.md requires explicit approval.",
+                            "affected_paths": ["README.md"],
+                            "commands": [],
+                            "external_targets": [],
+                        },
                     },
                 )
             },
@@ -238,6 +254,14 @@ class FakePhase3SessionService:
             ],
             auto_answer_records=[],
             blocked_questions=[],
+            pending_approval={
+                "action_kind": "file_write",
+                "risk_level": "destructive",
+                "reason": "Deleting README.md requires explicit approval.",
+                "affected_paths": ["README.md"],
+                "commands": [],
+                "external_targets": [],
+            },
             route_metadata={
                 "route_lane": "deep",
                 "active_provider": "gemini-cli",
@@ -344,6 +368,7 @@ class Phase3ApiTests(unittest.TestCase):
         self.assertEqual(created_body["capability_changes"][0]["name"], "tools_available")
         self.assertEqual(created_body["specialist_states"][0]["role"], "planner")
         self.assertEqual(created_body["specialist_handoffs"][0]["to_role"], "researcher")
+        self.assertEqual(created_body["pending_approval"]["affected_paths"], ["README.md"])
 
         fetched = self.client.get("/api/sessions/run-003")
         self.assertEqual(fetched.status_code, 200)
@@ -352,6 +377,7 @@ class Phase3ApiTests(unittest.TestCase):
         self.assertEqual(fetched_body["requested_model"], "gemini-2.5-pro")
         self.assertEqual(fetched_body["route_metadata"]["active_provider"], "gemini-cli")
         self.assertEqual(fetched_body["specialist_states"][1]["status"], "running")
+        self.assertEqual(fetched_body["stage_outputs"]["planning"]["pending_approval"]["risk_level"], "destructive")
 
     def test_sse_snapshot_contains_specialist_and_route_visibility(self) -> None:
         with self.client.stream("GET", "/api/sessions/run-003/events") as response:
@@ -363,6 +389,7 @@ class Phase3ApiTests(unittest.TestCase):
         self.assertIn('"route_plan"', body)
         self.assertIn('"specialist_states"', body)
         self.assertIn('"specialist_handoffs"', body)
+        self.assertIn('"affected_paths": ["README.md"]', body)
 
 
 if __name__ == "__main__":

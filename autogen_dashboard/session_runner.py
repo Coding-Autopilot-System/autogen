@@ -42,6 +42,12 @@ from autogen_dashboard.repo_context import build_repo_brief, collect_repo_contex
 from autogen_dashboard.session_store import SessionStore
 from autogen_starter.config import Settings
 from autogen_starter.providers import ProviderConfigError, collect_provider_statuses, create_model_client
+from maf_starter.approval_policy import (
+    ApprovalScope,
+    classify_validation_commands,
+    classify_write_operations,
+    is_execution_approved,
+)
 from maf_starter.gsd_autofill import resolve_gsd_questions
 from maf_starter.orchestration import (
     CANONICAL_STAGE_NAMES,
@@ -54,7 +60,9 @@ from maf_starter.orchestration import (
     StageSummary,
     specialist_role_for_stage,
 )
+from maf_starter.repo_execution import ChangeCaptureResult, apply_write_operations, parse_write_operations_payload
 from maf_starter.tools import build_repo_context_snapshot
+from maf_starter.validation_runner import ValidationPlan, execute_validation_plan, plan_validation
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
@@ -1334,12 +1342,88 @@ class SessionService:
             )
 
             if stage == "validation":
-                summary = self._validation_summary(orchestration)
+                summary, pause_kind = self._run_validation_stage(
+                    orchestration=orchestration,
+                    repo_context=repo_context,
+                )
+                last_route_metadata = dict(summary.route_metadata)
+                if pause_kind == "retryable_error":
+                    orchestration.pause_stage(stage, "retryable_error", summary=summary)
+                    transition_events.append(self._stage_event_payload("stage.paused", stage, summary, orchestration))
+                    return self._build_orchestration_outcome(
+                        orchestration=orchestration,
+                        prompt=operator_task,
+                        provider_used=last_provider_used,
+                        model_used=last_model_used,
+                        attempt_log=attempt_log,
+                        route_lane=str(last_route_metadata.get("route_lane") or "auto"),
+                        route_plan=list(last_route_metadata.get("route_plan") or []),
+                        route_attempts=list(last_route_metadata.get("route_attempts") or []),
+                        capability_changes=list(last_route_metadata.get("capability_changes") or []),
+                        route_metadata=last_route_metadata,
+                        auto_answer_records=auto_answer_records,
+                        blocked_questions=[],
+                        transition_events=transition_events,
+                        pause_kind="retryable_error",
+                    )
+                if pause_kind == "blocked":
+                    orchestration.pause_stage(stage, "blocked", summary=summary, blocked_questions=summary.blocked_questions)
+                    transition_events.append(self._stage_event_payload("stage.paused", stage, summary, orchestration))
+                    return self._build_orchestration_outcome(
+                        orchestration=orchestration,
+                        prompt=operator_task,
+                        provider_used=last_provider_used,
+                        model_used=last_model_used,
+                        attempt_log=attempt_log,
+                        route_lane=str(last_route_metadata.get("route_lane") or "auto"),
+                        route_plan=list(last_route_metadata.get("route_plan") or []),
+                        route_attempts=list(last_route_metadata.get("route_attempts") or []),
+                        capability_changes=list(last_route_metadata.get("capability_changes") or []),
+                        route_metadata=last_route_metadata,
+                        auto_answer_records=auto_answer_records,
+                        blocked_questions=summary.blocked_questions,
+                        transition_events=transition_events,
+                        pause_kind="blocked",
+                    )
+                if pause_kind == "needs_approval":
+                    orchestration.pause_stage(stage, "needs_approval", summary=summary)
+                    transition_events.append(self._stage_event_payload("stage.paused", stage, summary, orchestration))
+                    return self._build_orchestration_outcome(
+                        orchestration=orchestration,
+                        prompt=operator_task,
+                        provider_used=last_provider_used,
+                        model_used=last_model_used,
+                        attempt_log=attempt_log,
+                        route_lane=str(last_route_metadata.get("route_lane") or "auto"),
+                        route_plan=list(last_route_metadata.get("route_plan") or []),
+                        route_attempts=list(last_route_metadata.get("route_attempts") or []),
+                        capability_changes=list(last_route_metadata.get("capability_changes") or []),
+                        route_metadata=last_route_metadata,
+                        auto_answer_records=auto_answer_records,
+                        blocked_questions=[],
+                        transition_events=transition_events,
+                        pause_kind="needs_approval",
+                    )
                 orchestration.complete_stage(stage, summary)
                 transition_events.append(self._stage_event_payload("stage.completed", stage, summary, orchestration))
                 orchestration.mark_completed()
-                last_route_metadata = summary.route_metadata
                 break
+
+            if self._should_resume_approved_write_stage(
+                stage=stage,
+                prompt=prompt,
+                record_summary=record.summary,
+            ):
+                resumed_summary = self._apply_implementation_operations(
+                    repo_context=repo_context,
+                    summary=record.summary or StageSummary(stage=stage, summary=""),
+                    payload={"file_operations": list(record.summary.proposed_write_operations if record.summary else [])},
+                    allow_execution=True,
+                )
+                orchestration.complete_stage(stage, resumed_summary)
+                transition_events.append(self._stage_event_payload("stage.completed", stage, resumed_summary, orchestration))
+                last_route_metadata = dict(resumed_summary.route_metadata)
+                continue
 
             stage_prompt = self._build_stage_prompt(
                 stage=stage,
@@ -1416,7 +1500,8 @@ class SessionService:
             last_provider_used = provider_used
             last_model_used = model_used
             last_route_metadata = dict(stage_route_metadata)
-            summary = self._parse_stage_summary(stage, stage_text, last_route_metadata)
+            stage_payload = self._extract_json_object(stage_text) or {}
+            summary = self._parse_stage_summary(stage, stage_text, last_route_metadata, payload=stage_payload)
             specialist_payload = self._extract_specialist_payload(stage, stage_text, summary)
             orchestration.update_specialist(
                 specialist_role_for_stage(stage),
@@ -1427,6 +1512,33 @@ class SessionService:
                 last_handoff_target=specialist_payload.get("handoff_to"),
                 last_handoff_reason=specialist_payload.get("handoff_reason"),
             )
+
+            if stage == "implementation":
+                summary = self._apply_implementation_operations(
+                    repo_context=repo_context,
+                    summary=summary,
+                    payload=stage_payload,
+                    allow_execution=False,
+                )
+                if summary.pending_approval and summary.needs_approval:
+                    orchestration.pause_stage(stage, "needs_approval", summary=summary)
+                    transition_events.append(self._stage_event_payload("stage.paused", stage, summary, orchestration))
+                    return self._build_orchestration_outcome(
+                        orchestration=orchestration,
+                        prompt=operator_task,
+                        provider_used=last_provider_used,
+                        model_used=last_model_used,
+                        attempt_log=attempt_log,
+                        route_lane=str(last_route_metadata.get("route_lane") or "auto"),
+                        route_plan=list(last_route_metadata.get("route_plan") or []),
+                        route_attempts=list(last_route_metadata.get("route_attempts") or []),
+                        capability_changes=list(last_route_metadata.get("capability_changes") or []),
+                        route_metadata=last_route_metadata,
+                        auto_answer_records=auto_answer_records,
+                        blocked_questions=[],
+                        transition_events=transition_events,
+                        pause_kind="needs_approval",
+                    )
 
             answers, unresolved = self._resolve_stage_questions(
                 stage=stage,
@@ -1654,6 +1766,13 @@ class SessionService:
             if record.answer
         ]
         repo_brief = build_repo_brief(repo_context)
+        output_contract = "Return JSON with summary, artifacts, next_action, needs_approval, needs_input, blocked_questions."
+        if stage == "implementation":
+            output_contract = (
+                "Return JSON with summary, artifacts, next_action, needs_approval, needs_input, blocked_questions, and file_operations. "
+                "file_operations must be a list of objects with action, path, content, and optional reason. "
+                "Use only create_file, update_file, or append_file. Do not propose deletes, renames, env-file edits, or external side effects."
+            )
         return "\n".join(
             part
             for part in (
@@ -1663,7 +1782,7 @@ class SessionService:
                 f"Prior stage outputs:\n{chr(10).join(rendered_outputs)}" if rendered_outputs else "",
                 f"Automatic GSD answers:\n{chr(10).join(auto_answers)}" if auto_answers else "",
                 f"Workspace context:\n{repo_brief}" if repo_brief else "",
-                "Return JSON with summary, artifacts, next_action, needs_approval, needs_input, blocked_questions.",
+                output_contract,
             )
             if part
         )
@@ -1672,7 +1791,7 @@ class SessionService:
         specialty = {
             "planning": "Turn the request into an execution plan and surface risky assumptions.",
             "research": "Gather repo facts, likely files, and evidence that implementation needs.",
-            "implementation": "Describe the concrete change set and validation path.",
+            "implementation": "Describe the concrete change set, then emit routine-safe file operations that the runtime can apply.",
             "review": "Check the proposal for regressions, missing tests, and weak assumptions.",
             "validation": "Summarize the final validation state.",
         }[stage]
@@ -1687,8 +1806,9 @@ class SessionService:
         stage: StageName,
         raw_text: str,
         route_metadata: dict[str, Any],
+        payload: dict[str, Any] | None = None,
     ) -> StageSummary:
-        payload = self._extract_json_object(raw_text)
+        payload = payload or self._extract_json_object(raw_text)
         if payload is not None:
             return StageSummary(
                 stage=stage,
@@ -1699,6 +1819,20 @@ class SessionService:
                 needs_input=bool(payload.get("needs_input", False)),
                 blocked_questions=[str(item).strip() for item in (payload.get("blocked_questions") or []) if str(item).strip()],
                 route_metadata=route_metadata,
+                changed_files=[str(item).strip() for item in (payload.get("changed_files") or []) if str(item).strip()],
+                write_operations=[dict(item) for item in (payload.get("write_operations") or []) if isinstance(item, dict)],
+                proposed_write_operations=[
+                    dict(item) for item in (payload.get("proposed_write_operations") or []) if isinstance(item, dict)
+                ],
+                diff_artifacts=[str(item).strip() for item in (payload.get("diff_artifacts") or []) if str(item).strip()],
+                diff_patch=self._nullable_text(payload.get("diff_patch")),
+                validation_commands=[
+                    dict(item) for item in (payload.get("validation_commands") or []) if isinstance(item, dict)
+                ],
+                validation_results=[
+                    dict(item) for item in (payload.get("validation_results") or []) if isinstance(item, dict)
+                ],
+                pending_approval=dict(payload.get("pending_approval") or {}) or None,
                 raw_output=raw_text,
             )
 
@@ -1757,6 +1891,161 @@ class SessionService:
         answered = [result.to_record(stage=stage) for result in results if not result.needs_input and result.answer]
         unresolved = [result.question for result in results if result.needs_input or not result.answer]
         return answered, unresolved
+
+    def _apply_implementation_operations(
+        self,
+        *,
+        repo_context,
+        summary: StageSummary,
+        payload: dict[str, Any],
+        allow_execution: bool,
+    ) -> StageSummary:
+        raw_operations = payload.get("file_operations")
+        if raw_operations is None:
+            return summary
+
+        summary.proposed_write_operations = [dict(item) for item in raw_operations if isinstance(item, dict)]
+        decision = classify_write_operations(summary.proposed_write_operations)
+        summary.pending_approval = decision.scope.to_dict() if decision.classification != "routine_safe" else None
+
+        if decision.blocked:
+            raise StageExecutionError(
+                decision.scope.reason,
+                attempt_log=[],
+                route_lane=str(summary.route_metadata.get("route_lane") or "auto"),
+                route_plan=list(summary.route_metadata.get("route_plan") or []),
+                route_attempts=list(summary.route_metadata.get("route_attempts") or []),
+                capability_changes=list(summary.route_metadata.get("capability_changes") or []),
+                route_metadata=summary.route_metadata,
+            )
+
+        if decision.approval_required and allow_execution:
+            raise StageExecutionError(
+                "This approved action still requires a destructive or external executor that is not enabled in the routine-safe runtime.",
+                attempt_log=[],
+                route_lane=str(summary.route_metadata.get("route_lane") or "auto"),
+                route_plan=list(summary.route_metadata.get("route_plan") or []),
+                route_attempts=list(summary.route_metadata.get("route_attempts") or []),
+                capability_changes=list(summary.route_metadata.get("capability_changes") or []),
+                route_metadata=summary.route_metadata,
+            )
+
+        if decision.approval_required and not allow_execution:
+            summary.needs_approval = True
+            summary.next_action = "Review the approval scope and approve before these changes execute."
+            return summary
+
+        if not summary.proposed_write_operations:
+            return summary
+
+        repo_root = Path(repo_context.root)
+        operations = parse_write_operations_payload(summary.proposed_write_operations)
+        result = apply_write_operations(repo_root, operations)
+        summary.changed_files = list(result.changed_files)
+        summary.write_operations = [record.to_dict() for record in result.write_operations]
+        summary.diff_patch = result.diff_patch
+        summary.diff_artifacts = self._implementation_diff_artifacts(result)
+        summary.artifacts = self._merge_artifacts(
+            summary.artifacts,
+            self._implementation_change_artifact_paths(result),
+        )
+        summary.pending_approval = None
+        summary.needs_approval = False
+        summary.proposed_write_operations = [operation.to_dict() for operation in operations]
+        return summary
+
+    def _should_resume_approved_write_stage(
+        self,
+        *,
+        stage: StageName,
+        prompt: str,
+        record_summary: StageSummary | None,
+    ) -> bool:
+        if stage != "implementation" or record_summary is None:
+            return False
+        if not record_summary.pending_approval or not record_summary.proposed_write_operations:
+            return False
+        return is_execution_approved(prompt, self.settings.approval_word)
+
+    def _run_validation_stage(
+        self,
+        *,
+        orchestration: RunOrchestrationState,
+        repo_context,
+    ) -> tuple[StageSummary, RunStagePauseKind | None]:
+        implementation_output = orchestration.stage_outputs().get("implementation") or {}
+        changed_files = [str(item) for item in (implementation_output.get("changed_files") or []) if str(item).strip()]
+        plan = plan_validation(Path(repo_context.root), changed_files) if repo_context is not None else ValidationPlan(repo_root="", changed_files=[], commands=[])
+        decision = classify_validation_commands(plan.commands)
+        route_metadata = {
+            "route_lane": "balanced",
+            "route_reason": "local validation ladder",
+            "route_plan": [],
+            "route_attempts": [],
+            "capability_changes": [],
+            "tools_available": True,
+        }
+        summary = StageSummary(
+            stage="validation",
+            summary="Validation completed.",
+            artifacts=[],
+            next_action="Review the validation output.",
+            route_metadata=route_metadata,
+            validation_commands=[command.to_dict() for command in plan.commands],
+            validation_results=[],
+            pending_approval=decision.scope.to_dict() if decision.classification != "routine_safe" else None,
+        )
+        if decision.blocked:
+            summary.summary = decision.scope.reason
+            summary.blocked_questions = [decision.scope.reason]
+            return summary, "blocked"
+        if decision.approval_required:
+            summary.summary = decision.scope.reason
+            summary.needs_approval = True
+            return summary, "needs_approval"
+
+        results = execute_validation_plan(plan)
+        summary.validation_results = [result.to_dict() for result in results]
+        summary.artifacts = self._merge_artifacts(summary.artifacts, self._validation_artifact_paths())
+        failed = [result for result in results if result.status != "passed"]
+        if not plan.commands:
+            summary.summary = "No targeted validation commands were required for the current change set."
+            summary.next_action = "Proceed to final operator verification."
+            return summary, None
+        if failed:
+            summary.summary = "Validation failed. Review the recorded command results and retry after fixing the change set."
+            summary.next_action = "Fix the reported validation failures and retry the run."
+            return summary, "retryable_error"
+        summary.summary = "Validation passed across the targeted local command ladder."
+        summary.next_action = "Validation passed. Finalize the run."
+        return summary, None
+
+    def _implementation_change_artifact_paths(self, result: ChangeCaptureResult) -> list[str]:
+        artifacts = [
+            "artifacts/stages/implementation/changes/files.json",
+            "artifacts/stages/implementation/changes/operations.json",
+        ]
+        if result.diff_patch:
+            artifacts.append("artifacts/stages/implementation/changes/diff.patch")
+        return artifacts
+
+    def _implementation_diff_artifacts(self, result: ChangeCaptureResult) -> list[str]:
+        if not result.diff_patch:
+            return []
+        return ["artifacts/stages/implementation/changes/diff.patch"]
+
+    def _validation_artifact_paths(self) -> list[str]:
+        return [
+            "artifacts/stages/validation/commands.json",
+            "artifacts/stages/validation/results.json",
+        ]
+
+    def _merge_artifacts(self, current: list[str], additions: list[str]) -> list[str]:
+        merged: list[str] = []
+        for item in [*current, *additions]:
+            if item and item not in merged:
+                merged.append(item)
+        return merged
 
     def _validation_summary(self, orchestration: RunOrchestrationState) -> StageSummary:
         completed = [
@@ -2003,6 +2292,7 @@ class SessionService:
         ]
         summary.blocked_questions = list(orchestration.blocked_questions)
         summary.pause_kind = orchestration.pause_kind
+        summary.pending_approval = None
         if summary.stage_outputs:
             latest_output = summary.stage_outputs.get(orchestration.last_completed_stage or "") or next(
                 reversed(list(summary.stage_outputs.values())),
@@ -2025,6 +2315,13 @@ class SessionService:
                         CapabilityChangeModel.model_validate(item)
                         for item in (route_metadata.get("capability_changes") or [])
                     ]
+            current_output = (
+                summary.stage_outputs.get(orchestration.current_stage or "")
+                if orchestration.current_stage
+                else None
+            )
+            if current_output is not None and current_output.pending_approval:
+                summary.pending_approval = dict(current_output.pending_approval)
 
     def _stage_timeline_models(self, orchestration: RunOrchestrationState) -> list[StageTimelineEntry]:
         entries: list[StageTimelineEntry] = []
@@ -2072,6 +2369,36 @@ class SessionService:
             default_summary_path = f"artifacts/stages/{stage}/summary.json"
             if default_summary_path not in artifacts:
                 artifacts.insert(0, default_summary_path)
+            if stage == "implementation":
+                change_artifacts = self.store.save_stage_change_artifacts(
+                    session_id,
+                    stage=stage,
+                    changed_files=list(persisted.get("changed_files") or []),
+                    write_operations=list(persisted.get("write_operations") or []),
+                    diff_patch=persisted.get("diff_patch"),
+                )
+                persisted["diff_artifacts"] = [
+                    path for path in [change_artifacts.get("diff")] if path
+                ]
+                artifacts = self._merge_artifacts(
+                    artifacts,
+                    [
+                        change_artifacts["files"],
+                        change_artifacts["operations"],
+                        *(persisted["diff_artifacts"] or []),
+                    ],
+                )
+            if stage == "validation":
+                validation_artifacts = self.store.save_validation_artifacts(
+                    session_id,
+                    stage=stage,
+                    commands=list(persisted.get("validation_commands") or []),
+                    results=list(persisted.get("validation_results") or []),
+                )
+                artifacts = self._merge_artifacts(
+                    artifacts,
+                    [validation_artifacts["commands"], validation_artifacts["results"]],
+                )
             persisted["artifacts"] = artifacts
             self.store.save_stage_output(session_id, stage, persisted)
 

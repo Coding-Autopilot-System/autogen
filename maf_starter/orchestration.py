@@ -231,6 +231,14 @@ class StageSummary:
     needs_input: bool = False
     blocked_questions: list[str] = field(default_factory=list)
     route_metadata: dict[str, Any] = field(default_factory=dict)
+    changed_files: list[str] = field(default_factory=list)
+    write_operations: list[dict[str, Any]] = field(default_factory=list)
+    proposed_write_operations: list[dict[str, Any]] = field(default_factory=list)
+    diff_artifacts: list[str] = field(default_factory=list)
+    diff_patch: str | None = None
+    validation_commands: list[dict[str, Any]] = field(default_factory=list)
+    validation_results: list[dict[str, Any]] = field(default_factory=list)
+    pending_approval: dict[str, Any] | None = None
     raw_output: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
@@ -243,6 +251,14 @@ class StageSummary:
             "needs_input": self.needs_input,
             "blocked_questions": list(self.blocked_questions),
             "route_metadata": dict(self.route_metadata),
+            "changed_files": list(self.changed_files),
+            "write_operations": list(self.write_operations),
+            "proposed_write_operations": list(self.proposed_write_operations),
+            "diff_artifacts": list(self.diff_artifacts),
+            "diff_patch": self.diff_patch,
+            "validation_commands": list(self.validation_commands),
+            "validation_results": list(self.validation_results),
+            "pending_approval": dict(self.pending_approval) if self.pending_approval else None,
             "raw_output": self.raw_output,
         }
 
@@ -257,6 +273,24 @@ class StageSummary:
             needs_input=bool(payload.get("needs_input", False)),
             blocked_questions=_normalize_list(payload.get("blocked_questions")),
             route_metadata=dict(payload.get("route_metadata") or {}),
+            changed_files=_normalize_list(payload.get("changed_files")),
+            write_operations=[
+                dict(item) for item in (payload.get("write_operations") or []) if isinstance(item, dict)
+            ],
+            proposed_write_operations=[
+                dict(item)
+                for item in (payload.get("proposed_write_operations") or [])
+                if isinstance(item, dict)
+            ],
+            diff_artifacts=_normalize_list(payload.get("diff_artifacts")),
+            diff_patch=payload.get("diff_patch"),
+            validation_commands=[
+                dict(item) for item in (payload.get("validation_commands") or []) if isinstance(item, dict)
+            ],
+            validation_results=[
+                dict(item) for item in (payload.get("validation_results") or []) if isinstance(item, dict)
+            ],
+            pending_approval=dict(payload.get("pending_approval") or {}) or None,
             raw_output=payload.get("raw_output"),
         )
 

@@ -127,6 +127,14 @@ class StageOutputModel(BaseModel):
     needs_input: bool = False
     blocked_questions: list[str] = Field(default_factory=list)
     route_metadata: dict[str, Any] = Field(default_factory=dict)
+    changed_files: list[str] = Field(default_factory=list)
+    write_operations: list[dict[str, Any]] = Field(default_factory=list)
+    proposed_write_operations: list[dict[str, Any]] = Field(default_factory=list)
+    diff_artifacts: list[str] = Field(default_factory=list)
+    diff_patch: str | None = None
+    validation_commands: list[dict[str, Any]] = Field(default_factory=list)
+    validation_results: list[dict[str, Any]] = Field(default_factory=list)
+    pending_approval: dict[str, Any] | None = None
     raw_output: str | None = None
 
 
@@ -254,6 +262,7 @@ class SessionSummary(BaseModel):
     specialist_handoffs: list[SpecialistHandoffModel] = Field(default_factory=list)
     auto_answer_records: list[AutoAnswerRecordModel] = Field(default_factory=list)
     blocked_questions: list[str] = Field(default_factory=list)
+    pending_approval: dict[str, Any] | None = None
     route_metadata: dict[str, Any] = Field(default_factory=dict)
     system_message: str
     queued_prompt: str | None = None

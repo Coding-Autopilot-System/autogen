@@ -72,14 +72,14 @@ def build_workflow(settings: Settings | None = None):
     artifact_layout = RunScopedWorkflowArtifacts(current.checkpoint_dir).ensure()
     workflow = (
         WorkflowBuilder(
+            start_executor=build_agent(current),
             name="repo_copilot_workflow",
             description=(
                 "Checkpointed workflow wrapper for the repo copilot agent with "
                 "run-scoped orchestration state and stage artifacts."
             ),
+            checkpoint_storage=RunScopedFileCheckpointStorage(current.checkpoint_dir),
         )
-        .set_start_executor(build_agent(current))
-        .with_checkpointing(RunScopedFileCheckpointStorage(current.checkpoint_dir))
         .build()
     )
     workflow.orchestration_layout = artifact_layout

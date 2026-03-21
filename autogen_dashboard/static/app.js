@@ -323,6 +323,29 @@
       }));
   }
 
+  function normalizeApprovalScope(value) {
+    if (!value || typeof value !== "object") return null;
+    const scope = {
+      actionKind: pick(value, ["action_kind", "actionKind"], ""),
+      riskLevel: pick(value, ["risk_level", "riskLevel"], ""),
+      reason: pick(value, ["reason"], ""),
+      affectedPaths: normalizeTextList(pick(value, ["affected_paths", "affectedPaths"], [])),
+      commands: normalizeTextList(pick(value, ["commands"], [])),
+      externalTargets: normalizeTextList(pick(value, ["external_targets", "externalTargets"], [])),
+    };
+    if (
+      !scope.actionKind &&
+      !scope.riskLevel &&
+      !scope.reason &&
+      !scope.affectedPaths.length &&
+      !scope.commands.length &&
+      !scope.externalTargets.length
+    ) {
+      return null;
+    }
+    return scope;
+  }
+
   function normalizeStageOutputs(value) {
     if (!value || typeof value !== "object") return {};
     const entries = {};
@@ -338,6 +361,13 @@
         needsInput: Boolean(pick(payload, ["needs_input", "needsInput"], false)),
         blockedQuestions: normalizeTextList(pick(payload, ["blocked_questions", "blockedQuestions"], [])),
         routeMetadata: pick(payload, ["route_metadata", "routeMetadata"], {}) || {},
+        changedFiles: normalizeTextList(pick(payload, ["changed_files", "changedFiles"], [])),
+        writeOperations: normalizeArray(payload, ["write_operations", "writeOperations"]).filter(Boolean),
+        proposedWriteOperations: normalizeArray(payload, ["proposed_write_operations", "proposedWriteOperations"]).filter(Boolean),
+        diffArtifacts: normalizeTextList(pick(payload, ["diff_artifacts", "diffArtifacts"], [])),
+        validationCommands: normalizeArray(payload, ["validation_commands", "validationCommands"]).filter(Boolean),
+        validationResults: normalizeArray(payload, ["validation_results", "validationResults"]).filter(Boolean),
+        pendingApproval: normalizeApprovalScope(pick(payload, ["pending_approval", "pendingApproval"], null)),
       };
     });
     return entries;
@@ -1119,6 +1149,7 @@
       specialistHandoffs,
       autoAnswerRecords,
       blockedQuestions,
+      pendingApproval: normalizeApprovalScope(pick(item, ["pending_approval", "pendingApproval"], null)),
       routeLane,
       requestedProvider: pick(item, ["requested_provider", "requestedProvider"], pick(routeMetadata, ["requested_provider"], "")),
       requestedModel: pick(item, ["requested_model", "requestedModel"], pick(routeMetadata, ["requested_model"], "")),
@@ -1221,6 +1252,9 @@
       ).filter(Boolean),
       blockedQuestions: normalizeTextList(
         pick(item, ["blocked_questions", "blockedQuestions"], session.blockedQuestions || [])
+      ),
+      pendingApproval: normalizeApprovalScope(
+        pick(item, ["pending_approval", "pendingApproval"], session.pendingApproval || null)
       ),
       routeLane: pick(item, ["route_lane", "routeLane"], session.routeLane || "auto"),
       requestedProvider: pick(
@@ -1543,6 +1577,7 @@
     return Object.values(session.stageOutputs || {})
       .map((output) => {
         const route = output.routeMetadata || {};
+        const approvalCard = renderApprovalScope(output.pendingApproval, { compact: true });
         return `
           <article class="output-card">
             <div class="output-card-head">
@@ -1554,9 +1589,24 @@
               </div>
             </div>
             <div class="output-card-copy">${escapeHtml(output.summary || "No summary captured.")}</div>
+            ${approvalCard}
             ${
               output.nextAction
                 ? `<div class="output-card-next"><span class="meta-label">Next action</span><div>${escapeHtml(output.nextAction)}</div></div>`
+                : ""
+            }
+            ${
+              output.changedFiles?.length
+                ? `<div class="output-card-next"><span class="meta-label">Changed files</span><div class="output-card-artifacts">${output.changedFiles
+                    .map((path) => `<span class="tiny-chip">${escapeHtml(path)}</span>`)
+                    .join("")}</div></div>`
+                : ""
+            }
+            ${
+              output.validationResults?.length
+                ? `<div class="output-card-next"><span class="meta-label">Validation</span><div class="output-card-artifacts">${output.validationResults
+                    .map((result) => `<span class="tiny-chip">${escapeHtml(result.label || result.command?.join(" ") || "command")} | ${escapeHtml(result.status || "unknown")}</span>`)
+                    .join("")}</div></div>`
                 : ""
             }
             ${
@@ -1576,6 +1626,12 @@
     const route = session.routeMetadata || {};
     const stageCards = renderStageCards(session);
     const outputCards = renderOutputCards(session);
+    const pendingApproval =
+      session.pendingApproval ||
+      Object.values(session.stageOutputs || {})
+        .map((output) => output.pendingApproval)
+        .find(Boolean) ||
+      null;
     return `
       <div class="operator-summary-grid">
         <article class="operator-stat-card">
@@ -1599,6 +1655,7 @@
           <div class="operator-stat-subtle">${escapeHtml(String(session.autoAnswerRecords?.length || 0))} auto answers saved</div>
         </article>
       </div>
+      ${renderApprovalScope(pendingApproval)}
       <div class="operator-grid operator-grid-two">
         <section class="operator-section">
           <div class="orchestration-section-head">
@@ -1635,6 +1692,42 @@
             </div>`
           : ""
       }
+    `;
+  }
+
+  function renderApprovalScope(scope, options = {}) {
+    if (!scope) return "";
+    const compact = Boolean(options.compact);
+    const classes = compact ? "approval-scope approval-scope-compact" : "approval-scope";
+    const affectedPaths = scope.affectedPaths?.length
+      ? `<div class="approval-scope-list">${scope.affectedPaths
+          .map((path) => `<span class="tiny-chip">${escapeHtml(path)}</span>`)
+          .join("")}</div>`
+      : "";
+    const commands = scope.commands?.length
+      ? `<div class="approval-scope-list">${scope.commands
+          .map((command) => `<span class="tiny-chip">${escapeHtml(command)}</span>`)
+          .join("")}</div>`
+      : "";
+    const externalTargets = scope.externalTargets?.length
+      ? `<div class="approval-scope-list">${scope.externalTargets
+          .map((target) => `<span class="tiny-chip">${escapeHtml(target)}</span>`)
+          .join("")}</div>`
+      : "";
+    return `
+      <section class="${classes}">
+        <div class="approval-scope-head">
+          <div>
+            <div class="approval-scope-label">Approval scope</div>
+            <div class="approval-scope-title">${escapeHtml(scope.actionKind || "risky action")}</div>
+          </div>
+          ${scope.riskLevel ? `<span class="status-pill waiting">${escapeHtml(scope.riskLevel)}</span>` : ""}
+        </div>
+        ${scope.reason ? `<div class="approval-scope-copy">${escapeHtml(scope.reason)}</div>` : ""}
+        ${affectedPaths ? `<div><span class="meta-label">Affected paths</span>${affectedPaths}</div>` : ""}
+        ${commands ? `<div><span class="meta-label">Commands</span>${commands}</div>` : ""}
+        ${externalTargets ? `<div><span class="meta-label">External targets</span>${externalTargets}</div>` : ""}
+      </section>
     `;
   }
 
@@ -1916,8 +2009,15 @@
       ? items
           .map((session) => {
             const selected = session.id === state.selectedSessionId ? "selected" : "";
+            const approvalScope =
+              session.pendingApproval ||
+              Object.values(session.stageOutputs || {})
+                .map((output) => output.pendingApproval)
+                .find(Boolean) ||
+              null;
             const reason = session.pauseTitle || session.pauseReason || "Waiting for human";
             const detail =
+              approvalScope?.reason ||
               session.pauseDetail ||
               session.lastStopReason ||
               session.lastPrompt ||
@@ -1938,6 +2038,16 @@
                 </div>
                 <div class="queue-reason">${escapeHtml(reason)}</div>
                 <div class="queue-detail">${escapeHtml(detail)}</div>
+                ${
+                  approvalScope
+                    ? `<div class="queue-subline">
+                        ${approvalScope.riskLevel ? `<span class="tiny-chip">${escapeHtml(approvalScope.riskLevel)}</span>` : ""}
+                        ${(approvalScope.affectedPaths || [])
+                          .map((path) => `<span class="tiny-chip">${escapeHtml(path)}</span>`)
+                          .join("")}
+                      </div>`
+                    : ""
+                }
                 <div class="queue-subline">
                   <span class="tiny-chip">${escapeHtml(formatRelative(session.updatedAt))}</span>
                   <span class="tiny-chip">${session.messageCount} messages</span>

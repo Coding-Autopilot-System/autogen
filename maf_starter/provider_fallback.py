@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Generic, TypeVar
 
-from agent_framework import ChatContext, ChatMessage, ChatResponse, ChatResponseUpdate, chat_middleware
+from agent_framework import ChatContext, ChatResponse, ChatResponseUpdate, Message, chat_middleware
 from agent_framework._types import Content
 from agent_framework.openai import OpenAIChatClient
 
@@ -58,8 +58,6 @@ except ImportError:  # pragma: no cover - compatibility with older MAF package b
                 self._final_response = result
             return self._final_response
 
-
-Message = ChatMessage
 
 try:
     from agent_framework_anthropic import AnthropicClient

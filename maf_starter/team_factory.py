@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from agent_framework import SequentialBuilder
+from agent_framework import WorkflowBuilder
 
 from maf_starter.agent_factory import build_agent, build_agent_for_model
 from maf_starter.config import Settings, load_settings
@@ -142,20 +142,17 @@ def build_repo_team(settings: Settings | None = None):
         ),
     )
 
-    workflow = (
-        SequentialBuilder()
-        .register_participants(
-            [
-                lambda: planner,
-                lambda: researcher,
-                lambda: implementer,
-                lambda: reviewer,
-            ]
-        )
-        .with_checkpointing(RunScopedFileCheckpointStorage(artifact_layout.checkpoint_dir))
-        .with_request_info(agents=["planner", "implementer", "reviewer"])
-        .build()
-    )
+    workflow = WorkflowBuilder(
+        start_executor=planner,
+        name="repo_team",
+        description=(
+            "Manager-led orchestration workflow for engineering runs. "
+            "The manager owns the canonical planning -> research -> implementation -> review -> validation sequence, "
+            "with visible planner, researcher, implementer, and reviewer specialists that publish current_task, "
+            "latest_output_summary, handoff_to, and handoff_reason metadata alongside human request-info pauses."
+        ),
+        checkpoint_storage=RunScopedFileCheckpointStorage(artifact_layout.checkpoint_dir),
+    ).add_chain([planner, researcher, implementer, reviewer]).build()
     workflow.name = "repo_team"
     workflow.description = (
         "Manager-led orchestration workflow for engineering runs. "

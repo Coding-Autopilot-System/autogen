@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import subprocess
 from pathlib import Path
 
@@ -9,23 +10,53 @@ from maf_starter.config import current_repo_root
 
 
 SKIP_DIR_NAMES = {".git", ".venv", "__pycache__", "state", ".tmp-tests"}
+WRITE_BLOCKED_DIR_NAMES = {".git", ".venv", "__pycache__", "state", ".tmp-tests"}
+WRITE_BLOCKED_FILE_NAMES = {".env"}
+WRITE_BLOCKED_PREFIXES = (".env.",)
 MAX_FILE_READ_LINES = 400
 MAX_SEARCH_MATCHES = 60
 
 
-def resolve_repo_path(repo_root: Path, raw_path: str) -> Path:
+def _resolve_candidate(repo_root: Path, raw_path: str) -> Path:
     candidate = Path(raw_path)
     if not candidate.is_absolute():
         candidate = (repo_root / candidate).resolve()
     else:
         candidate = candidate.resolve()
+    return candidate
+
+
+def is_write_blocked_path(repo_root: Path, path: Path) -> bool:
+    try:
+        relative = path.relative_to(repo_root)
+    except ValueError:
+        return True
+    if any(part in WRITE_BLOCKED_DIR_NAMES for part in relative.parts):
+        return True
+    name = relative.name.lower()
+    return name in WRITE_BLOCKED_FILE_NAMES or any(name.startswith(prefix) for prefix in WRITE_BLOCKED_PREFIXES)
+
+
+def resolve_repo_path(
+    repo_root: Path,
+    raw_path: str,
+    *,
+    allow_missing: bool = False,
+    for_write: bool = False,
+) -> Path:
+    candidate = _resolve_candidate(repo_root, raw_path)
 
     try:
         candidate.relative_to(repo_root)
     except ValueError as exc:
         raise ValueError(f"Path escapes the configured repo root: {raw_path}") from exc
 
+    if for_write and is_write_blocked_path(repo_root, candidate):
+        raise ValueError(f"Path is blocked for write operations: {raw_path}")
+
     if not candidate.exists():
+        if allow_missing:
+            return candidate
         raise ValueError(f"Path does not exist: {raw_path}")
 
     return candidate
@@ -198,10 +229,24 @@ def build_repo_tools(repo_root: Path) -> list[object]:
         """Request human approval before the agent treats a plan as approved."""
         return f"Human approved this proposal: {summary}"
 
+    @tool(
+        description="Apply routine-safe text file edits inside the configured repo root. Accepts a JSON array of operations.",
+    )
+    def apply_repo_write_plan(operations_json: str) -> str:
+        """Apply bounded repo edits through the shared write-execution service."""
+        from maf_starter.repo_execution import apply_write_operations, parse_write_operations_payload
+
+        normalized_root = runtime_root()
+        payload = json.loads(operations_json)
+        operations = parse_write_operations_payload(payload)
+        result = apply_write_operations(normalized_root, operations)
+        return json.dumps(result.to_dict(), ensure_ascii=True)
+
     return [
         get_repo_overview,
         list_repo_files,
         read_repo_file,
         search_repo,
         request_human_approval,
+        apply_repo_write_plan,
     ]

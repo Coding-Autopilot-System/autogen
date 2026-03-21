@@ -148,6 +148,30 @@ class RunPersistenceTests(unittest.TestCase):
             "planning",
             {"stage": "planning", "summary": "Plan ready.", "artifacts": ["artifacts/stages/planning/summary.json"]},
         )
+        store.save_stage_change_artifacts(
+            summary.id,
+            stage="implementation",
+            changed_files=["README.md"],
+            write_operations=[{"action": "update_file", "path": "README.md"}],
+            diff_patch="diff --git a/README.md b/README.md\n",
+        )
+        store.save_stage_output(
+            summary.id,
+            "implementation",
+            {
+                "stage": "implementation",
+                "summary": "Applied repo changes.",
+                "artifacts": [
+                    "artifacts/stages/implementation/summary.json",
+                    "artifacts/stages/implementation/changes/files.json",
+                    "artifacts/stages/implementation/changes/operations.json",
+                    "artifacts/stages/implementation/changes/diff.patch",
+                ],
+                "changed_files": ["README.md"],
+                "write_operations": [{"action": "update_file", "path": "README.md"}],
+                "diff_artifacts": ["artifacts/stages/implementation/changes/diff.patch"],
+            },
+        )
         store.save_auto_answer_records(
             summary.id,
             [{"question": "What phase are we in?", "answer": "Phase 2", "sources": [".planning/STATE.md"]}],
@@ -166,6 +190,9 @@ class RunPersistenceTests(unittest.TestCase):
         self.assertTrue((session_dir / "artifacts" / "manifest.json").exists())
         self.assertTrue((session_dir / "artifacts" / "workspace" / "creation.json").exists())
         self.assertTrue((session_dir / "artifacts" / "stages" / "planning" / "summary.json").exists())
+        self.assertTrue((session_dir / "artifacts" / "stages" / "implementation" / "changes" / "files.json").exists())
+        self.assertTrue((session_dir / "artifacts" / "stages" / "implementation" / "changes" / "operations.json").exists())
+        self.assertTrue((session_dir / "artifacts" / "stages" / "implementation" / "changes" / "diff.patch").exists())
         self.assertTrue((session_dir / "artifacts" / "gsd" / "auto_answers.json").exists())
         self.assertTrue((session_dir / "runtime").exists())
         self.assertTrue((session_dir / "runtime" / "state.json").exists())
@@ -190,6 +217,51 @@ class RunPersistenceTests(unittest.TestCase):
             "planning",
             {"stage": "planning", "summary": "Plan ready.", "artifacts": ["artifacts/stages/planning/summary.json"]},
         )
+        store.save_stage_change_artifacts(
+            summary.id,
+            stage="implementation",
+            changed_files=["README.md"],
+            write_operations=[{"action": "update_file", "path": "README.md"}],
+            diff_patch="diff --git a/README.md b/README.md\n",
+        )
+        store.save_stage_output(
+            summary.id,
+            "implementation",
+            {
+                "stage": "implementation",
+                "summary": "Applied repo changes.",
+                "artifacts": [
+                    "artifacts/stages/implementation/summary.json",
+                    "artifacts/stages/implementation/changes/files.json",
+                    "artifacts/stages/implementation/changes/operations.json",
+                    "artifacts/stages/implementation/changes/diff.patch",
+                ],
+                "changed_files": ["README.md"],
+                "write_operations": [{"action": "update_file", "path": "README.md"}],
+                "diff_artifacts": ["artifacts/stages/implementation/changes/diff.patch"],
+            },
+        )
+        store.save_validation_artifacts(
+            summary.id,
+            stage="validation",
+            commands=[{"label": "git diff --check", "command": ["git", "diff", "--check"]}],
+            results=[{"label": "git diff --check", "exit_code": 0, "status": "passed"}],
+        )
+        store.save_stage_output(
+            summary.id,
+            "validation",
+            {
+                "stage": "validation",
+                "summary": "Validation passed.",
+                "artifacts": [
+                    "artifacts/stages/validation/summary.json",
+                    "artifacts/stages/validation/commands.json",
+                    "artifacts/stages/validation/results.json",
+                ],
+                "validation_commands": [{"label": "git diff --check", "command": ["git", "diff", "--check"]}],
+                "validation_results": [{"label": "git diff --check", "exit_code": 0, "status": "passed"}],
+            },
+        )
         store.save_auto_answer_records(
             summary.id,
             [{"question": "What phase are we in?", "answer": "Phase 2", "sources": [".planning/STATE.md"]}],
@@ -211,7 +283,14 @@ class RunPersistenceTests(unittest.TestCase):
             hydrated.artifact_manifest["workspace_snapshot"],
             "artifacts/workspace/creation.json",
         )
-        self.assertEqual(hydrated.artifact_manifest["stages"][0]["summary"], "artifacts/stages/planning/summary.json")
+        planning_entry = next(item for item in hydrated.artifact_manifest["stages"] if item["stage"] == "planning")
+        self.assertEqual(planning_entry["summary"], "artifacts/stages/planning/summary.json")
+        implementation_entry = next(item for item in hydrated.artifact_manifest["stages"] if item["stage"] == "implementation")
+        self.assertEqual(implementation_entry["changes"]["operations"], "artifacts/stages/implementation/changes/operations.json")
+        self.assertEqual(implementation_entry["changes"]["diff"], "artifacts/stages/implementation/changes/diff.patch")
+        validation_entry = next(item for item in hydrated.artifact_manifest["stages"] if item["stage"] == "validation")
+        self.assertEqual(validation_entry["validation"]["commands"], "artifacts/stages/validation/commands.json")
+        self.assertEqual(validation_entry["validation"]["results"], "artifacts/stages/validation/results.json")
         self.assertEqual(hydrated.artifact_manifest["gsd"]["auto_answers"], "artifacts/gsd/auto_answers.json")
 
     def test_atomic_json_writes_leave_no_temp_files(self) -> None:

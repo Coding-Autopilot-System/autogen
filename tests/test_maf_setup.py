@@ -6,7 +6,7 @@ import shutil
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
-from agent_framework import ChatContext, ChatMessage, ChatResponse, ChatResponseUpdate
+from agent_framework import ChatContext, ChatResponse, ChatResponseUpdate, Message
 from agent_framework._types import Content
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
@@ -121,6 +121,7 @@ class MafSetupTests(RepoScratchTestCase):
                 "read_repo_file",
                 "search_repo",
                 "request_human_approval",
+                "apply_repo_write_plan",
             },
         )
 
@@ -183,10 +184,10 @@ class MafSetupTests(RepoScratchTestCase):
 
         original_stream = ResponseStream(failing_stream(), finalizer=lambda updates: ChatResponse(messages=[]))
         context = ChatContext(
-            chat_client=object(),
-            messages=[ChatMessage(role="user", text="Reply with READY")],
+            client=object(),
+            messages=[Message(role="user", text="Reply with READY")],
             options={},
-            is_streaming=True,
+            stream=True,
         )
         settings = load_settings(project_root=Path.cwd(), env_path=Path.cwd() / ".env")
 
@@ -247,8 +248,8 @@ class MafSetupTests(RepoScratchTestCase):
         run_repo.mkdir()
         run_checkpoint = root / "state" / "sessions" / "run-001" / "runtime" / "checkpoint"
         context = ChatContext(
-            chat_client=object(),
-            messages=[ChatMessage(role="user", text="hello")],
+            client=object(),
+            messages=[Message(role="user", text="hello")],
             options={},
             kwargs={"repo_root": str(run_repo), "checkpoint_dir": str(run_checkpoint)},
         )
@@ -270,7 +271,7 @@ class MafSetupTests(RepoScratchTestCase):
         plan = build_routing_plan(
             settings,
             routing_mode="auto",
-            messages=[ChatMessage(role="user", text="hello")],
+            messages=[Message(role="user", text="hello")],
             primary_provider="gemini",
             primary_model="gemini-2.5-pro",
         )
@@ -282,7 +283,7 @@ class MafSetupTests(RepoScratchTestCase):
         plan = build_routing_plan(
             settings,
             routing_mode="auto",
-            messages=[ChatMessage(role="user", text="Review this repo and propose an architecture plan")],
+            messages=[Message(role="user", text="Review this repo and propose an architecture plan")],
             primary_provider="gemini",
             primary_model="gemini-2.5-pro",
         )
