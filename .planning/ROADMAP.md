@@ -30,7 +30,7 @@ This roadmap turns the current MAF-first local prototype into a trustworthy loca
 **Plans**: 3 plans
 
 Plans:
-- [ ] 01-01: Normalize repo selection, workspace discovery, and run identity creation
+- [x] 01-01: Normalize repo selection, workspace discovery, and run identity creation
 - [ ] 01-02: Unify durable local state for sessions, checkpoints, transcripts, and artifacts
 - [ ] 01-03: Surface workspace context consistently across UI, runtime, and traces
 
@@ -106,7 +106,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Workspace and Durable Run Foundation | 0/3 | Planned | - |
+| 1. Workspace and Durable Run Foundation | 1/3 | In Progress | - |
 | 2. Manager-Led Orchestration Core | 0/3 | Not started | - |
 | 3. Specialist Delegation and Routing Visibility | 0/3 | Not started | - |
 | 4. Autonomous Repo Execution and Validation Guardrails | 0/3 | Not started | - |
