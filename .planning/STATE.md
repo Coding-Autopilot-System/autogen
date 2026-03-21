@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: In Progress
-stopped_at: Completed 01-02-PLAN.md
-last_updated: "2026-03-21T07:43:12.000Z"
-last_activity: 2026-03-21 - Completed plan 01-02 and locked durable run identity, attempts, and retry semantics
+status: Complete
+stopped_at: Completed Phase 01
+last_updated: "2026-03-21T08:15:00.000Z"
+last_activity: 2026-03-21 - Completed Phase 01 and locked run-scoped workspace propagation, stale detection, and operator visibility
 progress:
   total_phases: 5
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 3
-  completed_plans: 2
-  percent: 67
+  completed_plans: 3
+  percent: 100
 ---
 
 # Project State
@@ -21,22 +21,22 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-20)
 
 **Core value:** You can give one prompt and watch a trustworthy multi-agent coding system drive real repo work end-to-end with clear traces, specialist visibility, and minimal manual intervention.
-**Current focus:** Phase 1 - Workspace and Durable Run Foundation
+**Current focus:** Phase 2 - Manager-Led Orchestration Core
 
 ## Current Position
 
-Phase: 1 of 5 (Workspace and Durable Run Foundation)
-Plan: 3 planned, 2 executed in current phase
-Status: In Progress
-Last activity: 2026-03-21 - Completed plan 01-02 and locked durable run identity, attempts, and retry semantics
+Phase: 1 of 5 complete (Workspace and Durable Run Foundation)
+Plan: 3 planned, 3 executed in current phase
+Status: Complete
+Last activity: 2026-03-21 - Completed Phase 01 and locked run-scoped workspace propagation, stale detection, and operator visibility
 
-Progress: [███████░░░] 67%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 2
+- Total plans completed: 3
 - Average duration: 1 min
 - Total execution time: 0.0 hours
 
@@ -44,15 +44,16 @@ Progress: [███████░░░] 67%
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 01 | 2 | 2 min | 1 min |
+| 01 | 3 | 3 min | 1 min |
 
 **Recent Trend:**
 
-- Last 5 plans: 01-01 (1 min), 01-02 (1 min)
+- Last 5 plans: 01-01 (1 min), 01-02 (1 min), 01-03 (1 min)
 - Trend: Stable
 
 | Phase 01 P01 | 1 min | 2 tasks | 8 files |
 | Phase 01 P02 | 1 min | 3 tasks | 7 files |
+| Phase 01 P03 | 1 min | 3 tasks | 15 files |
 
 ## Accumulated Context
 
@@ -68,6 +69,8 @@ Recent decisions affecting current work:
 - Phase 01-01: Use `/api/repos` as the source of truth for the preflight workspace summary card
 - Phase 01-02: Retry stays attached to one stable run id and starts a fresh attempt directory instead of a fresh run
 - Phase 01-02: Store original task, human notes, approval decisions, and retry seed as separate persisted fields
+- Phase 01-03: MAF runtime defaults stay in env, but each run can override repo root and checkpoint dir immutably
+- Phase 01-03: Workspace freshness is an explicit run contract with stale events and operator-facing warnings
 
 ### Pending Todos
 
@@ -81,6 +84,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-21T07:32:10.224Z
-Stopped at: Completed 01-01-PLAN.md
+Last session: 2026-03-21T08:15:00.000Z
+Stopped at: Completed Phase 01
 Resume file: None

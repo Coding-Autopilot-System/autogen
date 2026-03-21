@@ -10,7 +10,7 @@ This roadmap turns the current MAF-first local prototype into a trustworthy loca
 - Integer phases (1, 2, 3): Planned milestone work
 - Decimal phases (2.1, 2.2): Urgent insertions if needed later
 
-- [ ] **Phase 1: Workspace and Durable Run Foundation** - Establish repo selection, workspace context, and durable local run state
+- [x] **Phase 1: Workspace and Durable Run Foundation** - Establish repo selection, workspace context, and durable local run state
 - [ ] **Phase 2: Manager-Led Orchestration Core** - Deliver the manager workflow and explicit stage/state model
 - [ ] **Phase 3: Specialist Delegation and Routing Visibility** - Make specialist participation and provider routing fully visible
 - [ ] **Phase 4: Autonomous Repo Execution and Validation Guardrails** - Turn the system into a safe default-doer for repo work
@@ -32,7 +32,7 @@ This roadmap turns the current MAF-first local prototype into a trustworthy loca
 Plans:
 - [x] 01-01: Normalize repo selection, workspace discovery, and run identity creation
 - [x] 01-02: Unify durable local state for sessions, checkpoints, transcripts, and artifacts
-- [ ] 01-03: Surface workspace context consistently across UI, runtime, and traces
+- [x] 01-03: Surface workspace context consistently across UI, runtime, and traces
 
 ### Phase 2: Manager-Led Orchestration Core
 **Goal**: Deliver a usable one-prompt manager workflow with explicit stage and pause semantics.
@@ -106,7 +106,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Workspace and Durable Run Foundation | 2/3 | In Progress | - |
+| 1. Workspace and Durable Run Foundation | 3/3 | Complete | 2026-03-21 |
 | 2. Manager-Led Orchestration Core | 0/3 | Not started | - |
 | 3. Specialist Delegation and Routing Visibility | 0/3 | Not started | - |
 | 4. Autonomous Repo Execution and Validation Guardrails | 0/3 | Not started | - |
