@@ -18,7 +18,7 @@ ProviderName = Literal[
 ]
 WorkspaceKind = Literal["repo", "worktree", "manual"]
 
-SessionStatus = Literal["idle", "running", "waiting_for_human", "completed", "stopped", "error"]
+SessionStatus = Literal["queued", "running", "waiting", "completed", "stopped", "error"]
 PauseReason = Literal["not_started", "needs_input", "needs_approval", "completed", "stopped", "error"]
 
 
@@ -88,6 +88,12 @@ class SessionRunRequest(BaseModel):
     input: str | None = None
 
 
+class ApprovalDecision(BaseModel):
+    decision: Literal["approve", "reject"]
+    note: str
+    created_at: datetime
+
+
 class TranscriptMessage(BaseModel):
     id: str
     role: Literal["user", "assistant", "system", "event"]
@@ -112,9 +118,13 @@ class SessionSummary(BaseModel):
     model: str | None = None
     original_task: str | None = None
     latest_human_note: str | None = None
+    approval_decisions: list[ApprovalDecision] = Field(default_factory=list)
+    retry_seed_prompt: str | None = None
     workspace_kind: WorkspaceKind | None = None
     workspace_snapshot: RepoContext | None = None
     attempt_count: int = 0
+    latest_attempt_id: str | None = None
+    artifact_manifest: dict[str, Any] = Field(default_factory=dict)
     last_provider_used: ProviderName | None = None
     last_model_used: str | None = None
     last_attempts: list[str] = Field(default_factory=list)
