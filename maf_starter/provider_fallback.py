@@ -20,7 +20,7 @@ except ModuleNotFoundError:  # pragma: no cover - optional dependency
 
 from maf_starter.config import Settings, activate_run_scope, reset_run_scope
 from maf_starter.routing_policy import RoutingPlan, build_routing_plan
-from maf_starter.routing_types import ChainStep
+from maf_starter.routing_types import CapabilityChange, ChainStep, RouteAttempt
 
 
 FALLBACK_NOTICE = "[Fallback provider used because the earlier model/provider in the chain failed.]\n"
@@ -46,7 +46,11 @@ def build_fallback_middleware(settings: Settings, *, primary_provider: str, prim
                 messages=context.messages,
                 primary_provider=primary_provider,
                 primary_model=primary_model,
+                route_lane=scoped_settings.route_lane,
+                requested_provider=scoped_settings.requested_provider,
+                requested_model=scoped_settings.requested_model,
             )
+            attempt_log: list[RouteAttempt] = []
             context.options = _override_model(context.options, route.primary_model)
             try:
                 await call_next()
@@ -56,12 +60,14 @@ def build_fallback_middleware(settings: Settings, *, primary_provider: str, prim
                         original_stream=context.result,
                         context=context,
                         route=route,
+                        attempt_log=attempt_log,
                     )
                 elif isinstance(context.result, ChatResponse):
                     context.result = _decorate_primary_response(
                         context.result,
                         route=route,
                         settings=scoped_settings,
+                        attempt_log=attempt_log,
                     )
                 return
             except Exception as exc:
@@ -69,6 +75,16 @@ def build_fallback_middleware(settings: Settings, *, primary_provider: str, prim
                     raise
 
                 last_error: Exception = exc
+                attempt_log.append(
+                    _build_route_attempt(
+                        route.primary_provider,
+                        route.primary_model,
+                        status="failed",
+                        fallback_index=0,
+                        tools_available=True,
+                        error=last_error,
+                    )
+                )
                 for step in route.fallback_steps:
                     try:
                         context.result = await _execute_chain_step(
@@ -77,10 +93,22 @@ def build_fallback_middleware(settings: Settings, *, primary_provider: str, prim
                             context=context,
                             route=route,
                             prior_error=last_error,
+                            attempt_log=attempt_log,
+                            fallback_index=len(attempt_log),
                         )
                         return
                     except Exception as fallback_exc:
                         last_error = fallback_exc
+                        attempt_log.append(
+                            _build_route_attempt(
+                                step.provider,
+                                step.model or step.label,
+                                status="failed",
+                                fallback_index=len(attempt_log),
+                                tools_available=step.provider not in {"gemini-cli", "claude-cli", "codex-cli"},
+                                error=fallback_exc,
+                            )
+                        )
                         continue
 
                 raise last_error
@@ -109,7 +137,9 @@ def _wrap_stream_with_fallback(
     original_stream: ResponseStream[ChatResponseUpdate, ChatResponse] | AsyncIterable[ChatResponseUpdate],
     context: ChatContext,
     route: RoutingPlan,
+    attempt_log: list[RouteAttempt] | None = None,
 ):
+    attempt_log = attempt_log or []
     state: dict[str, ChatResponse | None] = {"final_response": None}
 
     async def _stream():
@@ -125,6 +155,7 @@ def _wrap_stream_with_fallback(
                         active_provider=route.primary_provider,
                         active_model=route.primary_model,
                         fallback_used=False,
+                        attempt_log=attempt_log,
                     )
                 yield update
             return
@@ -133,6 +164,16 @@ def _wrap_stream_with_fallback(
                 raise
 
             last_error: Exception = exc
+            attempt_log.append(
+                _build_route_attempt(
+                    route.primary_provider,
+                    route.primary_model,
+                    status="failed",
+                    fallback_index=0,
+                    tools_available=True,
+                    error=last_error,
+                )
+            )
             for step in route.fallback_steps:
                 try:
                     fallback_result = await _execute_chain_step(
@@ -141,6 +182,8 @@ def _wrap_stream_with_fallback(
                         context=context,
                         route=route,
                         prior_error=last_error,
+                        attempt_log=attempt_log,
+                        fallback_index=len(attempt_log),
                     )
                     if isinstance(fallback_result, ResponseStream):
                         async for update in fallback_result:
@@ -162,6 +205,16 @@ def _wrap_stream_with_fallback(
                     return
                 except Exception as fallback_exc:
                     last_error = fallback_exc
+                    attempt_log.append(
+                        _build_route_attempt(
+                            step.provider,
+                            step.model or step.label,
+                            status="failed",
+                            fallback_index=len(attempt_log),
+                            tools_available=step.provider not in {"gemini-cli", "claude-cli", "codex-cli"},
+                            error=fallback_exc,
+                        )
+                    )
             raise last_error
 
         if isinstance(original_stream, ResponseStream):
@@ -169,8 +222,30 @@ def _wrap_stream_with_fallback(
 
     async def _finalize(updates: list[ChatResponseUpdate]) -> ChatResponse:
         if state["final_response"] is not None:
+            if not attempt_log:
+                attempt_log.append(
+                    _build_route_attempt(
+                        route.primary_provider,
+                        route.primary_model,
+                        status="succeeded",
+                        fallback_index=0,
+                        tools_available=True,
+                    )
+                )
+            state["final_response"] = _decorate_primary_response(
+                state["final_response"],
+                route=route,
+                settings=settings,
+                attempt_log=attempt_log,
+            )
             return state["final_response"]
-        return _response_from_updates(updates)
+        response = _response_from_updates(updates)
+        return _decorate_primary_response(
+            response,
+            route=route,
+            settings=settings,
+            attempt_log=attempt_log,
+        )
 
     return ResponseStream(_stream(), finalizer=_finalize)
 
@@ -182,6 +257,8 @@ async def _execute_chain_step(
     context: ChatContext,
     route: RoutingPlan,
     prior_error: Exception,
+    attempt_log: list[RouteAttempt] | None = None,
+    fallback_index: int = 0,
 ):
     if step.provider == "gemini":
         client = OpenAIChatClient(
@@ -198,6 +275,16 @@ async def _execute_chain_step(
         )
         if not context.stream:
             response = await response
+        if attempt_log is not None:
+            attempt_log.append(
+                _build_route_attempt(
+                    step.provider,
+                    step.model or settings.model,
+                    status="succeeded",
+                    fallback_index=fallback_index,
+                    tools_available=True,
+                )
+            )
         return _decorate_result(
             response,
             settings=settings,
@@ -205,6 +292,7 @@ async def _execute_chain_step(
             route=route,
             prior_error=prior_error,
             add_notice=False,
+            attempt_log=attempt_log,
         )
 
     if step.provider == "anthropic":
@@ -225,6 +313,16 @@ async def _execute_chain_step(
         )
         if not context.stream:
             response = await response
+        if attempt_log is not None:
+            attempt_log.append(
+                _build_route_attempt(
+                    step.provider,
+                    step.model or settings.anthropic_model,
+                    status="succeeded",
+                    fallback_index=fallback_index,
+                    tools_available=True,
+                )
+            )
         return _decorate_result(
             response,
             settings=settings,
@@ -232,6 +330,7 @@ async def _execute_chain_step(
             route=route,
             prior_error=prior_error,
             add_notice=False,
+            attempt_log=attempt_log,
         )
 
     if step.provider in {"gemini-cli", "claude-cli", "codex-cli"}:
@@ -256,10 +355,22 @@ async def _execute_chain_step(
                     active_model=step.model or step.label,
                     fallback_used=True,
                     tools_available=False,
+                    attempt_log=attempt_log,
+                    prior_error=prior_error,
                 ),
                 "primary_error": str(prior_error),
             },
         )
+        if attempt_log is not None:
+            attempt_log.append(
+                _build_route_attempt(
+                    step.provider,
+                    step.model or step.label,
+                    status="succeeded",
+                    fallback_index=fallback_index,
+                    tools_available=False,
+                )
+            )
         if context.stream:
             return _stream_from_response(response)
         return response
@@ -282,6 +393,7 @@ def _decorate_result(
     route: RoutingPlan,
     prior_error: Exception,
     add_notice: bool,
+    attempt_log: list[RouteAttempt] | None = None,
 ):
     metadata = _merge_route_metadata(
         None,
@@ -290,6 +402,8 @@ def _decorate_result(
         active_provider=step.provider,
         active_model=step.model or step.label,
         fallback_used=True,
+        attempt_log=attempt_log,
+        prior_error=prior_error,
     ) | {"primary_error": str(prior_error)}
     if isinstance(result, ChatResponse):
         result.additional_properties = dict(result.additional_properties or {}) | metadata
@@ -308,7 +422,13 @@ def _decorate_result(
     return result
 
 
-def _decorate_primary_response(result: ChatResponse, *, route: RoutingPlan, settings: Settings) -> ChatResponse:
+def _decorate_primary_response(
+    result: ChatResponse,
+    *,
+    route: RoutingPlan,
+    settings: Settings,
+    attempt_log: list[RouteAttempt] | None = None,
+) -> ChatResponse:
     result.additional_properties = _merge_route_metadata(
         result.additional_properties,
         settings=settings,
@@ -316,6 +436,7 @@ def _decorate_primary_response(result: ChatResponse, *, route: RoutingPlan, sett
         active_provider=route.primary_provider,
         active_model=route.primary_model,
         fallback_used=False,
+        attempt_log=attempt_log,
     )
     return result
 
@@ -342,19 +463,60 @@ def _merge_route_metadata(
     active_model: str,
     fallback_used: bool,
     tools_available: bool = True,
+    attempt_log: list[RouteAttempt] | tuple[RouteAttempt, ...] | None = None,
+    prior_error: Exception | str | None = None,
 ) -> dict[str, Any]:
     metadata = dict(existing or {})
+    route_plan = route.route_plan or ((ChainStep(route.primary_provider, route.primary_model)), *route.fallback_steps)
+    route_attempts = tuple(attempt_log or ())
+    if not route_attempts:
+        if fallback_used:
+            route_attempts = (
+                _build_route_attempt(
+                    route.primary_provider,
+                    route.primary_model,
+                    status="failed",
+                    fallback_index=0,
+                    tools_available=True,
+                    error=prior_error,
+                ),
+                _build_route_attempt(
+                    active_provider,
+                    active_model,
+                    status="succeeded" if active_provider == route.primary_provider else "succeeded",
+                    fallback_index=1,
+                    tools_available=tools_available,
+                ),
+            )
+        else:
+            route_attempts = (
+                _build_route_attempt(
+                    active_provider,
+                    active_model,
+                    status="succeeded",
+                    fallback_index=0,
+                    tools_available=tools_available,
+                ),
+            )
+    capability_changes = _derive_capability_changes(route_attempts)
     metadata.update(
         {
             "routing_mode": route.mode,
+            "route_lane": route.route_lane,
             "route_tier": route.tier,
             "route_reason": route.rationale,
             "active_provider": active_provider,
             "active_model": active_model,
             "primary_provider": route.primary_provider,
             "primary_model": route.primary_model,
+            "requested_provider": route.requested_provider,
+            "requested_model": route.requested_model,
+            "route_plan": [step.to_dict() for step in route_plan],
+            "route_attempts": [attempt.to_dict() for attempt in route_attempts],
+            "fallback_count": max(0, len(route_attempts) - 1),
             "fallback_used": fallback_used,
             "tools_available": tools_available,
+            "capability_changes": [change.to_dict() for change in capability_changes],
             "workspace_root": str(settings.repo_root),
             "checkpoint_dir": str(settings.checkpoint_dir),
         }
@@ -363,6 +525,60 @@ def _merge_route_metadata(
         metadata["fallback_provider"] = active_provider
         metadata["fallback_model"] = active_model
     return metadata
+
+
+def _build_route_attempt(
+    provider: str,
+    model: str | None,
+    *,
+    status: str,
+    fallback_index: int,
+    tools_available: bool,
+    error: Exception | str | None = None,
+) -> RouteAttempt:
+    return RouteAttempt(
+        provider=provider,
+        model=model,
+        status=status,
+        tools_available=tools_available,
+        fallback_index=fallback_index,
+        error=str(error) if error is not None else None,
+        started_at=None,
+        completed_at=None,
+    )
+
+
+def _derive_capability_changes(attempts: tuple[RouteAttempt, ...]) -> tuple[CapabilityChange, ...]:
+    changes: list[CapabilityChange] = []
+    for previous, current in zip(attempts, attempts[1:]):
+        if previous.tools_available != current.tools_available:
+            changes.append(
+                CapabilityChange(
+                    name="tools_available",
+                    before=previous.tools_available,
+                    after=current.tools_available,
+                    reason="Fallback changed the available tool surface.",
+                )
+            )
+        if previous.provider != current.provider:
+            changes.append(
+                CapabilityChange(
+                    name="provider",
+                    before=previous.provider,
+                    after=current.provider,
+                    reason="Fallback moved execution to a different provider.",
+                )
+            )
+        if previous.model != current.model:
+            changes.append(
+                CapabilityChange(
+                    name="model",
+                    before=previous.model,
+                    after=current.model,
+                    reason="Fallback moved execution to a different model.",
+                )
+            )
+    return tuple(changes)
 
 
 def _decorate_stream_update(

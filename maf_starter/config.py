@@ -36,6 +36,9 @@ class Settings:
     model: str
     base_url: str
     api_key: str = field(repr=False)
+    route_lane: str = "auto"
+    requested_provider: str | None = None
+    requested_model: str | None = None
     fallback_chain: tuple[str, ...] = ()
     anthropic_api_key: str | None = field(default=None, repr=False)
     anthropic_model: str | None = None
@@ -203,6 +206,9 @@ def load_settings(*, env_path: Path | None = None, project_root: Path | None = N
         repo_root=repo_root,
         checkpoint_dir=checkpoint_dir,
         model=model,
+        route_lane=(os.getenv("MAF_ROUTE_LANE") or "auto").strip() or "auto",
+        requested_provider=(os.getenv("MAF_REQUESTED_PROVIDER") or "").strip() or None,
+        requested_model=(os.getenv("MAF_REQUESTED_MODEL") or "").strip() or None,
         base_url=base_url,
         api_key=api_key,
         fallback_chain=_split_fallback_chain(
