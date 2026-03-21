@@ -1,9 +1,9 @@
 ---
 phase: 4
 slug: autonomous-repo-execution-and-validation-guardrails
-status: draft
+status: green
 nyquist_compliant: true
-wave_0_complete: false
+wave_0_complete: true
 created: 2026-03-21
 ---
 
@@ -39,16 +39,16 @@ created: 2026-03-21
 
 | Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|-----------|-------------------|-------------|--------|
-| 04-01-01 | 04-01 | 1 | EXEC-01 | unit | `.\.venv\Scripts\python.exe -m unittest tests.test_phase4_write_execution -v` | NO - W0 | pending |
-| 04-01-02 | 04-01 | 1 | EXEC-01, EXEC-02 | persistence | `.\.venv\Scripts\python.exe -m unittest tests.test_phase4_write_execution tests.test_run_persistence -v` | NO - W0 | pending |
-| 04-01-03 | 04-01 | 1 | EXEC-01, EXEC-02 | regression | `.\.venv\Scripts\python.exe -m unittest tests.test_phase4_write_execution tests.test_run_persistence -v` | NO - W0 | pending |
-| 04-02-01 | 04-02 | 2 | EXEC-03 | unit | `.\.venv\Scripts\python.exe -m unittest tests.test_phase4_validation -v` | NO - W0 | pending |
-| 04-02-02 | 04-02 | 2 | EXEC-02, EXEC-03 | runtime | `.\.venv\Scripts\python.exe -m unittest tests.test_phase4_validation tests.test_run_persistence -v` | NO - W0 | pending |
-| 04-02-03 | 04-02 | 2 | EXEC-03 | regression | `.\.venv\Scripts\python.exe -m unittest tests.test_phase4_validation tests.test_phase2_runtime -v` | NO - W0 | pending |
-| 04-03-01 | 04-03 | 3 | EXEC-04 | unit | `.\.venv\Scripts\python.exe -m unittest tests.test_phase4_approval -v` | NO - W0 | pending |
-| 04-03-02 | 04-03 | 3 | EXEC-04 | API/UI contract | `.\.venv\Scripts\python.exe -m unittest tests.test_phase4_approval tests.test_phase3_api -v` | NO - W0 | pending |
-| 04-03-03 | 04-03 | 3 | EXEC-01, EXEC-02, EXEC-03, EXEC-04 | regression | `.\.venv\Scripts\python.exe -m unittest discover -s tests -v` | YES | pending |
-| 04-03-03b | 04-03 | 3 | EXEC-02, EXEC-04 | static sanity | `.\.venv\Scripts\python.exe -m compileall maf_starter autogen_dashboard tests main.py` and `node --check autogen_dashboard\static\app.js` | YES | pending |
+| 04-01-01 | 04-01 | 1 | EXEC-01 | unit | `.\.venv\Scripts\python.exe -m unittest tests.test_phase4_write_execution -v` | YES | green |
+| 04-01-02 | 04-01 | 1 | EXEC-01, EXEC-02 | persistence | `.\.venv\Scripts\python.exe -m unittest tests.test_phase4_write_execution tests.test_run_persistence -v` | YES | green |
+| 04-01-03 | 04-01 | 1 | EXEC-01, EXEC-02 | regression | `.\.venv\Scripts\python.exe -m unittest tests.test_phase4_write_execution tests.test_run_persistence -v` | YES | green |
+| 04-02-01 | 04-02 | 2 | EXEC-03 | unit | `.\.venv\Scripts\python.exe -m unittest tests.test_phase4_validation -v` | YES | green |
+| 04-02-02 | 04-02 | 2 | EXEC-02, EXEC-03 | runtime | `.\.venv\Scripts\python.exe -m unittest tests.test_phase4_validation tests.test_run_persistence -v` | YES | green |
+| 04-02-03 | 04-02 | 2 | EXEC-03 | regression | `.\.venv\Scripts\python.exe -m unittest tests.test_phase4_validation tests.test_phase2_runtime -v` | YES | green |
+| 04-03-01 | 04-03 | 3 | EXEC-04 | unit | `.\.venv\Scripts\python.exe -m unittest tests.test_phase4_approval -v` | YES | green |
+| 04-03-02 | 04-03 | 3 | EXEC-04 | API/UI contract | `.\.venv\Scripts\python.exe -m unittest tests.test_phase4_approval tests.test_phase3_api -v` | YES | green |
+| 04-03-03 | 04-03 | 3 | EXEC-01, EXEC-02, EXEC-03, EXEC-04 | regression | `.\.venv\Scripts\python.exe -m unittest discover -s tests -v` | YES | green |
+| 04-03-03b | 04-03 | 3 | EXEC-02, EXEC-04 | static sanity | `.\.venv\Scripts\python.exe -m compileall maf_starter autogen_dashboard tests main.py` and `node --check autogen_dashboard\static\app.js` | YES | green |
 
 *Status: pending / green / red / flaky*
 
@@ -56,9 +56,9 @@ created: 2026-03-21
 
 ## Wave 0 Requirements
 
-- [ ] `tests/test_phase4_write_execution.py` - controlled write execution, path safety, diff capture, and operation-record coverage
-- [ ] `tests/test_phase4_validation.py` - validation command selection, result recording, and failure-to-pause coverage
-- [ ] `tests/test_phase4_approval.py` - approval classification, pending-approval payload, and destructive/external action coverage
+- [x] `tests/test_phase4_write_execution.py` - controlled write execution, path safety, diff capture, and operation-record coverage
+- [x] `tests/test_phase4_validation.py` - validation command selection, result recording, and failure-to-pause coverage
+- [x] `tests/test_phase4_approval.py` - approval classification, pending-approval payload, and destructive/external action coverage
 
 *Phase 4 reuses the existing stdlib test infrastructure; Wave 0 is the new autonomous-execution safety coverage.*
 
@@ -82,4 +82,4 @@ created: 2026-03-21
 - [x] Feedback latency < 90s
 - [x] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** pending
+**Approval:** passed

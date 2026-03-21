@@ -13,29 +13,29 @@
 
 ### Orchestration
 
-- [ ] **ORCH-01**: User can run a manager-led workflow that moves through planning, research, implementation, review, and validation stages
-- [ ] **ORCH-02**: User can see the current stage, overall run status, and why the run is paused, blocked, or complete
-- [ ] **ORCH-03**: User can continue a paused run after approval, missing input, or retry without losing state
-- [ ] **ORCH-04**: The system can answer routine GSD clarification and planning questions automatically from available project and repo context instead of asking the operator every time
+- [x] **ORCH-01**: User can run a manager-led workflow that moves through planning, research, implementation, review, and validation stages
+- [x] **ORCH-02**: User can see the current stage, overall run status, and why the run is paused, blocked, or complete
+- [x] **ORCH-03**: User can continue a paused run after approval, missing input, or retry without losing state
+- [x] **ORCH-04**: The system can answer routine GSD clarification and planning questions automatically from available project and repo context instead of asking the operator every time
 
 ### Specialists
 
-- [ ] **AGNT-01**: User can see which specialist agents are participating in the run
-- [ ] **AGNT-02**: User can inspect each specialist agent's current task, latest output, and handoff status
-- [ ] **AGNT-03**: The system can delegate repo work to specialist agents without requiring manual prompt choreography by the user
+- [x] **AGNT-01**: User can see which specialist agents are participating in the run
+- [x] **AGNT-02**: User can inspect each specialist agent's current task, latest output, and handoff status
+- [x] **AGNT-03**: The system can delegate repo work to specialist agents without requiring manual prompt choreography by the user
 
 ### Routing and Models
 
-- [ ] **ROUT-01**: User can choose a preferred model or route lane for a run before it starts
-- [ ] **ROUT-02**: User can see the provider, model, route tier, and rationale for each turn
-- [ ] **ROUT-03**: User can see when fallback occurred and whether tool availability changed because of it
+- [x] **ROUT-01**: User can choose a preferred model or route lane for a run before it starts
+- [x] **ROUT-02**: User can see the provider, model, route tier, and rationale for each turn
+- [x] **ROUT-03**: User can see when fallback occurred and whether tool availability changed because of it
 
 ### Execution and Safety
 
-- [ ] **EXEC-01**: The system can edit files in the selected repo automatically during an autonomous run
-- [ ] **EXEC-02**: User can inspect changed files, diffs, or file lists produced by a run
-- [ ] **EXEC-03**: The system can run targeted local validation commands and attach the results to the run
-- [ ] **EXEC-04**: Destructive or externally visible actions require an explicit approval step
+- [x] **EXEC-01**: The system can edit files in the selected repo automatically during an autonomous run
+- [x] **EXEC-02**: User can inspect changed files, diffs, or file lists produced by a run
+- [x] **EXEC-03**: The system can run targeted local validation commands and attach the results to the run
+- [x] **EXEC-04**: Destructive or externally visible actions require an explicit approval step
 
 ### Operator UI
 
@@ -72,20 +72,20 @@
 | WKSP-01 | Phase 1 | Complete |
 | WKSP-02 | Phase 1 | Complete |
 | WKSP-03 | Phase 1 | Complete |
-| ORCH-01 | Phase 2 | Pending |
-| ORCH-02 | Phase 2 | Pending |
-| ORCH-03 | Phase 2 | Pending |
-| ORCH-04 | Phase 2 | Pending |
-| AGNT-01 | Phase 3 | Pending |
-| AGNT-02 | Phase 3 | Pending |
-| AGNT-03 | Phase 3 | Pending |
-| ROUT-01 | Phase 3 | Pending |
-| ROUT-02 | Phase 3 | Pending |
-| ROUT-03 | Phase 3 | Pending |
-| EXEC-01 | Phase 4 | Pending |
-| EXEC-02 | Phase 4 | Pending |
-| EXEC-03 | Phase 4 | Pending |
-| EXEC-04 | Phase 4 | Pending |
+| ORCH-01 | Phase 2 | Complete |
+| ORCH-02 | Phase 2 | Complete |
+| ORCH-03 | Phase 2 | Complete |
+| ORCH-04 | Phase 2 | Complete |
+| AGNT-01 | Phase 3 | Complete |
+| AGNT-02 | Phase 3 | Complete |
+| AGNT-03 | Phase 3 | Complete |
+| ROUT-01 | Phase 3 | Complete |
+| ROUT-02 | Phase 3 | Complete |
+| ROUT-03 | Phase 3 | Complete |
+| EXEC-01 | Phase 4 | Complete |
+| EXEC-02 | Phase 4 | Complete |
+| EXEC-03 | Phase 4 | Complete |
+| EXEC-04 | Phase 4 | Complete |
 | UI-01 | Phase 5 | Pending |
 | UI-02 | Phase 5 | Pending |
 | UI-03 | Phase 5 | Pending |
@@ -97,4 +97,4 @@
 
 ---
 *Requirements defined: 2026-03-20*
-*Last updated: 2026-03-21 after Phase 01 completion*
+*Last updated: 2026-03-21 after Phase 04 completion*

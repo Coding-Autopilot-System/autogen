@@ -13,7 +13,7 @@ This roadmap turns the current MAF-first local prototype into a trustworthy loca
 - [x] **Phase 1: Workspace and Durable Run Foundation** - Establish repo selection, workspace context, and durable local run state
 - [x] **Phase 2: Manager-Led Orchestration Core** - Deliver the manager workflow and explicit stage/state model
 - [x] **Phase 3: Specialist Delegation and Routing Visibility** - Make specialist participation and provider routing fully visible
-- [ ] **Phase 4: Autonomous Repo Execution and Validation Guardrails** - Turn the system into a safe default-doer for repo work
+- [x] **Phase 4: Autonomous Repo Execution and Validation Guardrails** - Turn the system into a safe default-doer for repo work
 - [ ] **Phase 5: Polished Operator Workbench** - Replace prototype interaction with a durable operator-grade UI
 
 ## Phase Details
@@ -79,9 +79,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 04-01: Add controlled write execution and change capture
-- [ ] 04-02: Add targeted validation runners and result recording
-- [ ] 04-03: Enforce explicit approval policy for destructive or externally visible actions
+- [x] 04-01: Add controlled write execution and change capture
+- [x] 04-02: Add targeted validation runners and result recording
+- [x] 04-03: Enforce explicit approval policy for destructive or externally visible actions
 
 ### Phase 5: Polished Operator Workbench
 **Goal**: Deliver the professional, stylish operator experience over the stabilized orchestration contracts.
@@ -109,5 +109,5 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 | 1. Workspace and Durable Run Foundation | 3/3 | Complete | 2026-03-21 |
 | 2. Manager-Led Orchestration Core | 3/3 | Complete | 2026-03-21 |
 | 3. Specialist Delegation and Routing Visibility | 3/3 | Complete | 2026-03-21 |
-| 4. Autonomous Repo Execution and Validation Guardrails | 0/3 | Planned | - |
+| 4. Autonomous Repo Execution and Validation Guardrails | 3/3 | Complete | 2026-03-21 |
 | 5. Polished Operator Workbench | 0/3 | Not started | - |
