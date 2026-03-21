@@ -12,6 +12,7 @@ from autogen_agentchat.agents import AssistantAgent
 from autogen_agentchat.messages import TextMessage
 
 from autogen_dashboard.schemas import (
+    ApprovalDecision,
     ProviderListResponse,
     ProviderName,
     ProviderStatusModel,
@@ -144,18 +145,22 @@ class SessionService:
             model=model,
             original_task=task,
             latest_human_note=None,
+            approval_decisions=[],
+            retry_seed_prompt=None,
             workspace_kind=repo_context.kind,
             workspace_snapshot=repo_context,
             attempt_count=0,
+            latest_attempt_id=None,
+            artifact_manifest={},
             repo_root=repo_context.root,
             repo_context=repo_context,
-            status="idle",
+            status="queued",
             pause_reason=pause_reason,
             pause_title=pause_title,
             pause_detail=pause_detail,
             system_message=system_message,
             queued_prompt=queued_prompt,
-            last_prompt=queued_prompt,
+            last_prompt=None,
             last_error=None,
             last_assistant_message=None,
             last_stop_reason=None,
@@ -187,6 +192,7 @@ class SessionService:
             note,
             source="approval",
             metadata={"decision": "approve"},
+            decision="approve",
             pause_title="Ready for next step",
             pause_detail=self._decision_detail("approve", note),
         )
@@ -198,6 +204,7 @@ class SessionService:
             note,
             source="rejection",
             metadata={"decision": "reject"},
+            decision="reject",
             pause_title="Ready for next step",
             pause_detail=self._decision_detail("reject", note),
         )
@@ -236,7 +243,7 @@ class SessionService:
                 raise ValueError("Session is already running.")
             if summary.status == "stopped":
                 raise ValueError("Session is stopped.")
-            prompt = summary.last_prompt or summary.queued_prompt
+            prompt = summary.retry_seed_prompt or summary.original_task
             if not prompt:
                 raise ValueError("No prior prompt is available to retry.")
         return await self._start_prompt_run(
@@ -272,6 +279,7 @@ class SessionService:
         *,
         source: str,
         metadata: dict[str, Any],
+        decision: str | None = None,
         pause_title: str,
         pause_detail: str,
     ) -> SessionDetail:
@@ -296,12 +304,16 @@ class SessionService:
                     metadata=metadata,
                 )
             )
-            summary.status = "idle"
+            summary.status = "queued"
             summary.pause_reason = "not_started"
             summary.pause_title = pause_title
             summary.pause_detail = pause_detail
             summary.queued_prompt = content
             summary.latest_human_note = content
+            if decision in {"approve", "reject"}:
+                summary.approval_decisions.append(
+                    ApprovalDecision(decision=decision, note=content, created_at=now)
+                )
             summary.last_error = None
             summary.updated_at = now
             summary.transcript_count = len(transcript)
@@ -343,6 +355,28 @@ class SessionService:
             provider = summary.provider
             model_override = summary.model
             repo_context = self._refresh_repo_context(summary)
+            attempt_id, created_attempt = self._resolve_attempt_id(summary, prompt_origin)
+            summary.latest_attempt_id = attempt_id
+            if created_attempt:
+                summary.attempt_count += 1
+                self.store.save_attempt_summary(
+                    session_id,
+                    attempt_id,
+                    {
+                        "attempt_id": attempt_id,
+                        "status": "running",
+                        "prompt_origin": prompt_origin,
+                        "prompt": prompt,
+                        "started_at": now.isoformat(),
+                        "completed_at": None,
+                        "error": None,
+                    },
+                )
+                await self._emit_event(
+                    session_id,
+                    "run.attempt.started",
+                    {"attempt_id": attempt_id, "prompt_origin": prompt_origin},
+                )
 
             if record_input:
                 transcript = self.store.load_transcript(session_id)
@@ -358,6 +392,7 @@ class SessionService:
                 )
                 self.store.save_transcript(session_id, transcript)
                 summary.transcript_count = len(transcript)
+                summary.retry_seed_prompt = prompt
 
             summary.queued_prompt = None
             summary.event_count = len(runtime.events) + 1
@@ -374,6 +409,7 @@ class SessionService:
                     state=state,
                     model_override=model_override,
                     repo_context=repo_context,
+                    attempt_id=attempt_id,
                 )
             )
             runtime.active_task = run_task
@@ -391,6 +427,7 @@ class SessionService:
         state: dict[str, Any] | None,
         model_override: str | None,
         repo_context,
+        attempt_id: str,
     ) -> None:
         runtime = self._session_runtime(session_id)
 
@@ -419,6 +456,23 @@ class SessionService:
                 summary.last_fallback_count = 0
                 summary.updated_at = utc_now()
                 summary.event_count = len(runtime.events) + 1
+                self.store.save_attempt_summary(
+                    session_id,
+                    attempt_id,
+                    {
+                        "attempt_id": attempt_id,
+                        "status": "failed",
+                        "prompt_origin": prompt_origin,
+                        "prompt": prompt,
+                        "completed_at": utc_now().isoformat(),
+                        "error": "The run was cancelled.",
+                    },
+                )
+                await self._emit_event(
+                    session_id,
+                    "run.attempt.failed",
+                    {"attempt_id": attempt_id, "error": "The run was cancelled."},
+                )
                 self.store.save_summary(summary)
                 await self._emit_event(session_id, "run.failed", {"error": "The run was cancelled."})
                 return
@@ -442,6 +496,23 @@ class SessionService:
                     summary.last_fallback_count = max(0, len(exc.attempt_log) - 1)
                 summary.updated_at = utc_now()
                 summary.event_count = len(runtime.events) + 1
+                self.store.save_attempt_summary(
+                    session_id,
+                    attempt_id,
+                    {
+                        "attempt_id": attempt_id,
+                        "status": "failed",
+                        "prompt_origin": prompt_origin,
+                        "prompt": prompt,
+                        "completed_at": utc_now().isoformat(),
+                        "error": summarized_error,
+                    },
+                )
+                await self._emit_event(
+                    session_id,
+                    "run.attempt.failed",
+                    {"attempt_id": attempt_id, "error": summarized_error},
+                )
                 self.store.save_summary(summary)
                 await self._emit_event(session_id, "run.failed", {"error": summarized_error})
                 return
@@ -484,11 +555,36 @@ class SessionService:
 
             self.store.save_state(session_id, outcome.state_snapshot)
             self.store.save_transcript(session_id, transcript)
+            self.store.save_attempt_summary(
+                session_id,
+                attempt_id,
+                {
+                    "attempt_id": attempt_id,
+                    "status": "completed" if completion_status == "completed" else "waiting",
+                    "prompt_origin": prompt_origin,
+                    "prompt": prompt,
+                    "completed_at": summary.last_run_at.isoformat() if summary.last_run_at else utc_now().isoformat(),
+                    "stop_reason": outcome.stop_reason,
+                    "provider_used": outcome.provider_used,
+                    "model_used": outcome.model_used,
+                    "attempt_log": outcome.attempt_log,
+                },
+            )
+            await self._emit_event(
+                session_id,
+                "run.attempt.completed",
+                {
+                    "attempt_id": attempt_id,
+                    "provider_used": outcome.provider_used,
+                    "model_used": outcome.model_used,
+                },
+            )
             self.store.save_summary(summary)
             await self._emit_event(
                 session_id,
                 "run.completed",
                 {
+                    "attempt_id": attempt_id,
                     "stop_reason": outcome.stop_reason,
                     "assistant_message_count": len(outcome.assistant_messages),
                     "prompt_origin": prompt_origin,
@@ -630,8 +726,6 @@ class SessionService:
             return request.input.strip(), "manual"
         if summary.queued_prompt:
             return summary.queued_prompt, "queued"
-        if summary.last_prompt:
-            return summary.last_prompt, "retry"
         return None, "missing"
 
     def _pause_for_creation(self, queued_prompt: str | None) -> tuple[str, str, str]:
@@ -791,18 +885,23 @@ class SessionService:
     def _pause_for_result(self, stop_reason: str | None) -> tuple[SessionStatus, str, str, str]:
         normalized = (stop_reason or "").strip().lower()
         if not normalized:
-            return ("waiting_for_human", "needs_approval", "Awaiting approval", "Assistant finished a turn and saved state.")
+            return ("waiting", "needs_approval", "Awaiting approval", "Assistant finished a turn and saved state.")
         if "maximum number of turns" in normalized:
-            return ("waiting_for_human", "needs_approval", "Awaiting approval", "Assistant finished a turn and saved state.")
+            return ("waiting", "needs_approval", "Awaiting approval", "Assistant finished a turn and saved state.")
         if re.search(r"\b(complete|completed|done|finished)\b", normalized):
             return ("completed", "completed", "Completed", stop_reason or "Session completed.")
-        return ("waiting_for_human", "needs_approval", "Awaiting approval", stop_reason or "Assistant finished a turn and saved state.")
+        return ("waiting", "needs_approval", "Awaiting approval", stop_reason or "Assistant finished a turn and saved state.")
 
     def _decision_detail(self, decision: str, note: str) -> str:
         verb = "Approved" if decision == "approve" else "Rejected"
         if note and note not in {"APPROVE", "REJECT"}:
             return f"{verb}: {note}"
         return f"{verb}."
+
+    def _resolve_attempt_id(self, summary: SessionSummary, prompt_origin: str) -> tuple[str, bool]:
+        if prompt_origin == "retry" or not summary.latest_attempt_id:
+            return self.store.next_attempt_id(summary.id), True
+        return summary.latest_attempt_id, False
 
     def _consume_background_task(self, task: asyncio.Task[Any]) -> None:
         try:
