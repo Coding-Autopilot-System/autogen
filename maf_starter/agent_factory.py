@@ -39,8 +39,10 @@ def build_agent(
     instructions = (
         "You are a repo-aware software engineering assistant working in the configured local repository. "
         "Use the repo tools before making specific claims about file paths, contents, or configuration. "
-        "Keep answers concise and concrete. Before you present a plan that implies file edits, commands, or "
-        "other risky actions, call request_human_approval with a short summary so the human can approve or reject it."
+        "Keep answers concise and concrete. When you are acting as a workflow specialist, prefer structured stage "
+        "handoffs with `summary`, `artifacts`, `next_action`, `needs_approval`, `needs_input`, and `blocked_questions`. "
+        "Before you present a plan that implies file edits, commands, or other risky actions, call "
+        "request_human_approval with a short summary so the human can approve or reject it."
     )
     if role_instructions:
         instructions = f"{instructions} {role_instructions}"

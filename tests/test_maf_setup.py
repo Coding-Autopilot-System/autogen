@@ -16,6 +16,7 @@ from maf_starter.config import current_checkpoint_dir, load_settings, mask_secre
 from maf_starter.devui_overrides import OLD_GD_RENDERER
 from maf_starter.devui_overrides import _patch_devui_bundle
 from maf_starter.devui_overrides import install_devui_ui_overrides
+from maf_starter.provider_fallback import _merge_route_metadata
 from maf_starter.provider_fallback import _resolve_run_scope
 from maf_starter.provider_fallback import _wrap_stream_with_fallback
 from maf_starter.routing_policy import RoutingPlan, build_routing_plan
@@ -173,6 +174,8 @@ class MafSetupTests(RepoScratchTestCase):
             workflow = build_repo_team(settings)
 
         self.assertTrue(hasattr(workflow, "run"))
+        self.assertIn("manager-led", workflow.description.lower())
+        self.assertEqual(workflow.canonical_stages[0], "planning")
 
     def test_streaming_fallback_switches_before_first_update(self) -> None:
         async def failing_stream():
@@ -302,6 +305,25 @@ class MafSetupTests(RepoScratchTestCase):
         self.assertIn("function CdxRouteParse", patched)
         self.assertIn("codex-route-panel", patched)
         self.assertIn("CdxRoutePanel", patched)
+
+    def test_route_metadata_contains_tools_available_flag(self) -> None:
+        settings = load_settings(project_root=Path.cwd(), env_path=Path.cwd() / ".env")
+        metadata = _merge_route_metadata(
+            None,
+            settings=settings,
+            route=RoutingPlan(
+                mode="auto",
+                tier="deep",
+                rationale="test",
+                primary_provider="gemini",
+                primary_model="gemini-2.5-pro",
+                fallback_steps=(),
+            ),
+            active_provider="gemini",
+            active_model="gemini-2.5-pro",
+            fallback_used=False,
+        )
+        self.assertIn("tools_available", metadata)
 
 
 if __name__ == "__main__":
