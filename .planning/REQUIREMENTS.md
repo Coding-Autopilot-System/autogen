@@ -9,7 +9,7 @@
 
 - [x] **WKSP-01**: User can start a run by selecting a local repo or worktree and entering one engineering prompt
 - [x] **WKSP-02**: User can see the selected repo's branch, dirty state, and summary before or during a run
-- [ ] **WKSP-03**: User can resume, retry, or reopen a previous run with its prior context, transcript, and artifacts
+- [x] **WKSP-03**: User can resume, retry, or reopen a previous run with its prior context, transcript, and artifacts
 
 ### Orchestration
 
@@ -71,7 +71,7 @@
 |-------------|-------|--------|
 | WKSP-01 | Phase 1 | Complete |
 | WKSP-02 | Phase 1 | Complete |
-| WKSP-03 | Phase 1 | Pending |
+| WKSP-03 | Phase 1 | Complete |
 | ORCH-01 | Phase 2 | Pending |
 | ORCH-02 | Phase 2 | Pending |
 | ORCH-03 | Phase 2 | Pending |
@@ -97,4 +97,4 @@
 
 ---
 *Requirements defined: 2026-03-20*
-*Last updated: 2026-03-21 after Phase 01 Plan 01 execution*
+*Last updated: 2026-03-21 after Phase 01 Plan 02 execution*
