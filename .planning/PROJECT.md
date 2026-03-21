@@ -67,6 +67,9 @@ The current repo already proves some of the technical foundation: repo-aware too
 | Use a manager-driven multi-agent workflow as the primary interaction model | The goal is one-prompt execution with specialist delegation rather than manual step-by-step prompting | Validated in Phase 2 |
 | Make orchestration state explicit and durable | Phase 2 needs a shared contract for pause/resume/retry and operator visibility | Validated in Phase 2 |
 | Answer routine GSD clarification locally from planning context first | Common planning questions should not burn extra model turns or always block the operator | Validated in Phase 2 |
+| Keep the manager as the only canonical run owner while surfacing specialists as first-class visible actors | This preserves one durable workflow contract while still making delegation observable | Validated in Phase 3 |
+| Make route lanes the main operator control and persist planned-versus-actual routing history | Users need cost/depth control and clear fallback visibility without reading raw traces | Validated in Phase 3 |
+| Organize the dashboard operator surface into task-oriented tabs instead of one generic orchestration panel | Specialist, routing, and artifact visibility should feel product-grade and scannable | Validated in Phase 3 |
 | Make autonomous repo editing and validation the default behavior | You explicitly want the system to do the work automatically instead of asking on every step | Pending |
 | Defer Azure Function/REST hosting to a later stage | Cloud exposure matters, but local execution quality and operator UX are higher priority in v1 | Validated in Phase 1 |
 | Prefer Gemini API first and local CLIs as fallback or specialist paths | This fits your installed tooling, cost preference, and current runtime capabilities | Validated in Phase 1 |
@@ -75,8 +78,9 @@ The current repo already proves some of the technical foundation: repo-aware too
 
 - Phase 1 is complete: runs now start from an explicit workspace, persist under one durable run identity, and surface workspace drift visibly.
 - Phase 2 is complete: the active dashboard runtime now executes against a manager-owned stage machine with durable stage artifacts, stage-aware pause kinds, and retry-scoped resume behavior.
-- The operator shell now shows current stage, last completed stage, route metadata, stage timeline, stage summaries, and automatic GSD answers without raw-log digging.
-- The next execution focus is Phase 3, where specialist ownership and routing visibility become richer and more agent-specific instead of manager-summary-only.
+- Phase 3 is complete: specialist roster state, handoff visibility, route lanes, planned-versus-actual route history, and operator-facing routing/artifact tabs are now part of the durable run contract.
+- The operator shell now shows current stage, last completed stage, route metadata, specialist activity, handoff history, stage timeline, stage summaries, and automatic GSD answers without raw-log digging.
+- The next execution focus is Phase 4, where the system stops being mostly an orchestration observer and becomes a safe default-doer for repo edits and local validation.
 
 ## Evolution
 
@@ -96,4 +100,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-03-21 after Phase 02 completion*
+*Last updated: 2026-03-21 after Phase 03 completion*
