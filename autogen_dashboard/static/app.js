@@ -88,6 +88,7 @@
     detailTitle: document.getElementById("detail-title"),
     detailBadges: document.getElementById("detail-badges"),
     pauseBanner: document.getElementById("pause-banner"),
+    orchestrationPanel: document.getElementById("orchestration-panel"),
     workspaceWarning: document.getElementById("workspace-warning"),
     detailDisclosure: document.getElementById("detail-disclosure"),
     detailMeta: document.getElementById("detail-meta"),
@@ -298,6 +299,44 @@
         ).trim();
       })
       .filter(Boolean);
+  }
+
+  function normalizeStageTimeline(value) {
+    const items = Array.isArray(value) ? value : [];
+    return items
+      .filter((item) => item && typeof item === "object")
+      .map((item) => ({
+        stage: pick(item, ["stage", "name", "id"], ""),
+        status: pick(item, ["status", "state"], "pending"),
+        pauseKind: pick(item, ["pause_kind", "pauseKind"], ""),
+        startedAt: pick(item, ["started_at", "startedAt"], ""),
+        completedAt: pick(item, ["completed_at", "completedAt"], ""),
+        updatedAt: pick(item, ["updated_at", "updatedAt"], ""),
+        attemptCount: Number(pick(item, ["attempt_count", "attemptCount"], 0)) || 0,
+        error: pick(item, ["error", "last_error", "lastError"], ""),
+        blockedQuestions: normalizeTextList(pick(item, ["blocked_questions", "blockedQuestions"], [])),
+        autoAnswerCount: Number(pick(item, ["auto_answer_count", "autoAnswerCount"], 0)) || 0,
+      }));
+  }
+
+  function normalizeStageOutputs(value) {
+    if (!value || typeof value !== "object") return {};
+    const entries = {};
+    Object.entries(value).forEach(([stageKey, payload]) => {
+      if (!payload || typeof payload !== "object") return;
+      const stage = pick(payload, ["stage", "name"], stageKey);
+      entries[stage] = {
+        stage,
+        summary: pick(payload, ["summary", "text", "content"], ""),
+        artifacts: normalizeTextList(pick(payload, ["artifacts"], [])),
+        nextAction: pick(payload, ["next_action", "nextAction"], ""),
+        needsApproval: Boolean(pick(payload, ["needs_approval", "needsApproval"], false)),
+        needsInput: Boolean(pick(payload, ["needs_input", "needsInput"], false)),
+        blockedQuestions: normalizeTextList(pick(payload, ["blocked_questions", "blockedQuestions"], [])),
+        routeMetadata: pick(payload, ["route_metadata", "routeMetadata"], {}) || {},
+      };
+    });
+    return entries;
   }
 
   function basenameFromPath(value) {
@@ -897,6 +936,7 @@
     const updatedAt = pick(item, ["updated_at", "updatedAt", "last_updated", "modified_at", "timestamp"], "");
     const createdAt = pick(item, ["created_at", "createdAt", "started_at", "startedAt"], "");
     const pauseReason = pick(item, ["pause_reason", "pauseReason", "pause_kind", "pauseKind"], "");
+    const pauseKind = pick(item, ["pause_kind", "pauseKind"], pauseReason);
     const pauseTitle = pick(item, ["pause_title", "pauseTitle"], "");
     const pauseDetail = pick(item, ["pause_detail", "pauseDetail"], "");
     const lastPrompt = pick(item, ["last_prompt", "lastPrompt", "queued_prompt", "queuedPrompt"], "");
@@ -921,6 +961,11 @@
       ["workspace_last_checked_at", "workspaceLastCheckedAt"],
       effectiveRepoContext.scannedAt || ""
     );
+    const stageTimeline = normalizeStageTimeline(pick(item, ["stage_timeline", "stageTimeline"], []));
+    const stageOutputs = normalizeStageOutputs(pick(item, ["stage_outputs", "stageOutputs"], {}));
+    const autoAnswerRecords = normalizeArray(item, ["auto_answer_records", "autoAnswerRecords"]).filter(Boolean);
+    const blockedQuestions = normalizeTextList(pick(item, ["blocked_questions", "blockedQuestions"], []));
+    const routeMetadata = pick(item, ["route_metadata", "routeMetadata"], {}) || {};
     return {
       raw: item,
       id,
@@ -963,8 +1008,16 @@
       repoRoot: repoRoot || effectiveRepoContext.root || "",
       repoContext: effectiveRepoContext,
       pauseReason,
+      pauseKind,
       pauseTitle,
       pauseDetail,
+      currentStage: pick(item, ["current_stage", "currentStage"], ""),
+      lastCompletedStage: pick(item, ["last_completed_stage", "lastCompletedStage"], ""),
+      stageTimeline,
+      stageOutputs,
+      autoAnswerRecords,
+      blockedQuestions,
+      routeMetadata,
       lastStopReason,
       lastProviderUsed,
       lastModelUsed,
@@ -999,6 +1052,7 @@
       lastEvent: pick(item, ["last_event", "lastEvent"], ""),
       streamUrl: pick(item, ["events_url", "eventsUrl"], ""),
       pauseReason: pick(item, ["pause_reason", "pauseReason"], session.pauseReason || ""),
+      pauseKind: pick(item, ["pause_kind", "pauseKind"], session.pauseKind || session.pauseReason || ""),
       pauseTitle: pick(item, ["pause_title", "pauseTitle"], session.pauseTitle || ""),
       pauseDetail: pick(item, ["pause_detail", "pauseDetail"], session.pauseDetail || ""),
       lastPrompt: pick(item, ["last_prompt", "lastPrompt"], session.lastPrompt || ""),
@@ -1035,6 +1089,26 @@
           session.workspaceDriftFields || []
         )
       ),
+      currentStage: pick(item, ["current_stage", "currentStage"], session.currentStage || ""),
+      lastCompletedStage: pick(
+        item,
+        ["last_completed_stage", "lastCompletedStage"],
+        session.lastCompletedStage || ""
+      ),
+      stageTimeline: normalizeStageTimeline(
+        pick(item, ["stage_timeline", "stageTimeline"], session.stageTimeline || [])
+      ),
+      stageOutputs: normalizeStageOutputs(
+        pick(item, ["stage_outputs", "stageOutputs"], session.stageOutputs || {})
+      ),
+      autoAnswerRecords: normalizeArray(
+        item,
+        ["auto_answer_records", "autoAnswerRecords"]
+      ).filter(Boolean),
+      blockedQuestions: normalizeTextList(
+        pick(item, ["blocked_questions", "blockedQuestions"], session.blockedQuestions || [])
+      ),
+      routeMetadata: pick(item, ["route_metadata", "routeMetadata"], session.routeMetadata || {}) || {},
       latestAttemptId: pick(item, ["latest_attempt_id", "latestAttemptId"], session.latestAttemptId || ""),
       sessionMode: lookupSessionMode(session.id),
       raw: item,
@@ -1296,6 +1370,125 @@
     `;
   }
 
+  function renderOrchestrationPanel(session) {
+    if (!els.orchestrationPanel) return;
+    if (!session || (!session.currentStage && !session.stageTimeline?.length)) {
+      els.orchestrationPanel.hidden = true;
+      els.orchestrationPanel.innerHTML = "";
+      return;
+    }
+
+    const stageCards = (session.stageTimeline || [])
+      .map((entry) => {
+        const stageOutput = session.stageOutputs?.[entry.stage];
+        return `
+          <article class="stage-card stage-${escapeHtml(statusKind(entry.status))}">
+            <div class="stage-card-head">
+              <div class="stage-card-name">${escapeHtml(entry.stage || "stage")}</div>
+              <span class="status-pill ${escapeHtml(statusKind(entry.status))}">${escapeHtml(entry.status)}</span>
+            </div>
+            <div class="stage-card-meta">
+              ${entry.pauseKind ? `<span class="tiny-chip">${escapeHtml(entry.pauseKind)}</span>` : ""}
+              ${entry.attemptCount ? `<span class="tiny-chip">${escapeHtml(entry.attemptCount)} attempts</span>` : ""}
+              ${entry.autoAnswerCount ? `<span class="tiny-chip">${escapeHtml(entry.autoAnswerCount)} auto answers</span>` : ""}
+            </div>
+            <div class="stage-card-copy">${escapeHtml(stageOutput?.summary || entry.error || "No stage summary yet.")}</div>
+          </article>
+        `;
+      })
+      .join("");
+
+    const outputCards = Object.values(session.stageOutputs || {})
+      .map((output) => {
+        const route = output.routeMetadata || {};
+        return `
+          <article class="output-card">
+            <div class="output-card-head">
+              <div class="output-card-name">${escapeHtml(output.stage)}</div>
+              <div class="output-card-route">
+                ${route.active_provider ? `<span class="tiny-chip">${escapeHtml(route.active_provider)}</span>` : ""}
+                ${route.active_model ? `<span class="tiny-chip">${escapeHtml(route.active_model)}</span>` : ""}
+                ${route.route_tier ? `<span class="tiny-chip">${escapeHtml(route.route_tier)}</span>` : ""}
+              </div>
+            </div>
+            <div class="output-card-copy">${escapeHtml(output.summary || "No summary captured.")}</div>
+            ${
+              output.nextAction
+                ? `<div class="output-card-next"><span class="meta-label">Next action</span><div>${escapeHtml(output.nextAction)}</div></div>`
+                : ""
+            }
+            ${
+              output.artifacts?.length
+                ? `<div class="output-card-artifacts">${output.artifacts
+                    .map((artifact) => `<span class="tiny-chip">${escapeHtml(artifact)}</span>`)
+                    .join("")}</div>`
+                : ""
+            }
+          </article>
+        `;
+      })
+      .join("");
+
+    const route = session.routeMetadata || {};
+    els.orchestrationPanel.hidden = false;
+    els.orchestrationPanel.innerHTML = `
+      <div class="orchestration-top">
+        <div class="orchestration-stat">
+          <span class="meta-label">Current stage</span>
+          <strong>${escapeHtml(session.currentStage || "None")}</strong>
+        </div>
+        <div class="orchestration-stat">
+          <span class="meta-label">Last completed</span>
+          <strong>${escapeHtml(session.lastCompletedStage || "None")}</strong>
+        </div>
+        <div class="orchestration-stat">
+          <span class="meta-label">Pause kind</span>
+          <strong>${escapeHtml(session.pauseKind || "None")}</strong>
+        </div>
+        <div class="orchestration-stat">
+          <span class="meta-label">Route</span>
+          <strong>${escapeHtml([route.active_provider, route.active_model].filter(Boolean).join(" | ") || "Pending")}</strong>
+        </div>
+      </div>
+      <div class="orchestration-grid">
+        <section class="orchestration-section">
+          <div class="orchestration-section-head">
+            <span class="panel-kicker">Timeline</span>
+            <h3>Stage progress</h3>
+          </div>
+          <div class="stage-card-grid">${stageCards || '<div class="empty-state">No stage timeline yet.</div>'}</div>
+        </section>
+        <section class="orchestration-section">
+          <div class="orchestration-section-head">
+            <span class="panel-kicker">Outputs</span>
+            <h3>Stage summaries</h3>
+          </div>
+          <div class="output-card-grid">${outputCards || '<div class="empty-state">No stage outputs yet.</div>'}</div>
+        </section>
+      </div>
+      ${
+        session.blockedQuestions?.length
+          ? `<div class="orchestration-alert">
+              <span class="meta-label">Blocked questions</span>
+              <div class="orchestration-list">${session.blockedQuestions
+                .map((question) => `<span class="tiny-chip">${escapeHtml(question)}</span>`)
+                .join("")}</div>
+            </div>`
+          : ""
+      }
+      ${
+        session.autoAnswerRecords?.length
+          ? `<div class="orchestration-alert">
+              <span class="meta-label">Automatic GSD answers</span>
+              <div class="orchestration-list">${session.autoAnswerRecords
+                .map((record) => `<span class="tiny-chip">${escapeHtml(record.question || "question")}</span>`)
+                .join("")}</div>
+            </div>`
+          : ""
+      }
+    `;
+  }
+
   function approvalItems() {
     return state.sessions
       .filter((session) => session.waitingForHuman)
@@ -1435,6 +1628,10 @@
       els.detailBadges.innerHTML = "";
       els.pauseBanner.hidden = true;
       els.pauseBanner.innerHTML = "";
+      if (els.orchestrationPanel) {
+        els.orchestrationPanel.hidden = true;
+        els.orchestrationPanel.innerHTML = "";
+      }
       if (els.workspaceWarning) {
         els.workspaceWarning.hidden = true;
         els.workspaceWarning.innerHTML = "";
@@ -1484,6 +1681,7 @@
 
     renderRepoContextBanner(session);
     renderWorkspaceWarning(session);
+    renderOrchestrationPanel(session);
 
     const hasPauseState =
       session.waitingForHuman || session.pauseReason || session.pauseTitle || session.pauseDetail || session.lastStopReason;
@@ -1531,6 +1729,14 @@
       ["Workspace freshness", session.workspaceStale ? "Stale" : "Fresh"],
       ["Workspace checked", session.workspaceLastCheckedAt ? formatTimestamp(session.workspaceLastCheckedAt) : "None"],
       ["Workspace drift", session.workspaceDriftFields?.length ? session.workspaceDriftFields.join(" | ") : "None"],
+      ["Current stage", session.currentStage || "None"],
+      ["Last completed stage", session.lastCompletedStage || "None"],
+      ["Pause kind", session.pauseKind || "None"],
+      ["Blocked questions", session.blockedQuestions?.length ? session.blockedQuestions.join(" | ") : "None"],
+      ["Auto answers", String(session.autoAnswerRecords?.length || 0)],
+      ["Route provider", session.routeMetadata?.active_provider || "None"],
+      ["Route model", session.routeMetadata?.active_model || "None"],
+      ["Route tier", session.routeMetadata?.route_tier || "None"],
       ["Pause reason", session.pauseReason || "None"],
       ["Pause title", session.pauseTitle || "None"],
       ["Pause detail", session.pauseDetail || "None"],

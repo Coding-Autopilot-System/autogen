@@ -194,7 +194,11 @@ def create_app() -> FastAPI:
         async def event_stream():
             snapshot = service.get_session(session_id)
             cursor = since_seq or snapshot.event_count
-            yield _sse_frame("snapshot", snapshot.model_dump(mode="json"), event_id=snapshot.event_count)
+            snapshot_payload = snapshot.model_dump(mode="json")
+            snapshot_payload["current_stage"] = snapshot.current_stage
+            snapshot_payload["last_completed_stage"] = snapshot.last_completed_stage
+            snapshot_payload["pause_kind"] = snapshot.pause_kind
+            yield _sse_frame("snapshot", snapshot_payload, event_id=snapshot.event_count)
             async for event in service.stream_events(session_id, since_seq=cursor):
                 yield _sse_frame(event.type, event.model_dump(mode="json"), event_id=event.seq)
 
