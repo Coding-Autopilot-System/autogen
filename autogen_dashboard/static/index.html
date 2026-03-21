@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <title>AutoGen Dashboard</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <div class="backdrop backdrop-a" aria-hidden="true"></div>
+    <div class="backdrop backdrop-b" aria-hidden="true"></div>
+
+    <header class="hero">
+      <div class="hero-copy">
+        <p class="eyebrow">Local Human-in-the-Loop Control</p>
+        <h1>AutoGen Dashboard</h1>
+        <p class="lede">
+          Watch the agent state, choose a provider, step through tasks, and decide when the
+          machine should pause for you.
+        </p>
+      </div>
+      <div class="hero-meta">
+        <div class="stat-card">
+          <span class="stat-label">Active provider</span>
+          <strong id="active-provider">Loading</strong>
+          <span id="provider-detail" class="stat-subtle">Checking readiness</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Selected session</span>
+          <strong id="selected-session-name">None</strong>
+          <span id="selected-session-status" class="stat-subtle">No session selected</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Stream</span>
+          <strong id="stream-status">Disconnected</strong>
+          <span id="sync-status" class="stat-subtle">Waiting for a session</span>
+        </div>
+      </div>
+    </header>
+
+    <main class="shell">
+      <aside class="rail">
+        <section class="panel panel-compact">
+          <div class="panel-head">
+            <div>
+              <p class="panel-kicker">Providers</p>
+              <h2>Readiness</h2>
+            </div>
+            <button id="refresh-providers" class="ghost-button" type="button">Refresh</button>
+          </div>
+          <div id="provider-summary" class="summary-strip"></div>
+          <div id="provider-list" class="provider-list"></div>
+        </section>
+
+        <section class="panel panel-compact">
+          <div class="panel-head">
+            <div>
+              <p class="panel-kicker">Approvals</p>
+              <h2>Waiting Queue</h2>
+            </div>
+            <div class="panel-inline-meta">
+              <span id="approval-queue-count" class="tiny-chip">0 waiting</span>
+              <button id="refresh-queue" class="ghost-button" type="button">Refresh</button>
+            </div>
+          </div>
+          <div id="approval-queue" class="queue-list"></div>
+        </section>
+
+        <section class="panel panel-compact">
+          <div class="panel-head">
+            <div>
+              <p class="panel-kicker">Sessions</p>
+              <h2>Queue</h2>
+            </div>
+            <button id="refresh-sessions" class="ghost-button" type="button">Refresh</button>
+          </div>
+          <div class="list-toolbar">
+            <label class="inline-label" for="session-filter">Filter</label>
+            <select id="session-filter" class="input select">
+              <option value="all">All</option>
+              <option value="active">Active</option>
+              <option value="waiting">Waiting for human</option>
+              <option value="stopped">Stopped</option>
+              <option value="error">Errors</option>
+            </select>
+          </div>
+          <div id="session-list" class="session-list"></div>
+        </section>
+
+        <section class="panel panel-compact">
+          <div class="panel-head">
+            <div>
+              <p class="panel-kicker">Create</p>
+              <h2>New Run</h2>
+            </div>
+          </div>
+          <form id="create-session-form" class="form-grid">
+            <label>
+              <span>Provider</span>
+              <select id="create-provider" name="provider" class="input select" required></select>
+            </label>
+            <label>
+              <span>Workspace</span>
+              <select id="create-repo-root" name="repo_root" class="input select" required>
+                <option value="">Select a workspace</option>
+              </select>
+              <span class="inline-help">
+                Pick a repo or worktree discovered under the allowed scan root.
+              </span>
+            </label>
+            <label class="wide">
+              <span>Manual workspace path</span>
+              <input
+                id="create-manual-repo-root"
+                name="manual_repo_root"
+                class="input"
+                type="text"
+                placeholder="Optional: paste a repo path inside the scan root"
+              />
+              <span class="inline-help">
+                Manual paths are allowed only if they still resolve inside the configured scan root.
+              </span>
+            </label>
+            <section id="create-workspace-summary" class="workspace-summary-card" aria-live="polite">
+              <div class="workspace-summary-empty">
+                Select a workspace to preview branch, dirty state, stack hints, and recent commits before you create the run.
+              </div>
+            </section>
+            <label>
+              <span>Model</span>
+              <input
+                id="create-model"
+                name="model"
+                class="input"
+                type="text"
+                list="model-presets"
+                placeholder="Provider default"
+              />
+              <span id="model-help" class="inline-help">
+                Choose a model or leave this blank to use the provider default.
+              </span>
+            </label>
+            <datalist id="model-presets"></datalist>
+            <label>
+              <span>Title</span>
+              <input
+                id="create-title"
+                name="title"
+                class="input"
+                type="text"
+                placeholder="Customer escalation triage"
+              />
+            </label>
+            <label class="wide">
+              <span>Engineering prompt</span>
+              <textarea
+                id="create-task"
+                name="task"
+                class="input textarea"
+                rows="4"
+                placeholder="Describe the engineering task to run inside the selected workspace."
+                required
+              ></textarea>
+            </label>
+            <label class="wide">
+              <span>System message</span>
+              <textarea
+                id="create-system-message"
+                name="system_message"
+                class="input textarea"
+                rows="3"
+                placeholder="How should the agent behave?"
+              ></textarea>
+            </label>
+            <div class="wide form-actions">
+              <button class="primary-button" type="submit">Create session</button>
+              <button id="seed-smoke-test" class="ghost-button" type="button">Use smoke test</button>
+              <button id="seed-example" class="ghost-button" type="button">Use example</button>
+            </div>
+          </form>
+        </section>
+      </aside>
+
+      <section class="workspace">
+        <section class="panel panel-main panel-selected">
+          <div class="panel-head">
+            <div>
+              <p class="panel-kicker">Selected</p>
+              <h2 id="detail-title">No session selected</h2>
+            </div>
+            <div id="detail-badges" class="badge-row"></div>
+          </div>
+          <div id="pause-banner" class="pause-banner" hidden></div>
+          <div id="detail-empty" class="empty-state">
+            Select a session from the queue or create a new one to inspect its state.
+          </div>
+          <details id="detail-disclosure" class="detail-disclosure" hidden>
+            <summary>Session details and repo context</summary>
+            <div id="repo-context-banner" class="repo-context-banner" hidden></div>
+            <div id="detail-meta" class="meta-grid"></div>
+          </details>
+        </section>
+
+        <section class="panel panel-main control-panel">
+          <div class="panel-head">
+            <div>
+              <p class="panel-kicker">Human Controls</p>
+              <h2>Approve or Redirect</h2>
+            </div>
+            <span class="hint">Ctrl+Enter runs. Ctrl+Shift+Enter approves and runs. Esc clears.</span>
+          </div>
+
+          <div class="mode-strip">
+            <div class="mode-row">
+              <button class="mode-button" type="button" data-session-mode="review">Review</button>
+              <button class="mode-button" type="button" data-session-mode="plan">Plan</button>
+              <button class="mode-button" type="button" data-session-mode="implement">Implement</button>
+              <button class="mode-button" type="button" data-session-mode="general">General</button>
+            </div>
+            <div id="session-mode-copy" class="mode-copy">
+              Select a session to choose how this control panel should frame the next step.
+            </div>
+          </div>
+
+          <div id="control-pending" class="pending-strip">
+            Select a session to see the next queued prompt.
+          </div>
+
+          <div id="run-status-strip" class="run-status-strip">
+            Select a session to see the current run state and the next safe action.
+          </div>
+
+          <div id="control-guide" class="control-guide">
+            <div class="guide-step">
+              <span class="guide-label">1. Type here</span>
+              Use <strong>Human message / note</strong> for approval notes, corrections, or the next instruction.
+            </div>
+            <div class="guide-step">
+              <span class="guide-label">2. Queue or run</span>
+              <strong>Queue note only</strong> saves text for later. <strong>Run now</strong> executes immediately.
+            </div>
+            <div class="guide-step">
+              <span class="guide-label">3. Approve or reject</span>
+              Use the approval buttons only after the agent has paused for you.
+            </div>
+          </div>
+
+          <div class="control-grid">
+            <label class="wide">
+              <span>Human message / note</span>
+              <textarea
+                id="human-message"
+                class="input textarea"
+                rows="4"
+                placeholder="Add a note, correction, approval comment, or follow-up instruction."
+              ></textarea>
+            </label>
+
+            <div class="action-row wide">
+              <button id="send-message" class="primary-button" type="button">Queue note only</button>
+              <button id="approve-session" class="action-button" type="button">Approve only</button>
+              <button id="approve-run-session" class="action-button" type="button">Approve + Run</button>
+              <button id="reject-session" class="action-button" type="button">Reject only</button>
+              <button id="reject-run-session" class="action-button" type="button">Reject + Run</button>
+              <button id="run-session" class="action-button" type="button">Run now</button>
+              <button id="retry-session" class="action-button" type="button">Retry</button>
+              <button id="cancel-session" class="danger-button" type="button">Cancel</button>
+              <button id="stop-session" class="danger-button" type="button">Stop</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel panel-main transcript-panel">
+          <div class="panel-head">
+            <div>
+              <p class="panel-kicker">Transcript</p>
+              <h2>Live Conversation</h2>
+            </div>
+            <div class="panel-inline-meta">
+              <span id="message-count" class="tiny-chip">0 messages</span>
+              <span id="last-updated" class="muted-text">Not updated yet</span>
+            </div>
+          </div>
+          <div id="transcript" class="transcript"></div>
+        </section>
+      </section>
+    </main>
+
+    <div id="notice" class="notice" role="status" aria-live="polite"></div>
+    <script src="/static/app.js"></script>
+  </body>
+</html>
