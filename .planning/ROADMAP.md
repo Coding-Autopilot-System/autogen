@@ -12,7 +12,7 @@ This roadmap turns the current MAF-first local prototype into a trustworthy loca
 
 - [x] **Phase 1: Workspace and Durable Run Foundation** - Establish repo selection, workspace context, and durable local run state
 - [x] **Phase 2: Manager-Led Orchestration Core** - Deliver the manager workflow and explicit stage/state model
-- [ ] **Phase 3: Specialist Delegation and Routing Visibility** - Make specialist participation and provider routing fully visible
+- [x] **Phase 3: Specialist Delegation and Routing Visibility** - Make specialist participation and provider routing fully visible
 - [ ] **Phase 4: Autonomous Repo Execution and Validation Guardrails** - Turn the system into a safe default-doer for repo work
 - [ ] **Phase 5: Polished Operator Workbench** - Replace prototype interaction with a durable operator-grade UI
 
@@ -63,9 +63,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 03-01: Formalize specialist roles, handoffs, and per-agent state
-- [ ] 03-02: Build route selection, route metadata, and fallback capability reporting
-- [ ] 03-03: Expose specialist and routing data cleanly in the operator surface
+- [x] 03-01: Formalize specialist roles, handoffs, and per-agent state
+- [x] 03-02: Build route selection, route metadata, and fallback capability reporting
+- [x] 03-03: Expose specialist and routing data cleanly in the operator surface
 
 ### Phase 4: Autonomous Repo Execution and Validation Guardrails
 **Goal**: Enable autonomous repo work while containing execution risk.
@@ -108,6 +108,6 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 |-------|----------------|--------|-----------|
 | 1. Workspace and Durable Run Foundation | 3/3 | Complete | 2026-03-21 |
 | 2. Manager-Led Orchestration Core | 3/3 | Complete | 2026-03-21 |
-| 3. Specialist Delegation and Routing Visibility | 0/3 | Not started | - |
+| 3. Specialist Delegation and Routing Visibility | 3/3 | Complete | 2026-03-21 |
 | 4. Autonomous Repo Execution and Validation Guardrails | 0/3 | Not started | - |
 | 5. Polished Operator Workbench | 0/3 | Not started | - |
