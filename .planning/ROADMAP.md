@@ -11,7 +11,7 @@ This roadmap turns the current MAF-first local prototype into a trustworthy loca
 - Decimal phases (2.1, 2.2): Urgent insertions if needed later
 
 - [x] **Phase 1: Workspace and Durable Run Foundation** - Establish repo selection, workspace context, and durable local run state
-- [ ] **Phase 2: Manager-Led Orchestration Core** - Deliver the manager workflow and explicit stage/state model
+- [x] **Phase 2: Manager-Led Orchestration Core** - Deliver the manager workflow and explicit stage/state model
 - [ ] **Phase 3: Specialist Delegation and Routing Visibility** - Make specialist participation and provider routing fully visible
 - [ ] **Phase 4: Autonomous Repo Execution and Validation Guardrails** - Turn the system into a safe default-doer for repo work
 - [ ] **Phase 5: Polished Operator Workbench** - Replace prototype interaction with a durable operator-grade UI
@@ -46,9 +46,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 02-01: Build the manager workflow contract and stage machine
-- [ ] 02-02: Add structured pause, resume, and automatic GSD-question handling
-- [ ] 02-03: Align run outputs, stage events, and orchestration summaries across the active runtime
+- [x] 02-01: Build the manager workflow contract and stage machine
+- [x] 02-02: Add structured pause, resume, and automatic GSD-question handling
+- [x] 02-03: Align run outputs, stage events, and orchestration summaries across the active runtime
 
 ### Phase 3: Specialist Delegation and Routing Visibility
 **Goal**: Make delegation and model/provider behavior auditable and understandable.
@@ -107,7 +107,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Workspace and Durable Run Foundation | 3/3 | Complete | 2026-03-21 |
-| 2. Manager-Led Orchestration Core | 0/3 | Not started | - |
+| 2. Manager-Led Orchestration Core | 3/3 | Complete | 2026-03-21 |
 | 3. Specialist Delegation and Routing Visibility | 0/3 | Not started | - |
 | 4. Autonomous Repo Execution and Validation Guardrails | 0/3 | Not started | - |
 | 5. Polished Operator Workbench | 0/3 | Not started | - |
