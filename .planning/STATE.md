@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: ready
-stopped_at: Phase 3 context gathered
-last_updated: "2026-03-21T11:51:56.994Z"
+stopped_at: Phase 3 planned
+last_updated: "2026-03-21T12:05:38.896Z"
 progress:
   total_phases: 5
   completed_phases: 2
@@ -23,8 +23,8 @@ See: .planning/PROJECT.md (updated 2026-03-21)
 
 ## Current Position
 
-Phase: 03 (specialist-delegation-and-routing-visibility) - CONTEXT READY
-Plan: Not planned yet
+Phase: 03 (specialist-delegation-and-routing-visibility) - PLANNED
+Plan: 3 execution plans ready
 
 ## Performance Metrics
 
@@ -78,6 +78,9 @@ Recent decisions affecting current work:
 - Phase 03 context: Keep the manager as the only canonical run owner while surfacing `planner`, `researcher`, `implementer`, and `reviewer` as first-class visible specialists
 - Phase 03 context: Route control should be lane-first with advanced model pinning, using API-first fallbacks and CLI providers last unless explicitly pinned
 - Phase 03 context: Routing and specialist behavior should be exposed through dedicated operator views and route cards rather than transcript text or DevUI traces alone
+- Phase 03 planning: Split execution into parallel wave 1 tracks for specialist-state contract (`03-01`) and route contract (`03-02`), then merge them in wave 2 through the operator surface (`03-03`)
+- Phase 03 planning: Keep specialist and routing visibility on the dashboard product surface rather than deepening DevUI as the primary UI
+- Phase 03 planning: Treat route lanes as the main operator control, with advanced model pinning and planned-versus-actual route history persisted per run
 
 ### Pending Todos
 
@@ -91,6 +94,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-21T11:51:56.994Z
-Stopped at: Phase 3 context gathered
-Resume file: .planning/phases/03-specialist-delegation-and-routing-visibility/03-CONTEXT.md
+Last session: 2026-03-21T12:05:38.896Z
+Stopped at: Phase 3 planned
+Resume file: .planning/phases/03-specialist-delegation-and-routing-visibility/03-01-PLAN.md
