@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: paused
-stopped_at: Phase 4 context gathered
-last_updated: "2026-03-21T15:07:51.2152796+02:00"
+stopped_at: Phase 4 planned
+last_updated: "2026-03-21T15:40:23.3770761+02:00"
 progress:
   total_phases: 5
   completed_phases: 3
@@ -23,8 +23,8 @@ See: .planning/PROJECT.md (updated 2026-03-21)
 
 ## Current Position
 
-Phase: 04 (autonomous-repo-execution-and-validation-guardrails) - context gathered
-Plan: 0 of 3 complete
+Phase: 04 (autonomous-repo-execution-and-validation-guardrails) - planned
+Plan: 3 execution plans ready
 
 ## Performance Metrics
 
@@ -92,6 +92,8 @@ Recent decisions affecting current work:
 - Phase 04 context: Each implementation-capable run should persist changed-file lists, operation records, and unified diff artifacts under the run manifest
 - Phase 04 context: Validation should run as a targeted ladder and record command, cwd, exit code, duration, and output summary
 - Phase 04 context: Approval is reserved for destructive or externally visible actions with explicit scope and reason
+- Phase 04 planning: Execute the phase as a sequential safety chain of write capture, validation recording, then approval enforcement
+- Phase 04 planning: Extend the existing run artifact manifest and pause semantics instead of creating a parallel execution store or approval queue
 
 ### Pending Todos
 
@@ -105,6 +107,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-21T15:07:51.2152796+02:00
-Stopped at: Phase 4 context gathered
-Resume file: .planning/phases/04-autonomous-repo-execution-and-validation-guardrails/04-CONTEXT.md
+Last session: 2026-03-21T15:40:23.3770761+02:00
+Stopped at: Phase 4 planned
+Resume file: .planning/phases/04-autonomous-repo-execution-and-validation-guardrails/04-01-PLAN.md
