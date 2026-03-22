@@ -1,51 +1,90 @@
 # Feature Research
 
-**Research Date:** 2026-03-20
+**Domain:** Cloud API and Azure Function hosting for a local-first orchestration platform
+**Researched:** 2026-03-22
+**Confidence:** HIGH
 
-This product should be positioned as a local-first operator workbench for autonomous repo execution: one prompt starts a managed GSD run across planning, research, implementation, review, and validation. The durable boundary is the orchestration core, run/event model, and repo-aware execution rather than the current sample UI shell alone.
+## Feature Categories
 
-## Table Stakes
+### Control-Plane API
 
-- One-prompt run creation with explicit repo selection, branch and context summary, execution mode, and autonomy level
-- A manager-led workflow that makes the active stage obvious: plan, research, implement, review, validate, complete, or blocked
-- Per-agent visibility for manager and specialists, including current task, last output, files touched, and next handoff
-- Repo-aware execution grounded in the selected worktree: git status, branch, changed files, targeted file read/search, and safe path boundaries
-- Routing visibility on every turn: selected provider/model, route tier, why it was chosen, and whether fallback occurred
-- Fallback visibility that also shows capability changes, especially when a fallback loses tool calling or local repo actions
-- Durable sessions with run IDs, transcript, event timeline, checkpoints, artifacts, and resume/retry from the last safe stage
-- Approval flows for risky actions only, with human-readable summaries of proposed edits, commands, or side effects and explicit approve/reject outcomes
-- Validation as a required closing step: commands run, pass/fail results, reviewer findings, and final operator-facing summary
-- A clean backend boundary so the same orchestration engine can later be exposed over HTTP or Azure Functions without rewriting the run model
+**Table stakes:**
+- Submit a run over HTTP and get back a durable run identifier
+- Poll current run status, active stage, pause reason, and summary over HTTP
+- Fetch timeline, routing history, agent state, validation results, and artifacts over HTTP
+- Send control actions such as approve, retry, cancel, or append operator input to an existing run
 
-## Differentiators
+**Differentiators:**
+- Keep the Operator Workbench and the API on the same run contract so the UI and API can view the same run
+- Return route and model metadata in the API so callers can see planned versus actual fallback behavior
+- Preserve artifact and approval visibility outside the UI, not only in browser surfaces
 
-- GSD-native autonomy: one prompt can drive the full repo loop end-to-end instead of forcing manual prompt chaining
-- Operator-grade multi-agent observability: the UI explains why the manager delegated, what each specialist produced, and what evidence moved the run forward
-- Trustworthy routing and fallback UX: fallback is an auditable state change with visible impact on tool access, confidence, and next-step safety
-- Repo workbench behavior instead of chatbot behavior: every run is tied to a concrete repo snapshot, branch, diff, and validation trail
-- Session branching and replay so operators can compare alternate plans, rerun on a different model, or resume from a checkpoint without losing provenance
-- Approval as policy, not interruption: default autonomy for normal edits/tests, with escalation thresholds for destructive or externally visible actions
-- Validation-first completion: a run is not done when the model stops talking; it is done when repo changes and verification results line up
-- Azure-ready orchestration: preserve stable run, event, checkpoint, and artifact contracts so a future custom UI or Azure Function host is an exposure layer, not a rewrite
+**Anti-features:**
+- Blocking HTTP requests until the full implementation run finishes
+- Returning only chat text while hiding orchestration state, route history, and artifacts
 
-## Anti-Features
+### Azure Functions Hosting
 
-- Treating DevUI as the long-term production UI or exposing it directly on Azure
-- Hiding routing, fallback, or capability downgrades inside raw logs or prompt text
-- Silent CLI fallback when tool calling or repo access disappears for a turn
-- Chat-only sessions with no explicit run state, stage ownership, or artifact timeline
-- Approval on every step; human review should gate risk, not basic execution flow
-- Sending the whole repo on every turn instead of using selective repo tools, summaries, and reusable context packs
-- Unbounded filesystem access that can read secrets or wander outside the selected repo root
-- Done states without executed validation commands, results, and reviewer scrutiny
-- Designing v1 as a public multi-tenant assistant instead of a trusted local operator console
-- Coupling the orchestration core to a single UI shell so Azure exposure requires a second system
+**Table stakes:**
+- Run the orchestration control plane under Azure Functions locally with Core Tools
+- Persist run state across host restarts and long-running operations
+- Expose documented HTTP routes and auth configuration suitable for local and Azure environments
 
-## Sources Considered
+**Differentiators:**
+- Package the Functions host so it can move to Azure without redesigning the orchestration core
+- Keep the local Operator Workbench usable against the same API and storage contract
 
-- https://learn.microsoft.com/en-us/agent-framework/overview/?pivots=programming-language-python
-- https://learn.microsoft.com/en-us/agent-framework/workflows/
-- https://learn.microsoft.com/en-us/agent-framework/user-guide/devui/security
+**Anti-features:**
+- Building a cloud entrypoint that can only run behind DevUI
+- Treating Azure deployment as a completely separate runtime with different behavior and state
+
+### Worker Boundary
+
+**Table stakes:**
+- Separate HTTP ingress from long-running orchestration execution
+- Make worker handoff explicit so cloud mode does not assume local disk or local CLI sessions
+- Support the async HTTP polling pattern for long-running runs
+
+**Differentiators:**
+- Keep local repo execution and CLI fallbacks available in a local worker profile
+- Allow cloud mode to run with API-backed providers while rejecting incompatible local-only steps clearly
+
+**Anti-features:**
+- Letting the cloud control plane call local Codex, Claude, or Gemini CLI paths as if they existed in Azure
+- Coupling worker execution lifetime to the HTTP request lifetime
+
+### Access and Safety
+
+**Table stakes:**
+- Basic API protection using function auth or a configured shared secret outside local dev
+- Clear error responses when an action requires a local worker or unsupported capability
+
+**Differentiators:**
+- Approval and artifact endpoints usable both from the UI and external callers
+- Future-ready path to stronger shared-operator auth without redesigning the control-plane contract
+
+**Anti-features:**
+- Public unauthenticated cloud endpoints for repo-editing actions
+- Implicit capability drift where a cloud caller thinks a local-only provider is available
+
+## Complexity Notes
+
+- Control-plane API is moderate complexity because much of the run contract already exists in the dashboard
+- Azure Functions hosting is moderate-to-high complexity because the current runtime assumes a local process and repo access
+- Worker separation is the highest-risk area because it forces the first clean boundary between cloud ingress and local execution assumptions
+
+## Dependencies on Existing System
+
+- Reuse the current stage model, run identity, artifact manifests, route history, and approval policy
+- Avoid rewriting the Operator Workbench; it should consume the same control-plane responses
+- Preserve local repo execution as a first-class development profile while adding cloud-safe behavior
+
+## Sources
+
 - https://learn.microsoft.com/en-us/agent-framework/integrations/azure-functions
-- https://ai.google.dev/gemini-api/docs/function-calling
-- https://ai.google.dev/api/caching
+- https://learn.microsoft.com/en-us/azure/azure-functions/durable/durable-functions-http-features
+- https://learn.microsoft.com/en-us/azure/azure-functions/functions-best-practices
+
+---
+*Feature research for: Cloud API and Azure Function hosting*
+*Researched: 2026-03-22*

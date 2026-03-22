@@ -1,71 +1,97 @@
 # Stack Research
 
-**Research Date:** 2026-03-20
-
-## Recommended Stack Direction
-
-This product should stay local-first, Python-first, and workflow-first. The current repo already has the right base primitives: Microsoft Agent Framework for orchestration, DevUI for local debugging, Gemini API access, and local CLI specialists. The right move is to harden and productize that path instead of replacing it.
+**Domain:** Azure Function-hosted multi-agent orchestration control plane for repo automation
+**Researched:** 2026-03-22
+**Confidence:** HIGH
 
 ## Recommended Stack
 
-| Area | Recommendation | Why |
-| --- | --- | --- |
-| Core runtime | Python + Microsoft Agent Framework workflows | The product needs explicit steps, checkpoints, and human gates more than free-form chat alone. |
-| Deterministic execution | Plain Python executors/functions for repo tools, routing, file ops, validation, and approvals | Keep non-agentic work programmable and reliable. |
-| Composition boundary | Wrap the main workflow as an agent | One orchestration can then serve DevUI, CLI, REST, and later Azure Functions without duplicating logic. |
-| Local runtime | Windows-first local process with repo-mounted tools and installed CLIs | Local repo access, git state, shell tools, and human approval are core product advantages. |
-| State | File checkpoints locally, with a pluggable persistence boundary | Fits local development now while keeping a migration path to durable cloud state later. |
-| Observability | OpenTelemetry-first traces plus route metadata | DevUI already surfaces traces locally, and OTLP export can later flow to Azure Monitor. |
-| Engineering UI | Keep DevUI as the engineering console | Good for discovery, debugging, tracing, and iteration. |
-| Product UI | Build a custom operator UI | DevUI is a local sample app, not the long-term product surface. |
-| Custom UI stack | TypeScript/React over a thin Python ASGI API | Best fit for live per-agent activity, approvals, route cards, resumable sessions, and streaming output. |
-| Cloud path | Azure Functions durable integration on Flex Consumption | Strong later-stage serverless path for remote HTTP entry, durable threads, and long-running orchestration. |
-| Functions structure | Python v2 programming model plus blueprints | Current Microsoft guidance for modular Python Azure Functions apps. |
+### Core Technologies
 
-## Orchestration Guidance
+| Technology | Version | Purpose | Why Recommended |
+|------------|---------|---------|-----------------|
+| Azure Functions for Python | Python 3.13 GA target | HTTP control plane and Azure host | Keeps the entrypoint serverless, aligns with your Azure goal, and avoids inventing a second hosting model |
+| Durable Functions | Current Azure Durable Functions extension | Durable run state, async status polling, long-running orchestration | Matches the product's existing pause/resume/run-state model and avoids tying run completion to one HTTP request |
+| Microsoft Agent Framework Azure Functions integration | `agent-framework-azurefunctions --pre` | Function-hosted MAF agents and durable agent orchestration | It is the official path for hosting Agent Framework agents in Azure Functions |
+| Azure Storage / Durable Task backend | Durable Task Scheduler preferred, Azure Storage compatible | Durable orchestration state and instance history | Durable orchestration needs durable storage that survives restarts and scale events |
 
-- Use a sequential `manager -> researcher -> implementer -> reviewer` workflow as the default repo-work pattern.
-- Add concurrent branches only for clearly independent fan-out work such as large repo scans, parallel research, or validation checks.
-- Keep tool execution, repo reads/writes, and approval gates outside the model whenever possible.
-- Preserve a clean workflow-agent boundary so the same orchestration can power DevUI today and REST/Azure Functions later.
+### Supporting Libraries
 
-## Local vs Cloud Hosting
+| Library | Version | Purpose | When to Use |
+|---------|---------|---------|-------------|
+| `azure-functions` | current stable | Python function trigger and response surface | Required for the Python Azure Functions host |
+| `azure-functions-durable` | current stable | Durable orchestrations and async HTTP pattern | Required when the control plane must start long-running orchestrations and return status URLs |
+| `azure-identity` | current stable | Managed identity / credential flow | Use for Azure-hosted credentials instead of static secrets where possible |
+| `pydantic` | existing v2 line in repo | API request and response schemas | Reuse the current structured run contracts across dashboard and HTTP API |
+| `httpx` or `requests` | current stable | API smoke checks and local end-to-end verification | Use for local API tests and orchestration contract validation |
 
-| Keep local by default when... | Add cloud hosting when... |
-| --- | --- |
-| Work needs the live repo checkout, installed CLIs, shell access, human approval, or deep trace/debug loops | You need a remote HTTP entrypoint, timers/webhooks/queues, durable thread state, resumable runs, or a shared operator endpoint |
-| The operator is the primary user and the machine is the trusted execution environment | You want service-style invocation without exposing the whole local workstation |
-| Fast iteration matters more than remote availability | You are ready to isolate credentials, sandbox tool execution, and define repo/materialization rules |
+### Development Tools
 
-Guidance: do not move the repo-editing worker tier to Azure first. Move the entrypoint and durable session layer first, and keep the heavy repo/tool runner local until sandboxing, checkout strategy, and credential boundaries are explicit.
+| Tool | Purpose | Notes |
+|------|---------|-------|
+| Azure Functions Core Tools `4.8.0` | Local Functions host and trigger testing | Already installed on this machine |
+| Azure CLI `2.80.0` | Azure resource setup, settings, storage, and deployment scripting | Already installed on this machine |
+| Docker `29.1.5` | Local emulator support such as Azurite or other durable backing services | Already installed on this machine |
+| `azd` | Optional template/bootstrap tooling | Not installed locally, so it should stay optional for this milestone |
 
-## Model Routing Implications
+## Installation
 
-| Route | Recommended default | Notes |
-| --- | --- | --- |
-| High-reasoning manager, planner, and reviewer turns | `gemini-2.5-pro` | Stable, strongest current non-preview choice for complex coding and reasoning. |
-| Default interactive worker turns | `gemini-2.5-flash` | Best price/performance lane for most orchestration and coding turns. |
-| Cheap bulk status or summarization turns | `gemini-2.5-flash-lite` | Good fit for high-throughput scan, summarization, and trace compression work. |
-| Preview experimentation lane | Preview Gemini models as opt-in only | Preview models move faster and should not be the hardcoded default. |
-| Local resilience lane | Gemini CLI, Codex CLI, Claude CLI | Keep these last in the chain; useful for resilience or specialist execution, not as the default orchestration lane. |
+```bash
+# Core
+pip install azure-functions azure-functions-durable azure-identity
+pip install agent-framework-azurefunctions --pre
 
-Additional guidance:
+# Supporting
+pip install httpx
 
-- Keep the current OpenAI-compatible Gemini path for near-term MAF compatibility, but preserve a provider abstraction.
-- Use explicit stable model strings for core workflows rather than `latest` aliases.
-- Treat preview models as selectable operator lanes, not implicit defaults.
+# Local tooling
+func --version
+az --version
+docker --version
+```
 
-## Sources Considered
+## Alternatives Considered
 
-- https://learn.microsoft.com/en-us/agent-framework/overview/
-- https://learn.microsoft.com/en-us/agent-framework/workflows/orchestrations/
-- https://learn.microsoft.com/en-us/agent-framework/workflows/as-agents
-- https://learn.microsoft.com/en-us/agent-framework/devui/
-- https://learn.microsoft.com/en-us/agent-framework/devui/security
-- https://learn.microsoft.com/en-us/agent-framework/devui/tracing
-- https://learn.microsoft.com/en-us/agent-framework/integrations/azure-functions
-- https://learn.microsoft.com/en-us/azure/azure-functions/flex-consumption-plan
-- https://learn.microsoft.com/en-us/azure/azure-functions/functions-reference-python
-- https://ai.google.dev/gemini-api/docs/openai
-- https://ai.google.dev/gemini-api/docs/function-calling
-- https://ai.google.dev/gemini-api/docs/models
+| Recommended | Alternative | When to Use Alternative |
+|-------------|-------------|-------------------------|
+| Azure Functions + Durable Functions | Azure Container Apps / custom FastAPI host | Use a container host when you need custom runtime control or long-running worker co-location from day one |
+| Durable async HTTP pattern | Synchronous HTTP request that waits for run completion | Only acceptable for very short tasks; not suitable for repo orchestration or validation-heavy flows |
+| API-first providers in cloud | CLI-backed providers in cloud | Use CLI providers only in local or explicitly attached worker environments where the login session exists |
+
+## What NOT to Use
+
+| Avoid | Why | Use Instead |
+|-------|-----|-------------|
+| Python 3.14 as the first cloud deployment target | Azure Functions lists Python 3.14 as preview; it is not the stable target for hosted rollout | Target Python 3.13 GA or 3.12 GA for the Functions host |
+| File-system-only run state in the Function host | Azure Functions instances are stateless and can restart or move between instances | Use Durable Functions state plus durable artifact storage |
+| Local Gemini/Codex/Claude CLI sessions as the cloud default provider path | Those sessions and desktop assumptions do not exist in Azure Functions | Use API-backed providers in cloud and keep CLIs as local worker options |
+| One giant function app that also does heavy repo execution synchronously | All functions in a function app scale together and long-running work fights the HTTP surface | Keep a control-plane app and a worker boundary, even if both start local-first |
+
+## Stack Patterns by Variant
+
+**If the run is local-first:**
+- Keep the current Operator Workbench and local repo execution path
+- Because you already have repo access, CLI providers, and direct validation tools on this machine
+
+**If the run is Functions-hosted:**
+- Use Azure Functions HTTP triggers plus Durable Functions orchestration and an explicit worker adapter
+- Because the cloud host should own ingress and durable state, not direct desktop-bound execution
+
+## Version Compatibility
+
+| Package A | Compatible With | Notes |
+|-----------|-----------------|-------|
+| Azure Functions Python target `3.13` | Durable Functions Python v2 and Core Tools v4 | Best stable cloud target based on current Azure Functions support |
+| Local Python `3.14.2` | Repo development only | Fine for local tooling, but not the first hosted deployment target |
+| `agent-framework-azurefunctions --pre` | Azure Functions Python host + durable agent patterns | Needed for the official MAF Azure Functions path |
+
+## Sources
+
+- https://learn.microsoft.com/en-us/agent-framework/integrations/azure-functions - official Agent Framework Azure Functions durable hosting path
+- https://learn.microsoft.com/en-us/azure/azure-functions/durable/durable-functions-overview - durable orchestration model, storage, local testing, and long-running workflow guidance
+- https://learn.microsoft.com/en-us/azure/azure-functions/functions-best-practices - statelessness, storage, deployment, and long-running-function guidance
+- https://learn.microsoft.com/ko-kr/azure/azure-functions/functions-versions - current Azure Functions Python version support, including Python 3.13 GA and 3.14 preview
+
+---
+*Stack research for: Azure Function-hosted orchestration control plane*
+*Researched: 2026-03-22*
