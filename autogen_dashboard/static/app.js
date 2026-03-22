@@ -49,7 +49,15 @@
       placeholder: "Add a note, correction, approval comment, or follow-up instruction.",
     },
   ];
-  const OPERATOR_TABS = ["overview", "agents", "routing", "artifacts"];
+  const OPERATOR_TABS = ["overview", "timeline", "agents", "routing", "artifacts"];
+  const SPECIALIST_SOURCES = new Set([
+    "assistant",
+    "planner",
+    "researcher",
+    "implementer",
+    "reviewer",
+    "specialist",
+  ]);
 
   const state = {
     providers: [],
@@ -89,6 +97,9 @@
     sessionFilter: document.getElementById("session-filter"),
     detailTitle: document.getElementById("detail-title"),
     detailBadges: document.getElementById("detail-badges"),
+    activeRunFocus: document.getElementById("active-run-focus"),
+    activeRouteStrip: document.getElementById("active-route-strip"),
+    activeStageStrip: document.getElementById("active-stage-strip"),
     pauseBanner: document.getElementById("pause-banner"),
     orchestrationPanel: document.getElementById("orchestration-panel"),
     operatorTabContent: document.getElementById("operator-tab-content"),
@@ -453,6 +464,18 @@
       }));
   }
 
+  function normalizeSessionEvents(value) {
+    const items = Array.isArray(value) ? value : [];
+    return items
+      .filter((item) => item && typeof item === "object")
+      .map((item, index) => ({
+        seq: Number(pick(item, ["seq"], index + 1)) || index + 1,
+        type: pick(item, ["type", "event", "kind"], "event"),
+        createdAt: pick(item, ["created_at", "createdAt", "timestamp", "time"], ""),
+        payload: normalizeMetadataObject(pick(item, ["payload", "data", "metadata"], {})),
+      }));
+  }
+
   function basenameFromPath(value) {
     const normalized = String(value || "").replace(/[\\/]+$/, "");
     if (!normalized) return "";
@@ -479,6 +502,97 @@
     return "Unknown";
   }
 
+  function buildRoutingSummary(session) {
+    const route = normalizeMetadataObject(session?.routeMetadata);
+    const planned = Array.isArray(session?.routePlan) ? session.routePlan : [];
+    const attempts = Array.isArray(session?.routeAttempts) ? session.routeAttempts : [];
+    const requestedProvider = session?.requestedProvider || session?.provider || "";
+    const requestedModel = session?.requestedModel || session?.model || "";
+    const plannedProvider = pick(route, ["primary_provider"], "") || planned[0]?.provider || requestedProvider;
+    const plannedModel = pick(route, ["primary_model"], "") || planned[0]?.model || requestedModel;
+    const actualProvider = pick(route, ["active_provider"], "") || session?.lastProviderUsed || attempts.at(-1)?.provider || "";
+    const actualModel = pick(route, ["active_model"], "") || session?.lastModelUsed || attempts.at(-1)?.model || "";
+    const fallbackCount =
+      Number(pick(route, ["fallback_count"], session?.lastFallbackCount ?? Math.max(0, attempts.length - 1))) ||
+      0;
+    return {
+      requestedProvider,
+      requestedModel,
+      plannedProvider,
+      plannedModel,
+      actualProvider,
+      actualModel,
+      lane: session?.routeLane || pick(route, ["route_lane", "active_lane"], "") || "auto",
+      tier: pick(route, ["route_tier"], "") || "",
+      reason: pick(route, ["route_reason"], "") || "",
+      fallbackCount,
+      capabilityDrift: Array.isArray(session?.capabilityChanges) ? session.capabilityChanges.length : 0,
+    };
+  }
+
+  function buildStageSummary(session) {
+    const currentStage = session?.currentStage || "";
+    const lastCompletedStage = session?.lastCompletedStage || "";
+    const stageOutput = currentStage ? session?.stageOutputs?.[currentStage] : null;
+    const stageRecord =
+      Array.isArray(session?.stageTimeline) && currentStage
+        ? session.stageTimeline.find((entry) => entry.stage === currentStage)
+        : null;
+    return {
+      currentStage: currentStage || "Not started",
+      currentStatus: stageRecord?.status || session?.status || "idle",
+      pauseKind: session?.pauseKind || session?.pauseReason || "",
+      lastCompletedStage: lastCompletedStage || "None",
+      summary:
+        stageOutput?.summary ||
+        session?.pauseDetail ||
+        session?.assistantMessage ||
+        "The manager has not produced a stage summary yet.",
+      blockedCount: Array.isArray(session?.blockedQuestions) ? session.blockedQuestions.length : 0,
+    };
+  }
+
+  function renderActiveRunFocus(session) {
+    if (!els.activeRunFocus || !els.activeRouteStrip || !els.activeStageStrip) return;
+    if (!session) {
+      els.activeRunFocus.hidden = true;
+      els.activeRouteStrip.innerHTML = "";
+      els.activeStageStrip.innerHTML = "";
+      return;
+    }
+    const routing = buildRoutingSummary(session);
+    const stage = buildStageSummary(session);
+    const routeLead =
+      [routing.actualProvider || routing.plannedProvider, routing.actualModel || routing.plannedModel]
+        .filter(Boolean)
+        .join(" / ") || "Route pending";
+    els.activeRunFocus.hidden = false;
+    els.activeRouteStrip.innerHTML = `
+      <span class="active-strip-label">Route</span>
+      <div class="active-strip-head">${escapeHtml(routeLead)}</div>
+      <div class="active-strip-copy">${escapeHtml(
+        routing.reason || "Model routing, lane selection, and fallback state for the active run."
+      )}</div>
+      <div class="active-strip-chips">
+        <span class="tiny-chip">${escapeHtml(routing.lane)} lane</span>
+        ${routing.tier ? `<span class="tiny-chip">${escapeHtml(routing.tier)}</span>` : ""}
+        ${routing.requestedProvider ? `<span class="tiny-chip">requested ${escapeHtml(routing.requestedProvider)}</span>` : ""}
+        ${routing.fallbackCount ? `<span class="tiny-chip">${escapeHtml(String(routing.fallbackCount))} fallbacks</span>` : ""}
+      </div>
+    `;
+    els.activeStageStrip.innerHTML = `
+      <span class="active-strip-label">Stage</span>
+      <div class="active-strip-head">${escapeHtml(titleCaseWords(stage.currentStage))}</div>
+      <div class="active-strip-copy">${escapeHtml(stage.summary)}</div>
+      <div class="active-strip-chips">
+        <span class="tiny-chip ${escapeHtml(statusKind(stage.currentStatus))}">${escapeHtml(stage.currentStatus)}</span>
+        ${stage.pauseKind ? `<span class="tiny-chip">${escapeHtml(titleCaseWords(stage.pauseKind))}</span>` : ""}
+        <span class="tiny-chip">last completed ${escapeHtml(titleCaseWords(stage.lastCompletedStage))}</span>
+        ${stage.blockedCount ? `<span class="tiny-chip">${escapeHtml(String(stage.blockedCount))} blocked questions</span>` : ""}
+      </div>
+    `;
+  }
+
   function renderTextList(items, emptyLabel) {
     const values = normalizeTextList(items);
     if (!values.length) {
@@ -487,6 +601,135 @@
     return `<ul class="detail-list">${values
       .map((value) => `<li>${escapeHtml(value)}</li>`)
       .join("")}</ul>`;
+  }
+
+  function normalizeMetadataObject(value) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+    return value;
+  }
+
+  function titleCaseWords(value) {
+    return String(value || "")
+      .split(/[\s_-]+/)
+      .filter(Boolean)
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(" ");
+  }
+
+  function messageRoleLabel(message, family) {
+    if (family === "human") return message.source === "user" ? "Task" : "Human";
+    if (family === "approval") {
+      const decision =
+        message.metadata?.decision || (message.source === "rejection" ? "reject" : "approve");
+      return decision === "reject" ? "Reject" : "Approval";
+    }
+    if (family === "manager") return "Manager";
+    if (family === "event") return "Event";
+    if (family === "system") return "System";
+    if (message.source && message.source !== "assistant") {
+      return titleCaseWords(message.source);
+    }
+    return family === "specialist" ? "Specialist" : titleCaseWords(message.role || "message");
+  }
+
+  function routeMetadataFromMessage(message) {
+    const metadata = normalizeMetadataObject(message?.metadata);
+    const routeMetadata = normalizeMetadataObject(
+      pick(metadata, ["route_metadata", "routeMetadata"], {})
+    );
+    const provider =
+      pick(metadata, ["provider", "active_provider", "activeProvider"], "") ||
+      pick(routeMetadata, ["active_provider", "provider"], "");
+    const model =
+      pick(metadata, ["model", "active_model", "activeModel"], "") ||
+      pick(routeMetadata, ["active_model", "model"], "");
+    const tier =
+      pick(metadata, ["route_tier", "routeTier"], "") ||
+      pick(routeMetadata, ["route_tier"], "");
+    const lane =
+      pick(metadata, ["route_lane", "routeLane"], "") ||
+      pick(routeMetadata, ["route_lane", "active_lane"], "");
+    return {
+      provider,
+      model,
+      tier,
+      lane,
+      fallbackCount:
+        Number(
+          pick(metadata, ["fallback_count", "fallbackCount"], pick(routeMetadata, ["fallback_count"], 0))
+        ) || 0,
+    };
+  }
+
+  function messageFamilyForRole(message) {
+    const role = String(message?.role || "").toLowerCase();
+    const source = String(message?.source || "").toLowerCase();
+    const metadata = normalizeMetadataObject(message?.metadata);
+    if (source === "user" || source === "human" || role === "user") return "human";
+    if (source === "approval" || source === "rejection" || metadata.decision) return "approval";
+    if (source === "manager" || metadata.manager_update || metadata.current_stage) return "manager";
+    if (role === "event" || source === "event") return "event";
+    if (role === "system" || source === "system") return "system";
+    if (SPECIALIST_SOURCES.has(source) || metadata.specialist_role || metadata.role === "specialist") {
+      return "specialist";
+    }
+    if (role === "assistant") return "specialist";
+    return role || "event";
+  }
+
+  function renderMessageMetaStrip(message, family) {
+    const metadata = normalizeMetadataObject(message?.metadata);
+    const route = routeMetadataFromMessage(message);
+    const stage =
+      message?.stage ||
+      pick(metadata, ["stage", "current_stage", "currentStage"], "") ||
+      "";
+    const pauseKind = pick(metadata, ["pause_kind", "pauseKind"], "") || "";
+    const chips = [];
+    if (family === "approval" && metadata.decision) {
+      chips.push(`<span class="message-meta-chip accent">${escapeHtml(metadata.decision)}</span>`);
+    }
+    if (stage) {
+      chips.push(`<span class="message-meta-chip">${escapeHtml(titleCaseWords(stage))}</span>`);
+    }
+    if (pauseKind) {
+      chips.push(`<span class="message-meta-chip">${escapeHtml(titleCaseWords(pauseKind))}</span>`);
+    }
+    if (route.provider) {
+      chips.push(`<span class="message-meta-chip route">${escapeHtml(route.provider)}</span>`);
+    }
+    if (route.model) {
+      chips.push(`<span class="message-meta-chip route">${escapeHtml(route.model)}</span>`);
+    }
+    if (route.tier) {
+      chips.push(`<span class="message-meta-chip">${escapeHtml(route.tier)}</span>`);
+    }
+    if (route.lane && route.lane !== route.tier) {
+      chips.push(`<span class="message-meta-chip">${escapeHtml(route.lane)} lane</span>`);
+    }
+    if (route.fallbackCount) {
+      chips.push(
+        `<span class="message-meta-chip warning">${escapeHtml(String(route.fallbackCount))} fallbacks</span>`
+      );
+    }
+    if (!chips.length) return "";
+    return `<div class="message-meta-strip">${chips.join("")}</div>`;
+  }
+
+  function renderMessageCard(message, index) {
+    const family = messageFamilyForRole(message);
+    const delay = Math.min(index * 30, 240);
+    const metaStrip = renderMessageMetaStrip(message, family);
+    return `
+      <article class="message-card ${escapeHtml(family)}" style="animation-delay:${delay}ms">
+        ${metaStrip}
+        <div class="message-top">
+          <div class="message-role">${escapeHtml(messageRoleLabel(message, family))}</div>
+          <div class="message-meta">${escapeHtml(formatTimestamp(message.timestamp) || "")}</div>
+        </div>
+        <div class="message-content">${escapeHtml(message.content || "(empty)")}</div>
+      </article>
+    `;
   }
 
   function nextPromptSummary(session) {
@@ -1169,11 +1412,29 @@
     const role = String(
       pick(item, ["role", "sender", "author", "from", "speaker", "type"], "message")
     ).toLowerCase();
+    const source = String(
+      pick(item, ["source", "actor", "agent", "origin"], role === "user" ? "user" : role)
+    ).toLowerCase();
+    const metadata = normalizeMetadataObject(
+      pick(item, ["metadata", "meta", "payload", "data"], {})
+    );
+    const route = routeMetadataFromMessage({ metadata });
+    const stage =
+      pick(item, ["stage", "current_stage", "currentStage"], "") ||
+      pick(metadata, ["stage", "current_stage", "currentStage"], "");
     return {
-      role,
+      id: pick(item, ["id", "message_id", "messageId"], `message-${index}`),
+      role: role,
+      source: source,
       content: toText(pick(item, ["content", "text", "message", "body", "value"], "")),
       timestamp: pick(item, ["timestamp", "created_at", "createdAt", "time"], ""),
-      label: pick(item, ["label", "kind", "type"], role),
+      label: pick(item, ["label", "kind", "type"], source || role),
+      metadata: metadata,
+      stage: stage,
+      routeProvider: route.provider,
+      routeModel: route.model,
+      routeTier: route.tier,
+      routeLane: route.lane,
       index,
     };
   }
@@ -1253,6 +1514,7 @@
       blockedQuestions: normalizeTextList(
         pick(item, ["blocked_questions", "blockedQuestions"], session.blockedQuestions || [])
       ),
+      events: normalizeSessionEvents(pick(item, ["events", "event_feed", "eventFeed"], [])),
       pendingApproval: normalizeApprovalScope(
         pick(item, ["pending_approval", "pendingApproval"], session.pendingApproval || null)
       ),
@@ -1571,6 +1833,88 @@
         `;
       })
       .join("");
+  }
+
+  function buildTimelineEntries(session) {
+    const entries = [];
+    (session.stageTimeline || []).forEach((entry, index) => {
+      entries.push({
+        id: `stage-${entry.stage}-${index}`,
+        family: "stage",
+        title: titleCaseWords(entry.stage || "stage"),
+        copy:
+          session.stageOutputs?.[entry.stage]?.summary ||
+          entry.error ||
+          "No stage summary recorded yet.",
+        status: entry.status || "pending",
+        meta: [entry.pauseKind, entry.attemptCount ? `${entry.attemptCount} attempts` : ""].filter(Boolean),
+        timestamp: entry.updatedAt || entry.completedAt || entry.startedAt || "",
+      });
+    });
+    (session.events || []).forEach((event) => {
+      entries.push({
+        id: `event-${event.seq}`,
+        family: "event",
+        title: titleCaseWords(event.type || "event"),
+        copy: toText(event.payload?.summary || event.payload?.detail || event.payload?.message || ""),
+        status: event.payload?.status || "",
+        meta: [event.payload?.stage, event.payload?.pause_kind || event.payload?.pauseKind].filter(Boolean),
+        timestamp: event.createdAt || "",
+      });
+    });
+    if (session.pendingApproval) {
+      entries.push({
+        id: "timeline-pending-approval",
+        family: "approval",
+        title: "Approval scope",
+        copy: session.pendingApproval.reason || "The manager is waiting for an approval decision.",
+        status: session.pendingApproval.riskLevel || "needs approval",
+        meta: [session.pendingApproval.actionKind].filter(Boolean),
+        timestamp: session.updatedAt || "",
+      });
+    }
+    return entries.sort((left, right) => new Date(left.timestamp || 0) - new Date(right.timestamp || 0));
+  }
+
+  function renderTimelineTab(session) {
+    const entries = buildTimelineEntries(session);
+    return `
+      <div class="operator-grid">
+        <section class="operator-section">
+          <div class="orchestration-section-head">
+            <span class="panel-kicker">Timeline</span>
+            <h3>Run progression</h3>
+          </div>
+          <div class="timeline-list">
+            ${
+              entries.length
+                ? entries
+                    .map(
+                      (entry) => `
+                        <article class="timeline-card timeline-${escapeHtml(entry.family)}">
+                          <div class="timeline-card-head">
+                            <div class="timeline-card-title">${escapeHtml(entry.title)}</div>
+                            ${
+                              entry.status
+                                ? `<span class="status-pill ${escapeHtml(statusKind(entry.status))}">${escapeHtml(entry.status)}</span>`
+                                : ""
+                            }
+                          </div>
+                          <div class="timeline-card-copy">${escapeHtml(entry.copy || "No detail recorded.")}</div>
+                          <div class="timeline-card-meta">
+                            ${entry.meta.map((item) => `<span class="tiny-chip">${escapeHtml(titleCaseWords(item))}</span>`).join("")}
+                            ${entry.timestamp ? `<span class="tiny-chip">${escapeHtml(formatTimestamp(entry.timestamp))}</span>` : ""}
+                          </div>
+                        </article>
+                      `
+                    )
+                    .join("")
+                : '<div class="empty-state">No timeline entries recorded yet.</div>'
+            }
+          </div>
+        </section>
+      </div>
+    `;
   }
 
   function renderOutputCards(session) {
@@ -1987,6 +2331,7 @@
     setOperatorTab(state.selectedOperatorTab, { render: false });
     const contentByTab = {
       overview: renderOverviewTab(session),
+      timeline: renderTimelineTab(session),
       agents: renderAgentsTab(session),
       routing: renderRoutingTab(session),
       artifacts: renderArtifactsTab(session),
@@ -2148,8 +2493,9 @@
       : "Waiting for a session";
 
     if (!session) {
-      els.detailTitle.textContent = "No session selected";
+      els.detailTitle.textContent = "No run selected";
       els.detailBadges.innerHTML = "";
+      renderActiveRunFocus(null);
       els.pauseBanner.hidden = true;
       els.pauseBanner.innerHTML = "";
       renderOrchestrationPanel(null);
@@ -2167,7 +2513,7 @@
       }
       els.detailMeta.innerHTML = "";
       els.detailEmpty.style.display = "grid";
-      els.transcript.innerHTML = `<div class="empty-state">Open a session to inspect the transcript and control the loop.</div>`;
+      els.transcript.innerHTML = `<div class="empty-state">Open a run to inspect the transcript, routing, specialists, and saved artifacts.</div>`;
       els.messageCount.textContent = "0 messages";
       els.lastUpdated.textContent = "Not updated yet";
       renderControlPending(null);
@@ -2203,6 +2549,7 @@
       .filter(Boolean)
       .join("");
 
+    renderActiveRunFocus(session);
     renderRepoContextBanner(session);
     renderWorkspaceWarning(session);
     renderOrchestrationPanel(session);
@@ -2299,22 +2646,8 @@
     renderSessionMode(session);
 
     els.transcript.innerHTML = session.messages.length
-      ? session.messages
-          .map((message, index) => {
-            const roleClass = message.role || "message";
-            const delay = Math.min(index * 30, 240);
-            return `
-              <article class="message-card ${escapeHtml(roleClass)}" style="animation-delay:${delay}ms">
-                <div class="message-top">
-                  <div class="message-role">${escapeHtml(message.label || message.role)}</div>
-                  <div class="message-meta">${escapeHtml(formatTimestamp(message.timestamp) || "")}</div>
-                </div>
-                <div class="message-content">${escapeHtml(message.content || "(empty)")}</div>
-              </article>
-            `;
-          })
-          .join("")
-      : `<div class="empty-state">The transcript is empty or the backend has not returned messages yet.</div>`;
+      ? session.messages.map((message, index) => renderMessageCard(message, index)).join("")
+      : `<div class="empty-state">The transcript is empty or the backend has not returned run messages yet.</div>`;
 
     requestAnimationFrame(() => {
       if (els.transcript.scrollHeight > els.transcript.clientHeight) {

@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="light" />
-    <title>AutoGen Dashboard</title>
+    <title>Operator Workbench</title>
     <link rel="stylesheet" href="/static/styles.css" />
   </head>
   <body>
@@ -13,11 +13,11 @@
 
     <header class="hero">
       <div class="hero-copy">
-        <p class="eyebrow">Local Human-in-the-Loop Control</p>
-        <h1>AutoGen Dashboard</h1>
+        <p class="eyebrow">Multi-Agent Operator Surface</p>
+        <h1>Operator Workbench</h1>
         <p class="lede">
-          Watch the agent state, choose a provider, step through tasks, and decide when the
-          machine should pause for you.
+          Run specialist workflows inside a real workspace, inspect routing and artifacts, and
+          decide when the manager should pause for your approval.
         </p>
       </div>
       <div class="hero-meta">
@@ -27,7 +27,7 @@
           <span id="provider-detail" class="stat-subtle">Checking readiness</span>
         </div>
         <div class="stat-card">
-          <span class="stat-label">Selected session</span>
+          <span class="stat-label">Selected run</span>
           <strong id="selected-session-name">None</strong>
           <span id="selected-session-status" class="stat-subtle">No session selected</span>
         </div>
@@ -39,7 +39,7 @@
       </div>
     </header>
 
-    <main class="shell">
+    <main class="shell workspace-shell">
       <aside class="rail">
         <section class="panel panel-compact">
           <div class="panel-head">
@@ -199,17 +199,22 @@
           <div class="panel-head">
             <div>
               <p class="panel-kicker">Selected</p>
-              <h2 id="detail-title">No session selected</h2>
+              <h2 id="detail-title">No run selected</h2>
             </div>
             <div id="detail-badges" class="badge-row"></div>
           </div>
+          <section id="active-run-focus" class="active-run-focus" hidden>
+            <div id="active-route-strip" class="active-strip active-strip-route"></div>
+            <div id="active-stage-strip" class="active-strip active-strip-stage"></div>
+          </section>
           <div id="pause-banner" class="pause-banner" hidden></div>
           <section id="orchestration-panel" class="orchestration-panel" hidden>
             <div class="operator-tabs" role="tablist" aria-label="Run views">
               <button class="operator-tab active" id="operator-tab-overview" type="button" data-operator-tab="overview">Overview</button>
+              <button class="operator-tab" id="operator-tab-timeline" type="button" data-operator-tab="timeline">Timeline</button>
               <button class="operator-tab" id="operator-tab-agents" type="button" data-operator-tab="agents">Agents</button>
               <button class="operator-tab" id="operator-tab-routing" type="button" data-operator-tab="routing">Routing</button>
-              <button class="operator-tab" id="operator-tab-artifacts" type="button" data-operator-tab="artifacts">Artifacts/Traces</button>
+              <button class="operator-tab" id="operator-tab-artifacts" type="button" data-operator-tab="artifacts">Artifacts</button>
             </div>
             <p class="inline-help orchestration-note">
               Overview now shows approval scope, changed files, validation results, and route context without opening raw artifacts first.
@@ -218,10 +223,10 @@
           </section>
           <div id="workspace-warning" class="workspace-warning" hidden></div>
           <div id="detail-empty" class="empty-state">
-            Select a session from the queue or create a new one to inspect its state.
+            Select a run from the queue or create a new one to inspect routing, specialists, timeline, and artifacts.
           </div>
           <details id="detail-disclosure" class="detail-disclosure" hidden>
-            <summary>Session details and repo context</summary>
+            <summary>Run details and workspace context</summary>
             <div id="repo-context-banner" class="repo-context-banner" hidden></div>
             <div id="detail-meta" class="meta-grid"></div>
           </details>
@@ -300,7 +305,7 @@
           <div class="panel-head">
             <div>
               <p class="panel-kicker">Transcript</p>
-              <h2>Live Conversation</h2>
+              <h2>Live Run Transcript</h2>
             </div>
             <div class="panel-inline-meta">
               <span id="message-count" class="tiny-chip">0 messages</span>
