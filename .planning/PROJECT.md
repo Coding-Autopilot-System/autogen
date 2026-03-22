@@ -10,6 +10,16 @@ The primary user is you as the operator and developer. The current codebase alre
 
 You can give one prompt and watch a trustworthy multi-agent coding system drive real repo work end-to-end with clear traces, specialist visibility, and minimal manual intervention.
 
+## Current Milestone: v1.1 Cloud API and Azure Function Hosting
+
+**Goal:** Expose the existing orchestration runtime through a durable HTTP control plane and Azure Functions host without rewriting the local operator workbench.
+
+**Target features:**
+- Durable HTTP API for run submission, status, control actions, and artifact retrieval
+- Python Azure Functions host that runs locally with Core Tools and can later deploy to Azure
+- Explicit control-plane and worker boundary so long-running repo execution survives HTTP request limits
+- Cloud-safe routing, auth, and execution rules that keep local CLI paths as opt-in worker capabilities
+
 ## Requirements
 
 ### Validated
@@ -30,7 +40,10 @@ You can give one prompt and watch a trustworthy multi-agent coding system drive 
 
 ### Active
 
-- [ ] The core orchestration runtime is designed so it can later be exposed through an Azure Function or REST API without a full rewrite
+- [ ] The platform exposes a durable REST control plane with stable run identifiers, status, pause, routing, and artifact retrieval
+- [ ] The orchestration runtime can be hosted on Azure Functions with durable state and local Core Tools parity
+- [ ] Long-running repo execution is separated from the HTTP ingress path and local-only provider assumptions
+- [ ] The Operator Workbench and cloud API share one orchestration contract instead of diverging into separate runtimes
 
 ### Out of Scope
 
@@ -42,9 +55,9 @@ You can give one prompt and watch a trustworthy multi-agent coding system drive 
 
 This is a brownfield codebase with an existing local agent runtime. The active path is MAF-first: `main.py` dispatches into `maf_starter/cli.py`, entities are discovered from `entities/`, and DevUI is used for local interaction. The repo also retains a substantial legacy AutoGen stack in `autogen_dashboard/` and `autogen_starter/`, which creates both opportunity and drift risk.
 
-The workstation context matters. GSD is already installed locally, and you also have Gemini CLI, Claude CLI, and Codex CLI available, along with Gemini API access and local Azure Functions development tools. The intended operating model is to use the local machine as the main execution environment, let Gemini API answer most orchestration and GSD questions automatically, and use the installed CLIs as specialist workers or fallback engines when appropriate.
+The workstation context matters. GSD is already installed locally, and you also have Gemini CLI, Claude CLI, and Codex CLI available, along with Gemini API access and local Azure Functions development tools. On this machine, Azure Functions Core Tools `4.8.0`, Azure CLI `2.80.0`, and Docker `29.1.5` are available. `azd` is not currently installed, so this milestone should not depend on `azd`-only templates or flows. The intended operating model is to use the local machine as the main execution environment, let Gemini API answer most orchestration and GSD questions automatically, and use the installed CLIs as specialist workers or fallback engines when appropriate.
 
-The current repo already proves some of the technical foundation: repo-aware tools, fallback chains, multi-agent workflow scaffolding, session persistence, and DevUI customization hooks. The next evolution is not a greenfield rewrite; it is turning an engineering-heavy prototype into a more autonomous, polished orchestration platform with a stronger UX and clearer runtime behavior.
+The current repo already proves some of the technical foundation: repo-aware tools, fallback chains, multi-agent workflow scaffolding, session persistence, and DevUI customization hooks. The next evolution is not a greenfield rewrite; it is turning an engineering-heavy prototype into a more autonomous, polished orchestration platform with a stronger UX and clearer runtime behavior. This milestone shifts the center of gravity from local-only UI work to a cloud-ready control plane that can front the same orchestration core over HTTP and Azure Functions.
 
 ## Constraints
 
@@ -53,7 +66,9 @@ The current repo already proves some of the technical foundation: repo-aware too
 - **Autonomy**: Default behavior should favor automatic code editing and local validation once a prompt is given - manual approval should be the exception, not the baseline
 - **Cost**: Prefer Gemini API and available local CLI tools before introducing additional paid API dependencies - keeps experimentation affordable
 - **UX**: The UI must look professional and readable, not like an internal demo shell - this is a productized operator workbench, not only a developer test harness
-- **Future deployment**: Design the orchestration core so Azure Function or REST exposure can be added later without re-architecting the whole runtime - local-first now, cloud-ready later
+- **Future deployment**: Design the orchestration core so Azure Function or REST exposure can be added without re-architecting the whole runtime - this milestone makes that boundary explicit
+- **Cloud runtime target**: Prefer Azure Functions-supported GA Python for hosted deployment work; local Python `3.14.2` is acceptable for development but should not define the cloud target
+- **Execution boundary**: A cloud-hosted control plane must not assume installed local CLI sessions, mutable local repo roots, or direct desktop-bound tools are present
 
 ## Key Decisions
 
@@ -72,6 +87,9 @@ The current repo already proves some of the technical foundation: repo-aware too
 | Surface route, model, stage, approval, and artifact context in dedicated strips and cards instead of transcript prefixes | Operator trust depends on scanable product surfaces rather than raw-log reading | Validated in Phase 5 |
 | Defer Azure Function/REST hosting to a later stage | Cloud exposure matters, but local execution quality and operator UX are higher priority in v1 | Validated in Phase 1 |
 | Prefer Gemini API first and local CLIs as fallback or specialist paths | This fits your installed tooling, cost preference, and current runtime capabilities | Validated in Phase 1 |
+| Continue roadmap numbering into the next milestone instead of resetting to Phase 1 | The project already shipped a coherent five-phase local milestone, and continuing from Phase 6 preserves execution history | Milestone v1.1 |
+| Use Azure Functions as the primary cloud control-plane host and keep local repo/CLI execution behind an explicit worker boundary | Durable Functions matches the existing long-running orchestration and pause/resume model better than a plain synchronous HTTP host | Milestone v1.1 |
+| Keep the Operator Workbench and HTTP API on the same orchestration services and run contract | The local UI and cloud API should observe and control the same runs instead of splitting the product into separate implementations | Milestone v1.1 |
 
 ## Current State
 
@@ -81,7 +99,7 @@ The current repo already proves some of the technical foundation: repo-aware too
 - Phase 4 is complete: routine-safe implementation edits now execute inside the selected repo, changed files and diff artifacts persist per run, validation results are recorded durably, and destructive or externally-visible actions pause with explicit approval scope.
 - Phase 5 is complete: the Operator Workbench is now the polished local UI with active route/stage strips, distinct message families, dedicated Timeline/Agents/Routing/Artifacts tabs, and stronger operator ergonomics.
 - The product now supports one-prompt manager-led runs, specialist visibility, routing transparency, diff/validation inspection, and a professional operator-grade local workflow.
-- The next milestone should focus on Azure Function or REST exposure and cloud-ready execution boundaries rather than more local-only UI work.
+- Milestone v1.1 now focuses on exposing that same orchestration core through a durable HTTP API and Azure Functions host with explicit worker boundaries for cloud-safe execution.
 
 ## Evolution
 
@@ -101,4 +119,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-03-22 after Phase 05 completion*
+*Last updated: 2026-03-22 after milestone v1.1 initialization*

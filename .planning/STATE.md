@@ -1,15 +1,15 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.0
-milestone_name: milestone
-status: ready
-stopped_at: Phase 05 complete
-last_updated: "2026-03-22T08:40:57.663741+00:00"
+milestone: v1.1
+milestone_name: cloud-api-and-azure-function-hosting
+status: in_progress
+stopped_at: Defining milestone requirements
+last_updated: "2026-03-22T00:00:00+02:00"
 progress:
-  total_phases: 5
-  completed_phases: 5
-  total_plans: 15
-  completed_plans: 15
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
 ---
 
 # Project State
@@ -19,12 +19,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-22)
 
 **Core value:** You can give one prompt and watch a trustworthy multi-agent coding system drive real repo work end-to-end with clear traces, specialist visibility, and minimal manual intervention.
-**Current focus:** Phase 05 complete - ready for the next milestone
+**Current focus:** Milestone v1.1 definition - cloud API and Azure Functions hosting
 
 ## Current Position
 
-Phase: 05 (polished-operator-workbench) - COMPLETE
-Plan: 3 of 3
+Phase: Not started (defining requirements)
+Plan: -
+Status: Defining requirements
+Last activity: 2026-03-22 - Milestone v1.1 started
 
 ## Performance Metrics
 
@@ -110,6 +112,9 @@ Recent decisions affecting current work:
 - Phase 05-01: Route, model, and stage context now render in dedicated active-run strips and actor-specific message families
 - Phase 05-02: Timeline, Agents, Routing, and Artifacts views are driven by structured events, route attempts, diffs, and validation payloads
 - Phase 05-03: The workbench now emphasizes the active run, secondary create-run affordances, and operator notices for pause, retry, and completion states
+- Milestone v1.1: Continue phase numbering from 6 instead of resetting roadmap numbering
+- Milestone v1.1: Use Azure Functions as the cloud control-plane host and keep long-running repo execution behind a worker boundary
+- Milestone v1.1: Keep the Operator Workbench and the external HTTP API on one shared orchestration contract
 
 ### Pending Todos
 
@@ -120,9 +125,12 @@ None yet.
 - The repo still contains overlapping MAF and legacy AutoGen runtime paths
 - DevUI customization is useful locally but too brittle to treat as the final product UI
 - Provider fallback capability drift and secret exposure need early hardening
+- `azd` is not installed locally, so milestone work should rely on Azure Functions Core Tools, Azure CLI, and deployment-ready packaging instead of `azd` as a hard prerequisite
+- Local Python is `3.14.2`, but Azure Functions hosted deployment work should target GA-supported Python such as `3.13` or `3.12`
+- A cloud-hosted control plane cannot assume local CLI logins, desktop-bound tooling, or direct repo access unless a compatible worker is attached
 
 ## Session Continuity
 
-Last session: 2026-03-22T08:40:57.663741+00:00
-Stopped at: Phase 05 complete
+Last session: 2026-03-22T00:00:00+02:00
+Stopped at: Defining milestone requirements
 Resume file: $gsd-new-milestone
