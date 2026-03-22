@@ -109,7 +109,11 @@ class FakePhase3SessionService:
             attempt_count=1,
             latest_attempt_id="attempt-003",
             artifact_manifest={
-                "stages": [{"stage": "planning", "summary": "artifacts/stages/planning/summary.json"}],
+                "stages": [
+                    {"stage": "planning", "summary": "artifacts/stages/planning/summary.json"},
+                    {"stage": "implementation", "summary": "artifacts/stages/implementation/summary.json"},
+                    {"stage": "validation", "summary": "artifacts/stages/validation/summary.json"},
+                ],
                 "runtime": {"orchestration_state": "runtime/orchestration/state.json"},
             },
             last_provider_used="gemini-cli",
@@ -212,7 +216,31 @@ class FakePhase3SessionService:
                             "external_targets": [],
                         },
                     },
-                )
+                ),
+                "implementation": StageOutputModel(
+                    stage="implementation",
+                    summary="Implementer prepared a focused UI patch.",
+                    artifacts=[
+                        "artifacts/stages/implementation/summary.json",
+                        "artifacts/stages/implementation/changes/files.json",
+                    ],
+                    changed_files=["autogen_dashboard/static/app.js", "autogen_dashboard/static/styles.css"],
+                    diff_artifacts=["artifacts/stages/implementation/changes/diff.patch"],
+                ),
+                "validation": StageOutputModel(
+                    stage="validation",
+                    summary="Validation passed for the targeted UI checks.",
+                    artifacts=["artifacts/stages/validation/summary.json"],
+                    validation_results=[
+                        {
+                            "label": "phase5-ui-contract",
+                            "status": "passed",
+                            "summary": "Wave 1 and Wave 2 UI contracts passed.",
+                            "command": [".\\.venv\\Scripts\\python.exe", "-m", "unittest"],
+                            "cwd": "C:\\repo\\autogen",
+                        }
+                    ],
+                ),
             },
             specialist_states=[
                 SpecialistStateModel(
@@ -307,6 +335,20 @@ class FakePhase3SessionService:
                     created_at=now,
                     payload={"stage": "research", "pause_kind": "needs_approval"},
                 ),
+                SessionEvent(
+                    seq=3,
+                    type="route.fallback",
+                    session_id="run-003",
+                    created_at=now,
+                    payload={"stage": "planning", "provider": "gemini-cli", "model": "gemini-2.5-pro"},
+                ),
+                SessionEvent(
+                    seq=4,
+                    type="validation.completed",
+                    session_id="run-003",
+                    created_at=now,
+                    payload={"stage": "validation", "status": "passed"},
+                ),
             ],
             state_saved=True,
         )
@@ -378,6 +420,15 @@ class Phase3ApiTests(unittest.TestCase):
         self.assertEqual(fetched_body["route_metadata"]["active_provider"], "gemini-cli")
         self.assertEqual(fetched_body["specialist_states"][1]["status"], "running")
         self.assertEqual(fetched_body["stage_outputs"]["planning"]["pending_approval"]["risk_level"], "destructive")
+        self.assertEqual(
+            fetched_body["stage_outputs"]["implementation"]["diff_artifacts"],
+            ["artifacts/stages/implementation/changes/diff.patch"],
+        )
+        self.assertEqual(
+            fetched_body["stage_outputs"]["validation"]["validation_results"][0]["status"],
+            "passed",
+        )
+        self.assertEqual(fetched_body["events"][2]["type"], "route.fallback")
 
     def test_sse_snapshot_contains_specialist_and_route_visibility(self) -> None:
         with self.client.stream("GET", "/api/sessions/run-003/events") as response:
@@ -390,6 +441,9 @@ class Phase3ApiTests(unittest.TestCase):
         self.assertIn('"specialist_states"', body)
         self.assertIn('"specialist_handoffs"', body)
         self.assertIn('"affected_paths": ["README.md"]', body)
+        self.assertIn('"validation_results"', body)
+        self.assertIn('"diff_artifacts"', body)
+        self.assertIn('"events"', body)
 
 
 if __name__ == "__main__":

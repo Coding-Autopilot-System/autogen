@@ -1068,12 +1068,15 @@ h1 {
 .operator-section,
 .operator-stat-card,
 .operator-alert,
+.route-summary-card,
 .timeline-card,
+.agent-activity-card,
 .specialist-card,
 .handoff-card,
 .routing-step,
 .attempt-card,
 .capability-card,
+.artifact-detail-card,
 .artifact-card,
 .record-card {
   border: 1px solid rgba(15, 118, 110, 0.12);
@@ -1085,12 +1088,15 @@ h1 {
 .operator-section,
 .operator-alert,
 .operator-stat-card,
+.route-summary-card,
 .timeline-card,
+.agent-activity-card,
 .specialist-card,
 .handoff-card,
 .routing-step,
 .attempt-card,
 .capability-card,
+.artifact-detail-card,
 .artifact-card,
 .record-card {
   padding: 14px;
@@ -1153,6 +1159,29 @@ h1 {
 .artifact-grid,
 .record-grid {
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.route-summary-card {
+  border: 1px solid rgba(15, 118, 110, 0.14);
+  border-radius: var(--radius-xs);
+  background:
+    linear-gradient(135deg, rgba(245, 252, 250, 0.98), rgba(237, 248, 245, 0.9)),
+    radial-gradient(circle at right top, rgba(15, 118, 110, 0.1), transparent 44%);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.3);
+}
+
+.agent-activity-card {
+  border-color: rgba(15, 118, 110, 0.12);
+}
+
+.artifact-detail-card {
+  border: 1px solid rgba(15, 118, 110, 0.12);
+  border-radius: var(--radius-xs);
+  background:
+    linear-gradient(135deg, rgba(255, 252, 247, 0.98), rgba(249, 250, 252, 0.9)),
+    radial-gradient(circle at right top, rgba(21, 94, 117, 0.08), transparent 42%);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.32);
+  padding: 14px;
 }
 
 .timeline-list {

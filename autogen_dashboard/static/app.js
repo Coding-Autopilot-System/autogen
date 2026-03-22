@@ -527,6 +527,12 @@
       reason: pick(route, ["route_reason"], "") || "",
       fallbackCount,
       capabilityDrift: Array.isArray(session?.capabilityChanges) ? session.capabilityChanges.length : 0,
+      requestedLabel: [requestedProvider, requestedModel].filter(Boolean).join(" / "),
+      plannedLabel: [plannedProvider, plannedModel].filter(Boolean).join(" / "),
+      actualLabel: [actualProvider, actualModel].filter(Boolean).join(" / "),
+      attempts: attempts,
+      plan: planned,
+      fallbackUsed: fallbackCount > 0,
     };
   }
 
@@ -1441,6 +1447,16 @@
 
   function normalizeSessionDetail(item) {
     const session = normalizeSession(item);
+    const stageOutputs = normalizeStageOutputs(
+      pick(item, ["stage_outputs", "stageOutputs"], session.stageOutputs || {})
+    );
+    const events = normalizeSessionEvents(pick(item, ["events", "event_feed", "eventFeed"], []));
+    const validationResults = Object.values(stageOutputs).flatMap((output) =>
+      Array.isArray(output.validationResults) ? output.validationResults : []
+    );
+    const diffArtifacts = Object.values(stageOutputs).flatMap((output) =>
+      normalizeTextList(output.diffArtifacts || [])
+    );
     const messages = normalizeArray(item, ["transcript", "messages", "history", "conversation"])
       .map(normalizeMessage)
       .filter((message) => message.content || message.role === "event");
@@ -1498,9 +1514,7 @@
       stageTimeline: normalizeStageTimeline(
         pick(item, ["stage_timeline", "stageTimeline"], session.stageTimeline || [])
       ),
-      stageOutputs: normalizeStageOutputs(
-        pick(item, ["stage_outputs", "stageOutputs"], session.stageOutputs || {})
-      ),
+      stageOutputs: stageOutputs,
       specialistStates: normalizeSpecialistStates(
         pick(item, ["specialist_states", "specialistStates"], session.specialistStates || [])
       ),
@@ -1514,7 +1528,9 @@
       blockedQuestions: normalizeTextList(
         pick(item, ["blocked_questions", "blockedQuestions"], session.blockedQuestions || [])
       ),
-      events: normalizeSessionEvents(pick(item, ["events", "event_feed", "eventFeed"], [])),
+      events: events,
+      validationResults: validationResults,
+      diffArtifacts: diffArtifacts,
       pendingApproval: normalizeApprovalScope(
         pick(item, ["pending_approval", "pendingApproval"], session.pendingApproval || null)
       ),
@@ -1851,6 +1867,22 @@
         timestamp: entry.updatedAt || entry.completedAt || entry.startedAt || "",
       });
     });
+    (session.routeAttempts || []).forEach((attempt, index) => {
+      entries.push({
+        id: `route-attempt-${index}`,
+        family: "event",
+        title: `Route attempt ${index + 1}`,
+        copy:
+          [attempt.provider, attempt.model].filter(Boolean).join(" / ") ||
+          "A routing attempt was recorded.",
+        status: attempt.status || "",
+        meta: [
+          attempt.fallbackIndex ? `fallback ${attempt.fallbackIndex}` : "primary route",
+          attempt.toolsAvailable === false ? "tool-light" : "tools available",
+        ].filter(Boolean),
+        timestamp: attempt.completedAt || attempt.startedAt || session.updatedAt || "",
+      });
+    });
     (session.events || []).forEach((event) => {
       entries.push({
         id: `event-${event.seq}`,
@@ -1860,6 +1892,19 @@
         status: event.payload?.status || "",
         meta: [event.payload?.stage, event.payload?.pause_kind || event.payload?.pauseKind].filter(Boolean),
         timestamp: event.createdAt || "",
+      });
+    });
+    Object.values(session.stageOutputs || {}).forEach((output) => {
+      (output.validationResults || []).forEach((result, index) => {
+        entries.push({
+          id: `validation-${output.stage}-${index}`,
+          family: "event",
+          title: `Validation ${titleCaseWords(output.stage)}`,
+          copy: result.summary || result.label || toText(result.command) || "Validation result recorded.",
+          status: result.status || "",
+          meta: [result.cwd, result.duration_ms ? `${result.duration_ms} ms` : ""].filter(Boolean),
+          timestamp: result.finished_at || result.completed_at || session.updatedAt || "",
+        });
       });
     });
     if (session.pendingApproval) {
@@ -1874,6 +1919,19 @@
       });
     }
     return entries.sort((left, right) => new Date(left.timestamp || 0) - new Date(right.timestamp || 0));
+  }
+
+  function buildOperatorArtifactSections(session) {
+    const outputs = Object.values(session.stageOutputs || {});
+    return outputs.map((output) => ({
+      stage: output.stage,
+      summary: output.summary || "No stage summary captured.",
+      changedFiles: normalizeTextList(output.changedFiles || []),
+      diffArtifacts: normalizeTextList(output.diffArtifacts || []),
+      validationResults: Array.isArray(output.validationResults) ? output.validationResults : [],
+      artifacts: normalizeTextList(output.artifacts || []),
+      writeOperations: Array.isArray(output.writeOperations) ? output.writeOperations : [],
+    }));
   }
 
   function renderTimelineTab(session) {
@@ -1967,9 +2025,10 @@
   }
 
   function renderOverviewTab(session) {
-    const route = session.routeMetadata || {};
+    const route = buildRoutingSummary(session);
     const stageCards = renderStageCards(session);
     const outputCards = renderOutputCards(session);
+    const artifactSections = buildOperatorArtifactSections(session);
     const pendingApproval =
       session.pendingApproval ||
       Object.values(session.stageOutputs || {})
@@ -1985,8 +2044,8 @@
         </article>
         <article class="operator-stat-card">
           <span class="meta-label">Active route</span>
-          <strong>${escapeHtml([route.active_provider, route.active_model].filter(Boolean).join(" / ") || "Pending")}</strong>
-          <div class="operator-stat-subtle">${escapeHtml(route.route_tier || session.routeLane || "auto")} lane</div>
+          <strong>${escapeHtml(route.actualLabel || route.plannedLabel || "Pending")}</strong>
+          <div class="operator-stat-subtle">${escapeHtml(route.tier || route.lane || "auto")} lane</div>
         </article>
         <article class="operator-stat-card">
           <span class="meta-label">Specialists</span>
@@ -1995,7 +2054,7 @@
         </article>
         <article class="operator-stat-card">
           <span class="meta-label">Artifacts</span>
-          <strong>${escapeHtml(String(Object.keys(session.stageOutputs || {}).length))}</strong>
+          <strong>${escapeHtml(String(artifactSections.length || 0))}</strong>
           <div class="operator-stat-subtle">${escapeHtml(String(session.autoAnswerRecords?.length || 0))} auto answers saved</div>
         </article>
       </div>
@@ -2080,7 +2139,7 @@
       .map((specialist) => {
         const status = statusKind(specialist.status || "idle");
         return `
-          <article class="specialist-card">
+          <article class="agent-activity-card specialist-card">
             <div class="specialist-card-head">
               <div>
                 <div class="specialist-name">${escapeHtml(specialist.role || "specialist")}</div>
@@ -2108,7 +2167,7 @@
       .map((handoff) => {
         const status = statusKind(handoff.status || "idle");
         return `
-          <article class="handoff-card">
+          <article class="agent-activity-card handoff-card">
             <div class="handoff-top">
               <div class="handoff-route">${escapeHtml(handoff.fromRole)} <span aria-hidden="true">→</span> ${escapeHtml(handoff.toRole)}</div>
               <span class="status-pill ${escapeHtml(status)}">${escapeHtml(handoff.status || "requested")}</span>
@@ -2160,12 +2219,12 @@
   }
 
   function renderRoutingTab(session) {
-    const route = session.routeMetadata || {};
+    const route = buildRoutingSummary(session);
     const planCards = (session.routePlan || [])
       .map((step) => {
         const active =
-          step.provider === route.active_provider &&
-          String(step.model || "") === String(route.active_model || "");
+          step.provider === route.actualProvider &&
+          String(step.model || "") === String(route.actualModel || "");
         return `
           <article class="routing-step ${active ? "active" : ""}">
             <div class="routing-step-top">
@@ -2213,20 +2272,25 @@
 
     return `
       <div class="operator-summary-grid">
-        <article class="operator-stat-card">
+        <article class="route-summary-card">
           <span class="meta-label">Requested route</span>
-          <strong>${escapeHtml([session.requestedProvider, session.requestedModel].filter(Boolean).join(" / ") || session.provider || "None")}</strong>
-          <div class="operator-stat-subtle">${escapeHtml(session.routeLane || "auto")} lane</div>
+          <strong>${escapeHtml(route.requestedLabel || session.provider || "None")}</strong>
+          <div class="operator-stat-subtle">${escapeHtml(route.lane || "auto")} lane</div>
         </article>
-        <article class="operator-stat-card">
+        <article class="route-summary-card">
           <span class="meta-label">Actual route</span>
-          <strong>${escapeHtml([route.active_provider, route.active_model].filter(Boolean).join(" / ") || "Pending")}</strong>
-          <div class="operator-stat-subtle">${escapeHtml(route.route_reason || "Waiting for execution metadata.")}</div>
+          <strong>${escapeHtml(route.actualLabel || route.plannedLabel || "Pending")}</strong>
+          <div class="operator-stat-subtle">${escapeHtml(route.reason || "Waiting for execution metadata.")}</div>
         </article>
-        <article class="operator-stat-card">
+        <article class="route-summary-card">
           <span class="meta-label">Fallbacks used</span>
-          <strong>${escapeHtml(String(route.fallback_count ?? session.lastFallbackCount ?? 0))}</strong>
-          <div class="operator-stat-subtle">${escapeHtml(route.fallback_used ? "Fallback path was used" : "Primary route held")}</div>
+          <strong>${escapeHtml(String(route.fallbackCount ?? 0))}</strong>
+          <div class="operator-stat-subtle">${escapeHtml(route.fallbackUsed ? "Fallback path was used" : "Primary route held")}</div>
+        </article>
+        <article class="route-summary-card">
+          <span class="meta-label">Capability drift</span>
+          <strong>${escapeHtml(String(route.capabilityDrift || 0))}</strong>
+          <div class="operator-stat-subtle">Provider or tool capability changes recorded during fallback.</div>
         </article>
       </div>
       <div class="operator-grid">
@@ -2256,19 +2320,42 @@
   }
 
   function renderArtifactsTab(session) {
-    const artifactCards = Object.values(session.stageOutputs || {})
-      .map((output) => `
-        <article class="artifact-card">
+    const artifactCards = buildOperatorArtifactSections(session)
+      .map((section) => `
+        <article class="artifact-detail-card">
           <div class="artifact-head">
-            <div class="artifact-name">${escapeHtml(output.stage)}</div>
-            <span class="tiny-chip">${escapeHtml(String(output.artifacts?.length || 0))} artifacts</span>
+            <div class="artifact-name">${escapeHtml(section.stage)}</div>
+            <span class="tiny-chip">${escapeHtml(String(section.artifacts.length + section.diffArtifacts.length))} saved items</span>
           </div>
-          <div class="artifact-copy">${escapeHtml(output.summary || "No summary captured.")}</div>
-          <div class="artifact-chip-row">
-            ${(output.artifacts || [])
-              .map((artifact) => `<span class="tiny-chip">${escapeHtml(artifact)}</span>`)
-              .join("")}
-          </div>
+          <div class="artifact-copy">${escapeHtml(section.summary)}</div>
+          ${
+            section.changedFiles.length
+              ? `<div><span class="meta-label">Changed files</span><div class="artifact-chip-row">${section.changedFiles
+                  .map((path) => `<span class="tiny-chip">${escapeHtml(path)}</span>`)
+                  .join("")}</div></div>`
+              : ""
+          }
+          ${
+            section.diffArtifacts.length
+              ? `<div><span class="meta-label">Diff artifacts</span><div class="artifact-chip-row">${section.diffArtifacts
+                  .map((artifact) => `<span class="tiny-chip">${escapeHtml(artifact)}</span>`)
+                  .join("")}</div></div>`
+              : ""
+          }
+          ${
+            section.validationResults.length
+              ? `<div><span class="meta-label">Validation results</span><div class="artifact-chip-row">${section.validationResults
+                  .map((result) => `<span class="tiny-chip">${escapeHtml(result.label || result.command?.join(" ") || "validation")} | ${escapeHtml(result.status || "unknown")}</span>`)
+                  .join("")}</div></div>`
+              : ""
+          }
+          ${
+            section.artifacts.length
+              ? `<div><span class="meta-label">Saved artifacts</span><div class="artifact-chip-row">${section.artifacts
+                  .map((artifact) => `<span class="tiny-chip">${escapeHtml(artifact)}</span>`)
+                  .join("")}</div></div>`
+              : ""
+          }
         </article>
       `)
       .join("");
