@@ -1,110 +1,44 @@
 # External Integrations
 
-**Analysis Date:** 2026-03-20
+## Model Providers
+- Gemini API is the primary model path via `OpenAIChatClient` and `GEMINI_BASE_URL` in `maf_starter/agent_factory.py` and `maf_starter/config.py`.
+- Anthropic API is optional in `maf_starter/provider_fallback.py` when `ANTHROPIC_API_KEY` is present.
+- `autogen_starter/providers.py` also models `azure-openai` through `AZURE_OPENAI_DEPLOYMENT`, `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_API_KEY`, and `AZURE_OPENAI_API_VERSION`.
+- Local CLI providers are wired through `gemini.cmd`, `claude`, and `codex.cmd` in `maf_starter/provider_fallback.py`.
+- The fallback chain in `maf_starter/provider_fallback.py` retries across API and CLI providers when quota or rate-limit style failures appear.
 
-## APIs & External Services
+## AG-UI and DevUI
+- `command_center/app.py` uses `agent_framework_ag_ui.AGUIRequest`, `AgentFrameworkAgent`, `AgentFrameworkWorkflow`, and `ag_ui.encoder.EventEncoder`.
+- `maf_starter/cli.py` launches `agent_framework_devui._server.DevServer` for the raw debugger.
+- `maf_starter/devui_patches.py` and `maf_starter/devui_overrides.py` inject route metadata, banners, and UI styling into DevUI.
+- `docs/DEVUI_CUSTOMIZATION.md` documents the overlay and in-flight bundle patch strategy.
+- `command_center/static/index.html` exposes Events, Tools, Agents, Workflow, and Routing tabs plus a debug link to DevUI on `127.0.0.1:8090`.
 
-**Primary Model Provider:**
-- Google Gemini API - primary model execution path for the MAF runtime
-  - SDK/Client: `OpenAIChatClient` in `maf_starter/agent_factory.py` and `maf_starter/provider_fallback.py`
-  - Auth: `GEMINI_API_KEY` / `MAF_API_KEY` from `.env`
-  - Endpoint: `GEMINI_BASE_URL` / `MAF_BASE_URL`, defaulting to Google's OpenAI-compatible endpoint in `maf_starter/config.py`
+## Local Process Boundaries
+- `maf_starter/provider_fallback.py` shells out to CLI providers with `subprocess.run`.
+- `maf_starter/tools.py`, `autogen_dashboard/repo_context.py`, and `maf_starter/validation_runner.py` shell out to `git`.
+- `maf_starter/cli.py` and `autogen_starter/cli.py` run local `uvicorn` servers.
+- `command_center/app.py` can start the debug DevUI in a background thread when `127.0.0.1:8090` is not already listening.
+- `maf_starter/tools.py` constrains file operations to the repo root and blocks writes into `state/`, `.env`, `.venv`, and `.git`.
 
-**Optional Secondary API Provider:**
-- Anthropic API - optional fallback when `ANTHROPIC_API_KEY` is configured
-  - SDK/Client: `AnthropicClient` in `maf_starter/provider_fallback.py`
-  - Auth: `ANTHROPIC_API_KEY`
-  - Model config: `ANTHROPIC_MODEL` in `.env.example`
+## Persistence and Checkpointing
+- Active MAF checkpoints live under `state/maf-checkpoints` through `FileCheckpointStorage`.
+- Run-scoped orchestration artifacts are written by `maf_starter/workflow_factory.py` and `maf_starter/orchestration.py`.
+- `command_center/app.py` hashes repo roots into `state/maf-checkpoints/repos/<repo>-<hash>`.
+- Legacy dashboard sessions persist under `state/sessions/<session_id>/...` via `autogen_dashboard/session_store.py`.
+- Legacy resumable state is also stored in `state/team_state.json` by `autogen_starter/cli.py`.
+- GSD artifacts such as auto answers and blocked questions are persisted in the session runtime tree.
 
-**CLI AI Providers:**
-- Gemini CLI - fallback subprocess path in `maf_starter/provider_fallback.py`
-  - Command: `gemini.cmd`
-  - Auth: the CLI's local cached login session
-  - Notes: tool calling is unavailable on CLI fallback turns
-- Claude CLI - fallback subprocess path in `maf_starter/provider_fallback.py`
-  - Command: `claude`
-  - Auth: local CLI/app account session
-  - Extra config: optional `CLAUDE_CODE_GIT_BASH_PATH`
-- Codex CLI - fallback subprocess path in `maf_starter/provider_fallback.py`
-  - Command: `codex.cmd`
-  - Auth: local Codex login/session
+## Git and Repo Integration
+- `maf_starter/tools.py` provides `get_repo_overview`, `list_repo_files`, `read_repo_file`, `search_repo`, `request_human_approval`, and `apply_repo_write_plan`.
+- `autogen_dashboard/repo_context.py` resolves repo roots, branch names, dirty state, recent commits, and stack hints.
+- `command_center/app.py` discovers local repos under `AUTOGEN_REPO_SCAN_ROOT` and `settings.project_root.parent`.
+- `maf_starter/approval_policy.py` and `maf_starter/validation_runner.py` classify `git diff --check`, `git push`, and similar risky commands.
+- Tests in `tests/test_workspace_contract.py` and related files create scratch git repos to verify path safety and repo detection.
 
-## Data Storage
-
-**Workflow State:**
-- File-based checkpoint storage under `state/maf-checkpoints`
-  - Used by `maf_starter/workflow_factory.py` and `maf_starter/team_factory.py`
-
-**Legacy Session State:**
-- `state/team_state.json`
-- `state/sessions/*/metadata.json`
-- `state/sessions/*/transcript.json`
-- `state/sessions/*/events.jsonl`
-- `state/sessions/*/autogen_state.json`
-
-**Caching:**
-- No dedicated cache service is integrated
-- State and artifacts are file-backed only
-
-## Authentication & Identity
-
-**Provider Identity:**
-- Gemini API auth is key-based via `.env`
-- Anthropic API auth is optional and key-based via `.env`
-- CLI providers rely on local workstation login state rather than API keys
-
-**Human Approval:**
-- `request_human_approval` in `maf_starter/tools.py` is the current human-in-the-loop control surface for MAF turns
-- It is implemented as a mandatory-approval tool rather than a separate identity system
-
-## Monitoring & Observability
-
-**Logs:**
-- `.maf-devui.out.log` and `.maf-devui.err.log` capture DevUI runtime output
-- `.dashboard.out.log` and `.dashboard.err.log` capture the legacy dashboard server output
-- No external logging or metrics service is integrated
-
-**Tracing/UI Metadata:**
-- DevUI route metadata is patched in `maf_starter/devui_patches.py`
-- UI styling/renderer overrides are injected by `maf_starter/devui_overrides.py`
-
-## CI/CD & Deployment
-
-**Hosting:**
-- No production hosting target is declared in this repo
-- Active usage is local execution through `python main.py ...` and `start_devui.ps1`
-
-**CI Pipeline:**
-- No checked-in CI workflow files were present in the scanned tree
-- Validation is currently command-driven from the local virtualenv
-
-## Environment Configuration
-
-**Development:**
-- Required core vars: `GEMINI_API_KEY` or `MAF_API_KEY`, plus model/base URL settings
-- Optional vars: `ANTHROPIC_API_KEY`, CLI command/model overrides, `CLAUDE_CODE_GIT_BASH_PATH`
-- Secrets location: repo-root `.env` (gitignored)
-
-**Environment Differences:**
-- The MAF path uses `MAF_*` names in `maf_starter/config.py`
-- The legacy AutoGen path uses `AUTOGEN_*` and provider-specific variables in `autogen_starter/config.py` and `autogen_starter/providers.py`
-
-## Webhooks & Callbacks
-
-**Incoming:**
-- None detected
-
-**Outgoing:**
-- LLM API calls through Gemini and optional Anthropic clients
-- CLI subprocess calls to Gemini, Claude, and Codex CLIs
-
-## Integration Risks
-
-- DevUI customization depends on private underscore-prefixed internals in `agent_framework_devui`
-- CLI fallback changes capabilities mid-turn because tool calling is not preserved
-- Root `requirements.txt` does not fully document all imported integrations present in the active and legacy code paths
-
----
-
-*Integration audit: 2026-03-20*
-*Update when adding or removing external services*
+## Azure and Cloud Touchpoints
+- `autogen_starter/providers.py` already supports `azure-openai` as a first-class provider.
+- `autogen_dashboard/schemas.py` and `autogen_starter/config.py` both model `azure-openai`.
+- `autogen_dashboard/repo_context.py` treats `host.json` as an `Azure Functions` stack hint.
+- `README.md` and `docs/DEVUI_CUSTOMIZATION.md` both say DevUI should remain a local/operator console, not a public production surface.
+- No Bicep, Functions deployment, or cloud infra manifests are present in the current tree, so Azure work is config-level only.

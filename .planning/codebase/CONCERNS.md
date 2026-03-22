@@ -1,125 +1,60 @@
 # Codebase Concerns
 
-**Analysis Date:** 2026-03-20
+## Technical Debt
+- The repo still carries two meaningful runtime surfaces: the active MAF path in `maf_starter/` and the legacy AutoGen stack in `autogen_dashboard/` and `autogen_starter/`.
+- `README.md` now treats `command_center/` as the primary operator UI, while `.planning/PROJECT.md` still describes `autogen_dashboard/` as the primary local product UI. That mismatch is a planning debt signal.
+- `maf_starter/cli.py` still auto-starts the debug DevUI sidecar when launching the Command Center, which couples product flow to framework-debug behavior.
+- `maf_starter/config.py` hard-codes model lists and CLI command defaults, so environment drift is easy to encode in code instead of config.
 
-## Tech Debt
-
-**Dual runtime stacks (`maf_starter/` vs `autogen_*`):**
-- Issue: the repo keeps both the active MAF runtime and a substantial legacy AutoGen runtime
-- Why: the project migrated paths without removing the older dashboard and provider implementation
-- Impact: provider logic, config assumptions, and session behavior can drift in two places
-- Fix approach: either retire the legacy stack or clearly isolate and test it as a separate supported mode
-
-**Incomplete dependency manifest:**
-- Issue: `requirements.txt` only declares the core MAF stack, while active and legacy code import additional packages such as FastAPI, Anthropic support, and AutoGen modules
-- Why: the environment evolved incrementally around a working local setup
-- Impact: clean environment setup is fragile and can fail depending on transitive or manually installed packages
-- Fix approach: align the manifest with all supported code paths or split active and legacy requirements cleanly
-
-**Duplicated config surfaces:**
-- Issue: `maf_starter/config.py` and `autogen_starter/config.py` model similar concerns separately
-- Why: the repo carries both generations of runtime
-- Impact: provider and env changes must be updated twice or they drift
-- Fix approach: centralize provider/config primitives or hard-deprecate the old path
-
-## Known Bugs / Risky Behaviors
-
-**Repo-aware dashboard assumes Git checkout:**
-- Symptoms: repo-context features in the legacy dashboard can fail when the repo root is not a git repository
-- Trigger: using `autogen_dashboard/repo_context.py` in a workspace without `.git`
-- Workaround: run the repo inside a real git checkout or avoid the legacy repo-context path
-- Root cause: repo discovery and summary logic expects git metadata to exist
-
-**DevUI UI patch drift risk:**
-- Symptoms: route styling and message reshaping can silently stop working after DevUI version changes
-- Trigger: upgrading `agent-framework-devui` or changing its shipped frontend bundle
-- Workaround: keep the current beta version pinned and validate the patch after upgrades
-- Root cause: `maf_starter/devui_patches.py` and `maf_starter/devui_overrides.py` hook private, version-coupled internals
-
-## Security Considerations
-
-**Repo tool file access:**
-- Risk: `maf_starter/tools.py` can read and search any text file under the repo root and does not explicitly exclude `.env`
-- Current mitigation: repo-root boundary enforcement only
-- Recommendations: explicitly deny secret-bearing paths and consider a safer allowlist for agent-readable files
-
-**Legacy dashboard exposure:**
-- Risk: `autogen_dashboard/app.py` has mutable session endpoints with permissive CORS and no auth layer
-- Current mitigation: intended localhost-only usage
-- Recommendations: keep it local-only, restrict host binding, or add authentication before broader exposure
-
-**Plaintext local artifacts:**
-- Risk: transcripts, session events, checkpoints, and runtime logs are stored in plaintext under `state/` and root log files
-- Current mitigation: `state/` is gitignored
-- Recommendations: review retention, expand ignore rules for root logs, and avoid storing sensitive prompts when possible
-
-## Performance Bottlenecks
-
-**Recursive repo scanning in tools:**
-- Problem: `maf_starter/tools.py` walks the filesystem with `rglob()` and a small skip list
-- Measurement: no numeric benchmark recorded
-- Cause: simple implementation optimized for convenience over repo scale
-- Improvement path: add stronger exclusions, caching, and tighter file selection for larger repos
-
-**Legacy dashboard frontend size:**
-- Problem: `autogen_dashboard/static/app.js` is a very large single-file client script
-- Measurement: source file size is large enough to be a clear regression hotspot
-- Cause: UI behavior accumulated in one module
-- Improvement path: split the client into smaller modules or treat the old dashboard as frozen/legacy
+## Duplicated Runtime Surfaces
+- `command_center/app.py` and `autogen_dashboard/app.py` both expose repo-aware orchestration APIs, but they do so with different schemas, state models, and UI expectations.
+- `command_center/static/app.js` is a lighter operator shell, while `autogen_dashboard/static/app.js` still contains the deeper session-management implementation. The product has two frontends with overlapping intent.
+- `maf_starter/orchestration.py` and `autogen_dashboard/session_runner.py` both model pause, retry, and stage progression, which increases drift risk for resume semantics.
 
 ## Fragile Areas
+- `maf_starter/provider_fallback.py` mixes route planning, streaming wrapping, CLI subprocess execution, and metadata reshaping in one boundary module.
+- `maf_starter/devui_patches.py` and `maf_starter/devui_overrides.py` remain version-coupled to DevUI internals, so small upstream changes can break local inspection behavior.
+- `autogen_dashboard/session_runner.py` is a large stateful file that concentrates prompt handling, persistence, retry, and run lifecycle code in one place.
+- `command_center/static/app.js` depends on a fairly implicit event contract; the shell is smaller, but the browser behavior still depends on many payload shapes staying stable.
 
-**`maf_starter/devui_overrides.py`:**
-- Why fragile: it rewrites the served DevUI JS bundle using string matching against known renderer content
-- Common failures: DevUI upgrades break route panel injection or styling with no compile-time signal
-- Safe modification: change alongside pinned DevUI version checks and revalidate with manual UI smoke tests
-- Test coverage: partial; bundle and root injection are tested, but full browser rendering is not
+## Provider Capability Boundaries
+- `maf_starter/provider_fallback.py` explicitly drops tool calling on `gemini-cli`, `claude-cli`, and `codex-cli` fallback turns, so provider fallback is not capability-preserving.
+- `maf_starter/config.py` bakes in local command names like `gemini.cmd`, `claude`, and `codex.cmd`, which makes provider availability a workstation assumption.
+- `command_center/app.py` builds route previews from model names, but those previews are only as accurate as the current provider catalog and installed SDKs.
+- `autogen_dashboard/session_runner.py` still assumes the legacy provider layer can surface usable statuses and retry paths across all configured backends.
 
-**`maf_starter/provider_fallback.py`:**
-- Why fragile: it mixes provider heuristics, CLI subprocess calls, route metadata, and response wrapping
-- Common failures: model-name drift, changed quota error wording, or inconsistent tool availability on fallback
-- Safe modification: keep changes small, add targeted tests, and validate at least one live fallback path
-- Test coverage: moderate helper coverage, not exhaustive end-to-end provider coverage
+## Approval And Resume Risks
+- `maf_starter/approval_policy.py` uses coarse string matching for approval words and path classification, so approval semantics are easy to misread or over-approve.
+- `maf_starter/orchestration.py` persists pause kinds, retry targets, and stage records, but the same concepts also exist in the legacy session runner, so resume behavior can diverge.
+- `tests/test_phase1_runtime.py` and `tests/test_phase2_manager.py` cover retry and pause flows, but they do not prove crash-safe recovery after a mid-turn tool or write interruption.
+- `autogen_dashboard/app.py` exposes approve, reject, run, retry, stop, and cancel endpoints, which is powerful but raises the risk of inconsistent lifecycle transitions if the runtime contract changes.
 
-**`autogen_dashboard/session_runner.py`:**
-- Why fragile: it is a large mixed state machine for prompts, fallback, events, and persistence
-- Common failures: edge-case session transitions and fallback-state bugs
-- Safe modification: refactor behind tests before major behavior changes
-- Test coverage: weak in the current checked-in test set
+## Repo, CLI, And Environment Assumptions
+- `maf_starter/config.py` requires a repo-local `.env` and a valid repo root, so local startup is tightly coupled to workstation state.
+- `command_center/app.py` scans local directories for repos and assumes the operator machine can read them directly.
+- `maf_starter/repo_execution.py` writes directly into the selected repo root, so execution assumes a mutable local checkout rather than an isolated worker volume.
+- `README.md` assumes Windows PowerShell, a repo-local virtualenv, and locally installed CLI tools; `\\.venv\\`, `gemini.cmd`, `claude`, and `codex.cmd` are part of the normal path.
+- `.planning/STATE.md` notes `azd` is absent locally, so cloud work must not silently depend on it.
 
-## Dependencies at Risk
+## UI Gaps
+- `command_center/static/index.html` and `command_center/static/styles.css` present a clean shell, but the feature depth is still thinner than `autogen_dashboard/static/index.html` and `autogen_dashboard/static/app.js`.
+- `command_center/static/app.js` shows one live run and a compact approval panel, but it does not yet match the richer session list, pause banner, or workspace warning surface of the legacy dashboard.
+- `tests/test_command_center.py` only checks shell and API smoke behavior; it does not exercise real browser rendering or SSE streaming in a browser.
+- `tests/test_phase5_ui_contract.py` is a static contract test over files, not an end-to-end UI proof.
 
-**`agent-framework-devui` beta pin:**
-- Risk: version-specific internals can break the UI patch layer
-- Impact: DevUI customization fails even if the base runtime still works
-- Migration plan: keep it pinned or move to a custom UI that does not patch private internals
+## Cloud Readiness Risks
+- `command_center/app.py` and `maf_starter/cli.py` both assume local-host behavior, with debug DevUI wiring and local repo access baked in.
+- `autogen_dashboard/app.py` still enables permissive CORS, which is acceptable for localhost but not a safe default for a broader control plane.
+- `maf_starter/provider_fallback.py` shells out to local CLIs with a 240-second timeout, which is fine for a desktop worker but awkward for hosted HTTP boundaries.
+- `maf_starter/orchestration.py` and `autogen_dashboard/session_runner.py` both persist state on the filesystem, so a future Azure Functions host will need an explicit durable-worker split.
 
-**Preview model defaults and hard-coded names:**
-- Risk: preview Gemini model IDs and CLI defaults can expire or change semantics
-- Impact: routing and fallback can break without code changes elsewhere
-- Migration plan: centralize model catalog management and validate via probe commands regularly
+## Testing Gaps
+- `tests/test_command_center.py` verifies catalog and status payloads, but not the browser interaction or event streaming path in `command_center/static/app.js`.
+- `tests/test_phase4_write_execution.py` covers blocked paths and diff capture in `maf_starter/repo_execution.py`, but not a full repo-execution lifecycle through `maf_starter/provider_fallback.py` plus `maf_starter/orchestration.py`.
+- `tests/test_phase5_ui_contract.py` checks selectors and helper names in `autogen_dashboard/static/app.js`, but it does not validate rendered DOM or responsive behavior.
+- There is no dedicated test proving the cloud-control-plane assumptions in `.planning/PROJECT.md` or the worker-boundary split implied by `command_center/app.py`.
 
-## Test Coverage Gaps
-
-**Legacy dashboard runtime:**
-- What's not tested: most of `autogen_dashboard/app.py`, `autogen_dashboard/session_runner.py`, and the static UI behavior
-- Risk: regressions in the retained legacy stack can go unnoticed
-- Priority: High if the legacy dashboard remains supported
-- Difficulty to test: Medium; needs API and frontend coverage reinstated
-
-**Real browser validation for DevUI customization:**
-- What's not tested: final DOM rendering of route panels/cards in a browser
-- Risk: server-side patching can appear correct while the browser still renders poorly
-- Priority: Medium
-- Difficulty to test: Medium; requires browser automation or a lightweight UI harness
-
-**Hermetic config testing:**
-- What's not tested: all runtime flows with fully synthetic env/config inputs
-- Risk: tests depend too much on the local workstation setup
-- Priority: Medium
-- Difficulty to test: Low to Medium
-
----
-
-*Concerns audit: 2026-03-20*
-*Update as issues are fixed or new ones are discovered*
+## Watchlist
+- Keep an eye on `README.md`, `.planning/PROJECT.md`, and `.planning/STATE.md` whenever the primary UI or runtime ownership changes.
+- Treat `autogen_dashboard/` as frozen unless a specific legacy behavior still depends on it.
+- Re-check `maf_starter/provider_fallback.py` and `maf_starter/approval_policy.py` whenever provider catalogs or approval rules change.

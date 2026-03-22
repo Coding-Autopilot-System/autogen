@@ -1,87 +1,58 @@
 # Technology Stack
 
-**Analysis Date:** 2026-03-20
-
 ## Languages
+- Python 3.14-era runtime code lives in `main.py`, `maf_starter/*.py`, `command_center/*.py`, `autogen_dashboard/*.py`, `autogen_starter/*.py`, and `entities/**/*.py`.
+- JavaScript UI code lives in `command_center/static/app.js` and `autogen_dashboard/static/app.js`.
+- HTML and CSS shells live in `command_center/static/index.html`, `command_center/static/styles.css`, `autogen_dashboard/static/index.html`, and `autogen_dashboard/static/styles.css`.
+- PowerShell launchers live in `start_devui.ps1` and `stop_devui.ps1`.
+- JSON and JSONL are the main persistence formats under `state/` and the legacy dashboard store.
 
-**Primary:**
-- Python 3.14-era codebase targeting a repo-local virtual environment in `.venv/`; all active runtime code lives in `main.py`, `maf_starter/*.py`, `entities/**/*.py`, and supporting test modules under `tests/`.
-
-**Secondary:**
-- JavaScript - legacy dashboard UI logic in `autogen_dashboard/static/app.js`
-- HTML/CSS - legacy dashboard shell in `autogen_dashboard/static/index.html` and `autogen_dashboard/static/styles.css`
-- PowerShell - local launcher and stop scripts in `start_devui.ps1` and `stop_devui.ps1`
-
-## Runtime
-
-**Environment:**
-- Python CLI application with local web UI/dev server behavior
-- Windows/PowerShell-first developer workflow, as shown in `README.md`, `start_devui.ps1`, and `stop_devui.ps1`
-- Uvicorn-based HTTP serving for DevUI and the legacy FastAPI dashboard
-
-**Package Manager:**
-- `pip` via a repo-local virtual environment at `.venv/`
-- Lockfile: none present
+## Runtime Surfaces
+- `main.py` is a thin dispatcher into `maf_starter/cli.py`.
+- `maf_starter/cli.py` provides `doctor`, `smoke`, `probe-models`, `ui`, and `devui`.
+- `autogen_starter/cli.py` still exposes `providers`, `chat`, `step`, `dashboard`, and `reset-state`.
+- `command_center/app.py` serves the AG-UI operator surface on top of FastAPI.
+- `autogen_dashboard/app.py` remains the legacy FastAPI dashboard and SSE API.
 
 ## Frameworks
+- Microsoft Agent Framework is the active runtime via `agent_framework`, `agent_framework_devui`, and `agent_framework_ag_ui`.
+- FastAPI and Uvicorn host both the command center and the legacy dashboard.
+- AutoGen packages are still used by the legacy path through `autogen_core`, `autogen_agentchat`, and `autogen_ext`.
+- Pydantic backs the dashboard schemas in `autogen_dashboard/schemas.py`.
 
-**Core:**
-- Microsoft Agent Framework `agent-framework==1.0.0rc5` - active agent runtime declared in `requirements.txt`
-- Microsoft DevUI `agent-framework-devui==1.0.0b260319` - local debugging UI, also declared in `requirements.txt`
-- FastAPI/Uvicorn - used by the legacy dashboard in `autogen_dashboard/app.py` and by DevUI customization hooks in `maf_starter/devui_overrides.py`
+## Dependencies
+- Root pinned deps are `agent-framework==1.0.0rc5`, `agent-framework-ag-ui==1.0.0b260319`, `agent-framework-devui==1.0.0b260319`, and `python-dotenv`.
+- `maf_starter/agent_factory.py` uses `OpenAIChatClient` against Gemini's OpenAI-compatible endpoint.
+- `maf_starter/provider_fallback.py` optionally imports `AnthropicClient` and shells out to `gemini.cmd`, `claude`, and `codex.cmd`.
+- `autogen_starter/providers.py` also supports `ollama`, `openai`, `gemini`, `anthropic`, `azure-openai`, `codex-cli`, `gemini-cli`, and `claude-cli`.
+- Tests depend on `unittest` and `fastapi.testclient.TestClient`.
 
-**Workflow/Orchestration:**
-- `agent_framework_orchestrations.SequentialBuilder` in `maf_starter/team_factory.py`
-- File checkpointing via `FileCheckpointStorage` in `maf_starter/team_factory.py` and `maf_starter/workflow_factory.py`
+## Configuration Surface
+- Repo-root `.env` is loaded by `maf_starter/config.py` and `autogen_starter/config.py`.
+- `.env.example` documents `MAF_*`, `GEMINI_*`, `ANTHROPIC_*`, `AUTOGEN_*`, and CLI override variables.
+- `MAF_REPO_ROOT`, `MAF_ENTITIES_DIR`, and `MAF_CHECKPOINT_DIR` drive the active MAF runtime layout.
+- `AUTOGEN_STATE_DIR`, `AUTOGEN_STATE_FILE`, and `AUTOGEN_REPO_SCAN_ROOT` drive the legacy dashboard.
+- `CLAUDE_CODE_GIT_BASH_PATH` is required for the Claude CLI path to be considered ready.
+- `state/`, `.venv/`, and `.tmp-tests/` are treated as local-only workspace state.
 
-**Legacy Stack Still Present:**
-- AutoGen AgentChat code in `autogen_starter/*.py` and `autogen_dashboard/*.py`
-- Pydantic-backed session schemas in `autogen_dashboard/schemas.py`
+## Entry Points
+- `main.py` forwards to `maf_starter/cli.main()`.
+- `autogen_starter/cli.py` is the legacy AutoGen CLI and dashboard launcher.
+- `command_center/app.py` exposes `/api/agui/*`, `/api/catalog`, `/api/repos`, `/api/status`, and `/healthz`.
+- `autogen_dashboard/app.py` exposes the legacy `/api/sessions/*` and `/api/providers` surface.
+- `entities/repo_copilot*/agent.py` and `entities/repo_copilot_workflow/workflow.py` expose DevUI-discoverable agents and workflows.
+- `entities/repo_team/workflow.py` exposes the manager-led specialist workflow.
 
-## Key Dependencies
+## Local Scripts and UI
+- `start_devui.ps1` starts the local DevUI debugger; `stop_devui.ps1` stops it.
+- `command_center/static/*` is the primary operator UI, with a debug link to `127.0.0.1:8090`.
+- `autogen_dashboard/static/*` is the retained legacy UI.
+- `docs/DEVUI_CUSTOMIZATION.md` documents the DevUI overlay and bundle patching approach.
+- `README.md` describes the command center, DevUI, and model probe flow.
 
-**Critical:**
-- `agent_framework` - core agent and workflow primitives used in `maf_starter/agent_factory.py`, `maf_starter/tools.py`, and `maf_starter/workflow_factory.py`
-- `agent_framework_devui` - DevUI server and discovery path used in `maf_starter/cli.py`
-- `python-dotenv` - `.env` loading in `maf_starter/config.py`
-- `OpenAIChatClient` - Gemini API path via Google's OpenAI-compatible endpoint in `maf_starter/agent_factory.py` and `maf_starter/provider_fallback.py`
-- `AnthropicClient` - optional API fallback path in `maf_starter/provider_fallback.py`
-
-**Infrastructure:**
-- `uvicorn` - local HTTP serving in `maf_starter/cli.py` and `autogen_starter/cli.py`
-- `fastapi` - legacy dashboard backend in `autogen_dashboard/app.py`
-- local CLI executables `gemini.cmd`, `claude`, and `codex.cmd` invoked by `maf_starter/provider_fallback.py`
-
-## Configuration
-
-**Environment:**
-- `.env` at the repo root is the active configuration boundary
-- `.env.example` documents `MAF_*`, `GEMINI_*`, optional `ANTHROPIC_*`, and CLI command settings
-- `.gitignore` excludes `.env`, `.venv/`, `state/`, and `__pycache__/`
-
-**Build/Runtime Files:**
-- `main.py` - top-level entrypoint
-- `requirements.txt` - root dependency manifest
-- `README.md` - operational usage and model/fallback guidance
-- `docs/DEVUI_CUSTOMIZATION.md` - repo-specific DevUI patching guidance
-
-## Platform Requirements
-
-**Development:**
-- Windows PowerShell workflow is the documented default
-- Writable `state/` directory for checkpoints, transcripts, and session artifacts
-- Installed AI backends for the selected path: Gemini API for primary use, optional Anthropic API, and optional CLI tools for fallback
-
-**Production/Deployment:**
-- No production deployment packaging is defined in this repo
-- This repository is oriented around local agent development and local DevUI debugging rather than packaged service deployment
-
-## Notes
-
-- The current active path is MAF-first: `main.py` delegates into `maf_starter/cli.py`.
-- Legacy AutoGen code remains in-tree and still imports additional packages that are not declared in `requirements.txt`, so a clean environment relies on more than the root manifest alone.
-
----
-
-*Stack analysis: 2026-03-20*
-*Update after major dependency or runtime changes*
+## Testing and Runtime Packages
+- `tests/*.py` uses `unittest`, including async `IsolatedAsyncioTestCase` coverage.
+- Several tests use `fastapi.testclient` to exercise the command center and legacy dashboard APIs.
+- `agent_framework`, `agent_framework_devui`, and `agent_framework_ag_ui` are the core runtime packages under test.
+- `uvicorn` is the local server runner for both UI surfaces.
+- `state/maf-checkpoints` and `state/sessions/*` are part of runtime verification.
