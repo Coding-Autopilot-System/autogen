@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: cloud-api-and-azure-function-hosting
-status: in_progress
-stopped_at: Defining milestone requirements
-last_updated: "2026-03-22T00:00:00+02:00"
+status: ready
+stopped_at: Milestone v1.1 initialized
+last_updated: "2026-03-22T00:30:00+02:00"
 progress:
-  total_phases: 0
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_phases: 8
+  completed_phases: 5
+  total_plans: 24
+  completed_plans: 15
 ---
 
 # Project State
@@ -19,14 +19,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-22)
 
 **Core value:** You can give one prompt and watch a trustworthy multi-agent coding system drive real repo work end-to-end with clear traces, specialist visibility, and minimal manual intervention.
-**Current focus:** Milestone v1.1 definition - cloud API and Azure Functions hosting
+**Current focus:** Milestone v1.1 initialized - ready for Phase 6 discussion
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: 06 (api-boundary-and-control-plane-contract) - READY TO DISCUSS
 Plan: -
-Status: Defining requirements
-Last activity: 2026-03-22 - Milestone v1.1 started
+Status: Milestone initialized and roadmap approved
+Last activity: 2026-03-22 - Milestone v1.1 initialized
 
 ## Performance Metrics
 
@@ -131,6 +131,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-22T00:00:00+02:00
-Stopped at: Defining milestone requirements
-Resume file: $gsd-new-milestone
+Last session: 2026-03-22T00:30:00+02:00
+Stopped at: Milestone v1.1 initialized
+Resume file: $gsd-discuss-phase 6

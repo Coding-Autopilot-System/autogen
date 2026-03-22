@@ -2,107 +2,77 @@
 
 ## Overview
 
-This roadmap turns the current MAF-first local prototype into a trustworthy local operator workbench for autonomous repo work. The delivery order prioritizes stable repo context and durable run state first, then the manager-led orchestration loop, then specialist visibility and routing transparency, then autonomous execution guardrails, and finally the polished operator UI that makes the system feel product-grade.
+This roadmap now enters milestone v1.1: Cloud API and Azure Function Hosting. The local-first operator workbench is already in place. The next delivery sequence extracts the orchestration contract into a real control plane, hosts that control plane on Azure Functions with durable state, and then introduces a worker boundary so cloud-hosted execution does not depend on local workstation assumptions.
 
 ## Phases
 
 **Phase Numbering:**
-- Integer phases (1, 2, 3): Planned milestone work
-- Decimal phases (2.1, 2.2): Urgent insertions if needed later
+- Integer phases (6, 7, 8): Planned milestone work
+- Decimal phases (6.1, 6.2): Urgent insertions if needed later
 
 - [x] **Phase 1: Workspace and Durable Run Foundation** - Establish repo selection, workspace context, and durable local run state
 - [x] **Phase 2: Manager-Led Orchestration Core** - Deliver the manager workflow and explicit stage/state model
 - [x] **Phase 3: Specialist Delegation and Routing Visibility** - Make specialist participation and provider routing fully visible
 - [x] **Phase 4: Autonomous Repo Execution and Validation Guardrails** - Turn the system into a safe default-doer for repo work
 - [x] **Phase 5: Polished Operator Workbench** - Replace prototype interaction with a durable operator-grade UI
+- [ ] **Phase 6: API Boundary and Control Plane Contract** - Extract a shared orchestration service layer and expose it through a stable HTTP API
+- [ ] **Phase 7: Azure Functions Host and Durable API Surface** - Host the control plane in Python Azure Functions with durable run state and async status behavior
+- [ ] **Phase 8: Worker Boundary and Cloud-Safe Execution Profiles** - Separate cloud ingress from long-running repo execution and local-only provider assumptions
 
 ## Phase Details
 
-### Phase 1: Workspace and Durable Run Foundation
-**Goal**: Create the run and workspace contract that all later orchestration builds on.
-**Depends on**: Nothing (first phase)
-**Requirements**: WKSP-01, WKSP-02, WKSP-03
+### Phase 6: API Boundary and Control Plane Contract
+**Goal**: Turn the existing run contract into a host-agnostic control-plane API that both the UI and external callers can use.
+**Depends on**: Phase 5
+**Requirements**: API-01, API-02, API-03, API-04
 **Success Criteria** (what must be TRUE):
-  1. User can start a run by choosing a local repo or worktree and entering one engineering prompt.
-  2. The run captures path, branch, dirty state, and a concise workspace summary.
-  3. Transcript, artifacts, and repo context persist under a stable run identity.
-  4. A previous run can be reopened, retried, or resumed with prior context intact.
+  1. A caller can submit a run over HTTP and receive a durable run ID plus initial status.
+  2. A caller can inspect run status, stage, pause reason, route, agents, and artifacts over HTTP without browser-only state.
+  3. A caller can continue, approve, retry, cancel, or append operator input to the same run over HTTP.
+  4. The Operator Workbench and the HTTP API observe and control the same shared run contract instead of separate implementations.
 **Plans**: 3 plans
 
 Plans:
-- [x] 01-01: Normalize repo selection, workspace discovery, and run identity creation
-- [x] 01-02: Unify durable local state for sessions, checkpoints, transcripts, and artifacts
-- [x] 01-03: Surface workspace context consistently across UI, runtime, and traces
+- [ ] 06-01: Extract shared orchestration services and run schemas from UI-centric entrypoints
+- [ ] 06-02: Add REST endpoints for submit, status, control, routing, agents, and artifacts
+- [ ] 06-03: Align Operator Workbench and HTTP API parity over the shared run contract
 
-### Phase 2: Manager-Led Orchestration Core
-**Goal**: Deliver a usable one-prompt manager workflow with explicit stage and pause semantics.
-**Depends on**: Phase 1
-**Requirements**: ORCH-01, ORCH-02, ORCH-03, ORCH-04
+### Phase 7: Azure Functions Host and Durable API Surface
+**Goal**: Host the control plane on Azure Functions with durable state and local Core Tools parity.
+**Depends on**: Phase 6
+**Requirements**: AZFN-01, AZFN-02, AZFN-03, AZFN-04
 **Success Criteria** (what must be TRUE):
-  1. One prompt can drive a manager-led workflow through planning, research, implementation, review, and validation.
-  2. The system exposes current stage, overall status, and structured pause/block/complete reasons for each run.
-  3. A paused run can continue after approval, missing input, or retry without losing prior stage outputs.
-  4. Routine GSD clarification and planning questions are answered automatically from project and repo context in common cases.
+  1. The shared control-plane API can run inside a Python Azure Functions host without rewriting the orchestration core.
+  2. Long-running run state survives host restarts and outlives the original HTTP request.
+  3. The Functions-hosted API can be started and validated locally with Azure Functions Core Tools.
+  4. Routes, settings, and auth behavior are documented and behave consistently between local and Azure environments.
 **Plans**: 3 plans
 
 Plans:
-- [x] 02-01: Build the manager workflow contract and stage machine
-- [x] 02-02: Add structured pause, resume, and automatic GSD-question handling
-- [x] 02-03: Align run outputs, stage events, and orchestration summaries across the active runtime
+- [ ] 07-01: Create the Functions host entrypoint and cloud-safe configuration surface
+- [ ] 07-02: Add durable run-start and async status behavior with local Core Tools verification
+- [ ] 07-03: Document routes, auth, and deployment-ready function settings
 
-### Phase 3: Specialist Delegation and Routing Visibility
-**Goal**: Make delegation and model/provider behavior auditable and understandable.
-**Depends on**: Phase 2
-**Requirements**: AGNT-01, AGNT-02, AGNT-03, ROUT-01, ROUT-02, ROUT-03
+### Phase 8: Worker Boundary and Cloud-Safe Execution Profiles
+**Goal**: Make long-running execution explicit and safe when the control plane is hosted away from the local workstation.
+**Depends on**: Phase 7
+**Requirements**: WRKR-01, WRKR-02, WRKR-03
 **Success Criteria** (what must be TRUE):
-  1. User can see which specialist agents are participating in the run and what role each one owns.
-  2. Each specialist exposes current task, latest output, and handoff status in structured run data.
-  3. The manager can delegate repo work to specialists without manual prompt choreography by the user.
-  4. User can choose a preferred model or route lane before the run starts.
-  5. Each turn records provider, model, route tier, rationale, and any fallback event with capability changes clearly shown.
+  1. HTTP ingress never waits for the full long-running repo execution path to complete.
+  2. Long-running repo execution can be handed off through a worker boundary and reported back into the same durable run.
+  3. Cloud-hosted runs clearly reject or reroute local-only providers and repo-execution paths when no compatible worker is attached.
+  4. Local development can still use repo execution and CLI-backed specialists against the same durable run contract.
 **Plans**: 3 plans
 
 Plans:
-- [x] 03-01: Formalize specialist roles, handoffs, and per-agent state
-- [x] 03-02: Build route selection, route metadata, and fallback capability reporting
-- [x] 03-03: Expose specialist and routing data cleanly in the operator surface
-
-### Phase 4: Autonomous Repo Execution and Validation Guardrails
-**Goal**: Enable autonomous repo work while containing execution risk.
-**Depends on**: Phase 3
-**Requirements**: EXEC-01, EXEC-02, EXEC-03, EXEC-04
-**Success Criteria** (what must be TRUE):
-  1. Autonomous runs can edit files inside the selected repo without per-step approval for routine safe actions.
-  2. Each run attaches changed-file lists, diffs, or equivalent file-level output that the operator can inspect.
-  3. The system runs targeted local validation commands and stores the results with the run artifacts.
-  4. Destructive or externally visible actions always trigger an explicit approval step with clear scope and reason.
-**Plans**: 3 plans
-
-Plans:
-- [x] 04-01: Add controlled write execution and change capture
-- [x] 04-02: Add targeted validation runners and result recording
-- [x] 04-03: Enforce explicit approval policy for destructive or externally visible actions
-
-### Phase 5: Polished Operator Workbench
-**Goal**: Deliver the professional, stylish operator experience over the stabilized orchestration contracts.
-**Depends on**: Phase 4
-**Requirements**: UI-01, UI-02, UI-03
-**Success Criteria** (what must be TRUE):
-  1. The primary UI presents visually distinct human, manager, and specialist messages in a polished operator-grade layout.
-  2. The operator can switch cleanly between overall run view, per-agent view, traces, and artifacts.
-  3. Traces, event timeline, approvals, and generated artifacts are inspectable without reading raw logs.
-  4. The UI surfaces orchestration outcomes as product features rather than brittle DevUI-only internals.
-**Plans**: 3 plans
-
-Plans:
-- [x] 05-01: Design the operator workbench shell, message surfaces, and layout system
-- [x] 05-02: Build traces, per-agent tabs, and artifact views into the product UI
-- [x] 05-03: Refine visual polish, interaction quality, and operator ergonomics
+- [ ] 08-01: Introduce the worker boundary and background run dispatch contract
+- [ ] 08-02: Add cloud-safe provider and execution profiles with explicit capability enforcement
+- [ ] 08-03: Validate end-to-end API-driven runs across local and cloud-safe execution modes
 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
+Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -111,3 +81,6 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 | 3. Specialist Delegation and Routing Visibility | 3/3 | Complete | 2026-03-21 |
 | 4. Autonomous Repo Execution and Validation Guardrails | 3/3 | Complete | 2026-03-21 |
 | 5. Polished Operator Workbench | 3/3 | Complete | 2026-03-22 |
+| 6. API Boundary and Control Plane Contract | 0/3 | Planned | - |
+| 7. Azure Functions Host and Durable API Surface | 0/3 | Planned | - |
+| 8. Worker Boundary and Cloud-Safe Execution Profiles | 0/3 | Planned | - |
