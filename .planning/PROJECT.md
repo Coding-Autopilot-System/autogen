@@ -26,14 +26,10 @@ You can give one prompt and watch a trustworthy multi-agent coding system drive 
 - Phase 2: dashboard orchestration summary cards with stage timeline, stage outputs, and route metadata
 - Phase 3: visible specialist roster, handoff visibility, route lanes, planned-versus-actual routing history, and operator tabs for Overview, Agents, Routing, and Artifacts
 - Phase 4: routine-safe autonomous repo writes, durable changed-file and diff artifacts, targeted local validation, and explicit approval scopes for risky actions
+- Phase 5: polished Operator Workbench UI with active route/stage strips, distinct message families, and dedicated Overview, Timeline, Agents, Routing, and Artifacts views
 
 ### Active
 
-- [ ] A manager agent can take one prompt in the UI and drive the GSD workflow automatically for repo work
-- [ ] Specialist agents can plan, research, implement, review, and report progress with clear per-agent visibility
-- [ ] The operator UI feels professional and polished, with strong visual design, modern message bubbles, route cards, rounded panels, and readable traces
-- [ ] The UI exposes model selection, routing decisions, fallback history, and per-agent activity without forcing raw log reading
-- [ ] Sessions, traces, and outputs are inspectable and reusable so runs can be understood, resumed, and exported
 - [ ] The core orchestration runtime is designed so it can later be exposed through an Azure Function or REST API without a full rewrite
 
 ### Out of Scope
@@ -72,6 +68,8 @@ The current repo already proves some of the technical foundation: repo-aware too
 | Make route lanes the main operator control and persist planned-versus-actual routing history | Users need cost/depth control and clear fallback visibility without reading raw traces | Validated in Phase 3 |
 | Organize the dashboard operator surface into task-oriented tabs instead of one generic orchestration panel | Specialist, routing, and artifact visibility should feel product-grade and scannable | Validated in Phase 3 |
 | Allow routine-safe repo edits and local validation to run automatically while pausing risky actions with explicit approval scope | The platform should be a safe default-doer, not only a planner or reviewer | Validated in Phase 4 |
+| Treat `autogen_dashboard` as the primary local product UI and keep DevUI secondary | The operator workbench now needs a durable, polished surface that is not constrained by framework-debug UX | Validated in Phase 5 |
+| Surface route, model, stage, approval, and artifact context in dedicated strips and cards instead of transcript prefixes | Operator trust depends on scanable product surfaces rather than raw-log reading | Validated in Phase 5 |
 | Defer Azure Function/REST hosting to a later stage | Cloud exposure matters, but local execution quality and operator UX are higher priority in v1 | Validated in Phase 1 |
 | Prefer Gemini API first and local CLIs as fallback or specialist paths | This fits your installed tooling, cost preference, and current runtime capabilities | Validated in Phase 1 |
 
@@ -81,8 +79,9 @@ The current repo already proves some of the technical foundation: repo-aware too
 - Phase 2 is complete: the active dashboard runtime now executes against a manager-owned stage machine with durable stage artifacts, stage-aware pause kinds, and retry-scoped resume behavior.
 - Phase 3 is complete: specialist roster state, handoff visibility, route lanes, planned-versus-actual route history, and operator-facing routing/artifact tabs are now part of the durable run contract.
 - Phase 4 is complete: routine-safe implementation edits now execute inside the selected repo, changed files and diff artifacts persist per run, validation results are recorded durably, and destructive or externally-visible actions pause with explicit approval scope.
-- The operator shell now shows current stage, last completed stage, route metadata, specialist activity, handoff history, stage timeline, stage summaries, changed-file visibility, validation outcomes, and approval scope without raw-log digging.
-- The next execution focus is Phase 5, where the UI stops feeling like a prototype shell and becomes the polished operator workbench described in the product goal.
+- Phase 5 is complete: the Operator Workbench is now the polished local UI with active route/stage strips, distinct message families, dedicated Timeline/Agents/Routing/Artifacts tabs, and stronger operator ergonomics.
+- The product now supports one-prompt manager-led runs, specialist visibility, routing transparency, diff/validation inspection, and a professional operator-grade local workflow.
+- The next milestone should focus on Azure Function or REST exposure and cloud-ready execution boundaries rather than more local-only UI work.
 
 ## Evolution
 
@@ -102,4 +101,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-03-21 after Phase 04 completion*
+*Last updated: 2026-03-22 after Phase 05 completion*

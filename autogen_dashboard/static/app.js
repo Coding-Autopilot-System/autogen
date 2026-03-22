@@ -764,7 +764,7 @@
   function renderControlPending(session) {
     if (!els.controlPending) return;
     if (!session) {
-      els.controlPending.innerHTML = "Select a session to see the next queued prompt.";
+      els.controlPending.innerHTML = "Select a run to see the next queued prompt.";
       return;
     }
 
@@ -776,7 +776,7 @@
   }
 
   function sessionRuntimeLabel(session) {
-    if (!session) return "No session selected";
+    if (!session) return "No run selected";
     if (session.statusKind === "running") {
       return `Running ${formatRelative(session.updatedAt)}`;
     }
@@ -800,7 +800,7 @@
     if (!session) {
       els.runStatusStrip.className = "run-status-strip";
       els.runStatusStrip.innerHTML =
-        '<span class="run-status-label">Ready</span><div class="run-status-copy">Select a session to see the current run state and the next safe action.</div>';
+        '<span class="run-status-label">Ready</span><div class="run-status-copy">Select a run to see the current state and the next safe action.</div>';
       return;
     }
 
@@ -832,7 +832,7 @@
         "Read the transcript, type your note or approval text, then use Approve only, Approve + Run, Reject only, Reject + Run, or Run now.";
     } else if (session.statusKind === "completed") {
       label = "Completed";
-      headline = "The session finished";
+      headline = "The run finished";
       copy = "If you want another step, type a follow-up in the note box and click Run now.";
     } else if (session.statusKind === "error") {
       label = "Attention";
@@ -840,15 +840,15 @@
       copy = session.error || session.pauseDetail || "Check the transcript, adjust the note, then retry or run again.";
     } else if (session.statusKind === "stopped") {
       label = "Stopped";
-      headline = "This session is stopped";
-      copy = "Stopped sessions are read-only. Create a new session if you want to continue the work.";
+      headline = "This run is stopped";
+      copy = "Stopped runs are read-only. Create a new run if you want to continue the work.";
     } else if (session.queuedPrompt) {
       label = "Queued prompt";
       headline = "A prompt is already ready";
       copy = "Run now will execute the queued prompt shown above. Queue note only will replace it with what you type next.";
     }
 
-    els.runStatusStrip.className = `run-status-strip state-${String(session.statusKind || "idle")}`;
+    els.runStatusStrip.className = `run-status-strip is-active state-${String(session.statusKind || "idle")}`;
     els.runStatusStrip.innerHTML = `
       <span class="run-status-label">${escapeHtml(label)}</span>
       <div class="run-status-head">${escapeHtml(headline)}</div>
@@ -862,8 +862,8 @@
     if (!session) {
       els.controlGuide.innerHTML = `
         <div class="guide-step">
-          <span class="guide-label">1. Create a session</span>
-          Pick <strong>gemini</strong>, click <strong>Use smoke test</strong>, then create the session.
+          <span class="guide-label">1. Create a run</span>
+          Pick <strong>gemini</strong>, click <strong>Use smoke test</strong>, then create the run.
         </div>
         <div class="guide-step">
           <span class="guide-label">2. Run it</span>
@@ -920,7 +920,7 @@
       </div>
       <div class="guide-step">
         <span class="guide-label">Manual smoke test</span>
-        Create a Gemini session with <strong>Reply with exactly READY</strong>, run it, then send a short follow-up.
+        Create a Gemini run with <strong>Reply with exactly READY</strong>, run it, then send a short follow-up.
       </div>
     `;
   }
@@ -936,7 +936,7 @@
     if (els.sessionModeCopy) {
       els.sessionModeCopy.textContent = session
         ? selectedMode.hint
-        : "Select a session to choose how this control panel should frame the next step.";
+        : "Select a run to choose how this control panel should frame the next step.";
     }
 
     if (els.humanMessage) {
@@ -1295,7 +1295,7 @@
   function normalizeSession(item) {
     const id = pick(item, ["id", "session_id", "sessionId", "key"], "");
     const status = pick(item, ["status", "state", "phase"], "idle");
-    const title = pick(item, ["title", "name", "summary"], id || "Session");
+    const title = pick(item, ["title", "name", "summary"], id || "Run");
     const updatedAt = pick(item, ["updated_at", "updatedAt", "last_updated", "modified_at", "timestamp"], "");
     const createdAt = pick(item, ["created_at", "createdAt", "started_at", "startedAt"], "");
     const pauseReason = pick(item, ["pause_reason", "pauseReason", "pause_kind", "pauseKind"], "");
@@ -1605,6 +1605,38 @@
   function setStreamStatus(text) {
     state.streamStatus = text;
     els.streamStatus.textContent = text;
+  }
+
+  function sessionNoticeSignature(session) {
+    if (!session) return "";
+    return [
+      session.id,
+      session.statusKind,
+      session.pauseReason,
+      session.pauseKind,
+      session.latestAttemptId,
+      session.updatedAt,
+    ].join("|");
+  }
+
+  function announceSessionStatusChange(previous, next) {
+    if (!previous || !next || previous.id !== next.id) return;
+    if (sessionNoticeSignature(previous) === sessionNoticeSignature(next)) return;
+    if (next.statusKind === "completed" && previous.statusKind !== "completed") {
+      showNotice(`Run ${next.title} completed. Inspect Timeline and Artifacts for outputs.`, "success");
+      return;
+    }
+    if (next.statusKind === "error" && previous.statusKind !== "error") {
+      showNotice(`Run ${next.title} needs attention. Review the status strip and retry.`, "error");
+      return;
+    }
+    if (next.waitingForHuman && !previous.waitingForHuman) {
+      showNotice(`Run ${next.title} is waiting for your approval or input.`, "info");
+      return;
+    }
+    if (next.statusKind === "running" && previous.statusKind !== "running") {
+      showNotice(`Run ${next.title} is now executing.`, "success");
+    }
   }
 
   function setSelectedSession(id) {
@@ -2454,7 +2486,7 @@
               session.lastStopReason ||
               session.lastPrompt ||
               session.preview ||
-              "Open the session to review the latest step.";
+              "Open the run to review the latest step.";
             return `
               <article class="queue-item ${selected}" data-queue-session-id="${escapeHtml(session.id)}">
                 <div class="queue-top">
@@ -2491,7 +2523,7 @@
             `;
           })
           .join("")
-      : `<div class="empty-state queue-empty">No sessions are waiting for you right now.</div>`;
+      : `<div class="empty-state queue-empty">No runs are waiting for you right now.</div>`;
 
     els.approvalQueue.querySelectorAll("[data-queue-session-id]").forEach((node) => {
       const id = node.getAttribute("data-queue-session-id");
@@ -2553,7 +2585,7 @@
             `;
           })
           .join("")
-      : `<div class="empty-state">No sessions match the current filter.</div>`;
+      : `<div class="empty-state">No runs match the current filter.</div>`;
 
     els.sessionList.querySelectorAll("[data-session-id]").forEach((node) => {
       node.addEventListener("click", () => selectSession(node.getAttribute("data-session-id")));
@@ -2562,6 +2594,7 @@
 
   function renderMeta() {
     const session = state.selectedSession;
+    document.body.classList.toggle("has-active-run", Boolean(session));
     els.selectedSessionName.textContent = session ? session.title : "None";
     els.selectedSessionStatus.textContent = session
       ? [
@@ -2571,13 +2604,13 @@
         ]
           .filter(Boolean)
           .join(" - ")
-      : "No session selected";
+      : "No run selected";
     els.streamStatus.textContent = state.streamStatus;
     els.syncStatus.textContent = session
       ? state.loading.detail
         ? "Loading session detail"
         : `Updated ${formatRelative(session.updatedAt)}`
-      : "Waiting for a session";
+      : "Waiting for a run";
 
     if (!session) {
       els.detailTitle.textContent = "No run selected";
@@ -2891,14 +2924,17 @@
   async function loadSessionDetail(id, options = {}) {
     setLoading("detail", true);
     try {
+      const previousSelected =
+        state.selectedSession && state.selectedSession.id === id ? state.selectedSession : null;
       const payload = await apiFetch(`/sessions/${encodeURIComponent(id)}`);
       state.selectedSession = normalizeSessionDetail(payload);
       state.sessions = state.sessions.map((session) =>
         session.id === id ? { ...session, ...state.selectedSession } : session
       );
       renderAll();
+      announceSessionStatusChange(previousSelected, state.selectedSession);
       if (!options.silent) {
-        showNotice(`Loaded session ${state.selectedSession.title}`, "success");
+        showNotice(`Loaded run ${state.selectedSession.title}`, "success");
       }
     } catch (error) {
       if (!options.silent) {
@@ -3059,7 +3095,7 @@
         method: "POST",
         body,
       });
-      showNotice("Session created", "success");
+      showNotice("Run created", "success");
       els.createForm.reset();
       els.createProvider.value = body.provider;
       if (els.createRouteLane) {
@@ -3288,11 +3324,11 @@
     });
 
     els.cancelSession.addEventListener("click", async () => {
-      await postAction("/cancel", {}, "Cancelled the active session.");
+      await postAction("/cancel", {}, "Cancelled the active run.");
     });
 
     els.stopSession.addEventListener("click", async () => {
-      await postAction("/stop", {}, "Stopped the session.");
+      await postAction("/stop", {}, "Stopped the run.");
     });
 
     document.addEventListener("keydown", (event) => {

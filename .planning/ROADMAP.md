@@ -14,7 +14,7 @@ This roadmap turns the current MAF-first local prototype into a trustworthy loca
 - [x] **Phase 2: Manager-Led Orchestration Core** - Deliver the manager workflow and explicit stage/state model
 - [x] **Phase 3: Specialist Delegation and Routing Visibility** - Make specialist participation and provider routing fully visible
 - [x] **Phase 4: Autonomous Repo Execution and Validation Guardrails** - Turn the system into a safe default-doer for repo work
-- [ ] **Phase 5: Polished Operator Workbench** - Replace prototype interaction with a durable operator-grade UI
+- [x] **Phase 5: Polished Operator Workbench** - Replace prototype interaction with a durable operator-grade UI
 
 ## Phase Details
 
@@ -95,9 +95,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 05-01: Design the operator workbench shell, message surfaces, and layout system
-- [ ] 05-02: Build traces, per-agent tabs, and artifact views into the product UI
-- [ ] 05-03: Refine visual polish, interaction quality, and operator ergonomics
+- [x] 05-01: Design the operator workbench shell, message surfaces, and layout system
+- [x] 05-02: Build traces, per-agent tabs, and artifact views into the product UI
+- [x] 05-03: Refine visual polish, interaction quality, and operator ergonomics
 
 ## Progress
 
@@ -110,4 +110,4 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 | 2. Manager-Led Orchestration Core | 3/3 | Complete | 2026-03-21 |
 | 3. Specialist Delegation and Routing Visibility | 3/3 | Complete | 2026-03-21 |
 | 4. Autonomous Repo Execution and Validation Guardrails | 3/3 | Complete | 2026-03-21 |
-| 5. Polished Operator Workbench | 0/3 | Planned | - |
+| 5. Polished Operator Workbench | 3/3 | Complete | 2026-03-22 |

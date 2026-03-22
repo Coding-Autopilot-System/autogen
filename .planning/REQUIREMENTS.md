@@ -39,9 +39,9 @@
 
 ### Operator UI
 
-- [ ] **UI-01**: User can read run output in a polished operator UI with visually distinct human, manager, and specialist messages
-- [ ] **UI-02**: User can switch between overall run view, per-agent view, traces, and artifacts
-- [ ] **UI-03**: User can inspect traces, event timeline, approvals, and generated artifacts without reading raw logs
+- [x] **UI-01**: User can read run output in a polished operator UI with visually distinct human, manager, and specialist messages
+- [x] **UI-02**: User can switch between overall run view, per-agent view, traces, and artifacts
+- [x] **UI-03**: User can inspect traces, event timeline, approvals, and generated artifacts without reading raw logs
 
 ## v2 Requirements
 
@@ -86,9 +86,9 @@
 | EXEC-02 | Phase 4 | Complete |
 | EXEC-03 | Phase 4 | Complete |
 | EXEC-04 | Phase 4 | Complete |
-| UI-01 | Phase 5 | Pending |
-| UI-02 | Phase 5 | Pending |
-| UI-03 | Phase 5 | Pending |
+| UI-01 | Phase 5 | Complete |
+| UI-02 | Phase 5 | Complete |
+| UI-03 | Phase 5 | Complete |
 
 **Coverage:**
 - v1 requirements: 20 total
@@ -97,4 +97,4 @@
 
 ---
 *Requirements defined: 2026-03-20*
-*Last updated: 2026-03-21 after Phase 04 completion*
+*Last updated: 2026-03-22 after Phase 05 completion*
