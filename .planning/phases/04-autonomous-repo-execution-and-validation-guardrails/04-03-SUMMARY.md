@@ -28,12 +28,12 @@ completed: 2026-03-21
 
 ## Files
 
-- `maf_starter/approval_policy.py`
-- `maf_starter/agent_factory.py`
-- `maf_starter/provider_fallback.py`
-- `maf_starter/routing_policy.py`
-- `maf_starter/team_factory.py`
-- `maf_starter/workflow_factory.py`
+- `maf_core/approval_policy.py`
+- `maf_core/agent_factory.py`
+- `maf_core/provider_fallback.py`
+- `maf_core/routing_policy.py`
+- `maf_core/team_factory.py`
+- `maf_core/workflow_factory.py`
 - `autogen_dashboard/schemas.py`
 - `autogen_dashboard/session_runner.py`
 - `autogen_dashboard/static/index.html`
@@ -57,5 +57,5 @@ completed: 2026-03-21
 
 - `.\.venv\Scripts\python.exe -m unittest tests.test_phase4_approval tests.test_phase3_api -v`
 - `.\.venv\Scripts\python.exe -m unittest discover -s tests -v`
-- `.\.venv\Scripts\python.exe -m compileall maf_starter autogen_dashboard tests main.py`
+- `.\.venv\Scripts\python.exe -m compileall maf_core autogen_dashboard tests main.py`
 - `node --check autogen_dashboard\static\app.js`

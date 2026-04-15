@@ -1,56 +1,155 @@
-# Structure
+# Codebase Structure
 
-## Top-Level Layout
-- `main.py` is the root dispatcher for all supported commands.
-- `maf_starter/` holds the active MAF runtime, routing, tooling, persistence helpers, and DevUI patches.
-- `command_center/` holds the primary operator backend plus its static web shell.
-- `autogen_dashboard/` holds the retained legacy dashboard and session runtime.
-- `autogen_starter/` holds legacy AutoGen entrypoints and provider glue.
-- `entities/` exposes DevUI-discoverable agents and workflows.
+**Analysis Date:** 2026-03-26
 
-## Package Ownership
-- `maf_starter/agent_factory.py` builds the repo-aware assistant and model-pinned variants.
-- `maf_starter/team_factory.py` builds the manager-led `repo_team` workflow.
-- `maf_starter/workflow_factory.py` builds the simpler checkpointed workflow wrapper.
-- `maf_starter/orchestration.py` owns orchestration state models, stage names, and persistence path helpers.
-- `maf_starter/tools.py` owns safe repo reads, listing, search, approval, and write-plan application.
-- `maf_starter/repo_execution.py` owns bounded file write execution and diff capture.
-- `autogen_dashboard/session_runner.py` and `autogen_dashboard/session_store.py` own legacy session lifecycle and disk state.
+## Directory Layout
 
-## Entry Points
-- `python main.py doctor` prints configuration.
-- `python main.py smoke` runs a one-shot agent call.
-- `python main.py probe-models` probes configured Gemini candidates.
-- `python main.py ui` starts `command_center/app.py`.
-- `python main.py devui` starts the raw DevUI debugger.
-- `start_ui.ps1`, `stop_ui.ps1`, `start_devui.ps1`, and `stop_devui.ps1` are the Windows launch scripts.
+```text
+autogen/
+- .planning/                 # GSD roadmap, phase artifacts, and codebase maps
+- command_center/            # Primary operator FastAPI app and browser assets
+  - static/components/       # Browser-side transcript, inspector, and error UI modules
+- entities/                  # DevUI and AG-UI discovery wrappers plus workflow runners
+- maf_core/               # Active MAF runtime, orchestration, routing, tools, guardrails
+  - control_plane/           # Shared `/api/v1` REST contracts, auth, service, and store
+- workflows/                 # YAML workflow definitions loaded at runtime
+- autogen_dashboard/         # Legacy dashboard and shared repo-context helper
+- autogen_starter/           # Legacy AutoGen CLI and provider bootstrap
+- tests/                     # Runtime, API, orchestration, workflow, and UI contract tests
+- state/                     # Runtime checkpoints, run records, and artifacts
+- main.py                    # Root CLI entrypoint
+- README.md                  # Operator/runtime documentation
+```
 
-## Entities
-- `entities/repo_copilot/agent.py` exposes the default repo-aware agent.
-- `entities/repo_copilot_auto/agent.py` exposes the auto-routed agent.
-- `entities/repo_copilot_pro/agent.py`, `entities/repo_copilot_flash/agent.py`, and `entities/repo_copilot_flash_lite/agent.py` expose model-pinned agents.
-- `entities/repo_copilot_workflow/workflow.py` exposes the checkpointed single-agent workflow.
-- `entities/repo_team/workflow.py` exposes the manager-led multi-agent workflow.
-- Each entity package keeps its `__init__.py` thin so DevUI discovery stays simple.
+## Directory Purposes
 
-## Tests
-- `tests/test_command_center.py` exercises the primary UI backend and catalog responses.
-- `tests/test_maf_setup.py` covers settings, routing, fallback middleware, tools, and DevUI patching.
-- `tests/test_phase3_routing.py` and `tests/test_phase3_specialists.py` validate route selection and specialist metadata.
-- `tests/test_phase4_write_execution.py` covers safe write capture and diff generation.
-- `tests/test_run_persistence.py` and `tests/test_workspace_contract.py` cover session storage and repo discovery.
-- `tests/test_phase5_ui_contract.py` checks the legacy dashboard frontend contract.
+**`maf_core/`:**
+- Purpose: Active runtime and orchestration core.
+- Contains: bootstrap, settings, routing, fallback, repo tools, write and validation guardrails, workflow and team builders, manager-worker support, and `control_plane/`.
+- Key files: `maf_core/cli.py`, `maf_core/config.py`, `maf_core/agent_factory.py`, `maf_core/provider_fallback.py`, `maf_core/team_factory.py`, `maf_core/workflow_factory.py`, `maf_core/control_plane/router.py`
 
-## Docs and Planning
-- `README.md` documents the active runtime, command center, and fallback behavior.
-- `docs/DEVUI_CUSTOMIZATION.md` documents the local DevUI patching seam.
-- `.planning/PROJECT.md`, `.planning/STATE.md`, and `.planning/ROADMAP.md` hold the live project plan.
-- `.planning/phases/` stores phase context, plans, validation, and summaries.
-- `.planning/codebase/` stores the repo map, including `ARCHITECTURE.md` and `STRUCTURE.md`.
+**`command_center/`:**
+- Purpose: Primary operator HTTP surface.
+- Contains: `command_center/app.py` plus browser assets in `command_center/static/`.
+- Key files: `command_center/app.py`, `command_center/static/app.js`, `command_center/static/components/transcript.js`
 
-## Naming and Organization Patterns
-- Python modules use `snake_case.py` across `maf_starter/`, `autogen_dashboard/`, `autogen_starter/`, and `entities/`.
-- Builder functions are named literally, such as `build_agent`, `build_workflow`, and `build_repo_team`.
-- Shared responsibility modules tend to end in `_factory.py`, `_policy.py`, `_types.py`, or `_runner.py`.
-- Constants use `UPPER_SNAKE_CASE`, while data carriers use `PascalCase` dataclasses and schemas.
-- The repo keeps active MAF code in `maf_starter/` and treats legacy AutoGen paths as compatibility surfaces.
+**`entities/`:**
+- Purpose: Discovery wrappers and workflow executors instantiated by ID.
+- Contains: model-pinned repo agents, workflow wrappers, `dynamic_workflow_runner.py`, `workflow_runner.py`, and `interrupts.py`.
+- Key files: `entities/repo_team/workflow.py`, `entities/manager_worker_team/agent.py`, `entities/workflow_runner.py`, `entities/planner_agent.py`
+
+**`workflows/`:**
+- Purpose: Declarative YAML workflows.
+- Contains: one YAML file per runtime-loadable workflow.
+- Key files: `workflows/default.yaml`
+
+**`autogen_dashboard/`:**
+- Purpose: Legacy dashboard boundary plus shared repo scanning and context helpers reused by `command_center/app.py`.
+- Contains: legacy FastAPI app, session runtime and store, static assets, repo context helpers, and schemas.
+- Key files: `autogen_dashboard/app.py`, `autogen_dashboard/session_runner.py`, `autogen_dashboard/repo_context.py`, `autogen_dashboard/session_store.py`
+
+**`autogen_starter/`:**
+- Purpose: Legacy AutoGen CLI and provider readiness path.
+- Contains: CLI parser, provider config, and model client setup.
+- Key files: `autogen_starter/cli.py`, `autogen_starter/providers.py`, `autogen_starter/config.py`
+
+**`tests/`:**
+- Purpose: Regression coverage for runtime, operator surfaces, and contract boundaries.
+- Contains: phase-oriented API and runtime tests, workflow tests, persistence tests, and worker delegation tests.
+- Key files: `tests/test_command_center.py`, `tests/test_phase6_api_contract.py`, `tests/test_phase6_service.py`, `tests/test_workflows.py`, `tests/test_worker_delegation.py`
+
+**`state/`:**
+- Purpose: Durable runtime artifacts produced by the active runtime.
+- Contains: checkpointed workflow state and control-plane session records.
+- Key files: runtime-created directories under `state/maf-checkpoints/` and `state/sessions/`
+
+**`.planning/`:**
+- Purpose: GSD planning artifacts and repo map docs.
+- Contains: milestone and phase docs, research, project state, and codebase maps.
+- Key files: `.planning/PROJECT.md`, `.planning/ROADMAP.md`, `.planning/codebase/ARCHITECTURE.md`, `.planning/codebase/STRUCTURE.md`
+
+## Key File Locations
+
+**Entry Points:**
+- `main.py`: Root CLI dispatcher.
+- `maf_core/cli.py`: Active host commands for `doctor`, `smoke`, `probe-models`, `ui`, and `devui`.
+- `command_center/app.py`: Primary FastAPI and AG-UI app.
+- `autogen_dashboard/app.py`: Legacy FastAPI app.
+- `autogen_starter/cli.py`: Legacy AutoGen CLI host.
+
+**Configuration:**
+- `maf_core/config.py`: Environment-driven settings and run scoping.
+- `.env.example`: Runtime environment contract.
+- `workflows/default.yaml`: Declarative workflow definition.
+
+**Core Logic:**
+- `maf_core/agent_factory.py`: Repo copilot and workflow-agent builders.
+- `maf_core/team_factory.py`: Manager-led `repo_team` workflow.
+- `maf_core/manager_worker_team_factory.py`: Manager-to-CLI-worker path.
+- `maf_core/control_plane/service.py`: Run-control facade.
+- `maf_core/provider_fallback.py`: Route execution and provider fallback.
+- `maf_core/tools.py`: Repo tool boundary and safe write entrypoint.
+
+**Testing:**
+- `tests/test_command_center.py`: Command Center app behavior.
+- `tests/test_phase6_command_center_parity.py`: Command Center and control-plane parity checks.
+- `tests/test_phase6_service.py`: Control-plane service and store behavior.
+- `tests/test_workflows.py`: YAML and dynamic workflow behavior.
+- `tests/test_run_persistence.py`: Run artifact and persistence behavior.
+
+## Naming Conventions
+
+**Files:**
+- Use `snake_case.py` across `maf_core/`, `command_center/`, `autogen_dashboard/`, `autogen_starter/`, and top-level runtime helpers.
+- Use `agent.py` for exposed agents under `entities/<entity_id>/`.
+- Use `workflow.py` for exposed workflows under `entities/<workflow_id>/`.
+- Use `<workflow_name>.yaml` for declarative workflows under `workflows/`.
+- Keep shared runtime modules responsibility-based, for example `provider_fallback.py`, `workflow_parser.py`, `repo_execution.py`, and `validation_runner.py`.
+
+**Directories:**
+- Use boundary or surface names for top-level packages, such as `command_center/`, `maf_core/`, and `autogen_dashboard/`.
+- Use exposed catalog or entity IDs for discovery packages under `entities/`, such as `entities/repo_copilot_auto/` and `entities/manager_worker_team/`.
+- Keep REST boundary code under `maf_core/control_plane/` rather than under `command_center/`.
+
+## Where to Add New Code
+
+**New Feature:**
+- Primary runtime or orchestration behavior: `maf_core/`
+- REST run-control API shape or persistence: `maf_core/control_plane/`
+- Operator UI and HTTP handlers: `command_center/app.py` and `command_center/static/`
+- Tests: `tests/` with the boundary-matching pattern used by the existing phase tests
+
+**New Component/Module:**
+- New repo-aware agent exposed in UI or DevUI: `entities/<agent_id>/agent.py`
+- New exposed workflow: `entities/<workflow_id>/workflow.py`
+- New declarative YAML workflow: `workflows/<workflow_name>.yaml`
+- Keep entity files thin wrappers; place substantive runtime logic in `maf_core/` or `command_center/`
+
+**Utilities:**
+- Shared backend and runtime helpers: `maf_core/`
+- Browser-side helpers and components: `command_center/static/utils.js` and `command_center/static/components/`
+- Shared repo scanning and workspace context helpers: `autogen_dashboard/repo_context.py`
+- Do not place new primary runtime logic under `autogen_dashboard/` or `autogen_starter/` unless the task is explicitly compatibility maintenance
+
+## Special Directories
+
+**`state/`:**
+- Purpose: Durable runtime artifacts, checkpoints, stage outputs, transcripts, events, and attempts.
+- Generated: Yes
+- Committed: No
+
+**`.planning/`:**
+- Purpose: Project planning, roadmap, research, validation, and codebase maps.
+- Generated: No
+- Committed: Yes
+
+**`workflows/`:**
+- Purpose: Runtime-loaded YAML workflow definitions.
+- Generated: No
+- Committed: Yes
+
+---
+
+*Structure analysis: 2026-03-26*
+
+

@@ -47,9 +47,9 @@ The crucial rule is that these are two hosts over the same orchestration service
 
 ## Integration Points with Current Repo
 
-- `maf_starter/orchestration.py` is the right place for the canonical stage and run contract
+- `maf_core/orchestration.py` is the right place for the canonical stage and run contract
 - `autogen_dashboard/session_runner.py` already exposes a strong run model that can be extracted behind a service boundary
-- `maf_starter/provider_fallback.py` and `routing_policy.py` should become execution-profile aware so cloud mode can avoid local-only routes
+- `maf_core/provider_fallback.py` and `routing_policy.py` should become execution-profile aware so cloud mode can avoid local-only routes
 - The Operator Workbench should consume API responses from shared schemas instead of owning separate business logic
 
 ## Suggested Build Order

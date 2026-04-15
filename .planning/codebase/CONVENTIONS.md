@@ -1,48 +1,129 @@
-# Codebase Conventions
+# Coding Conventions
 
-## Python Layout
-- Active runtime code lives in `main.py`, `maf_starter/*.py`, `command_center/app.py`, and `autogen_dashboard/*.py`.
-- New shared orchestration behavior should go into `maf_starter/`, not into the entity wrappers or UI shells.
-- Thin entry modules should stay thin, especially `main.py` and the `entities/*/agent.py` and `entities/*/workflow.py` entry points.
-- Keep filesystem-safe helpers and repo boundary checks close to `maf_starter/tools.py` and `autogen_dashboard/repo_context.py`.
+**Analysis Date:** 2026-03-26
 
-## Naming And Typing
-- Use `snake_case` for functions, modules, and local variables across `maf_starter/` and the frontend helpers in `command_center/static/app.js`.
-- Use `PascalCase` for dataclasses and schema objects such as `Settings`, `RoutingPlan`, `ChainStep`, and `SessionDetail`.
-- Prefer explicit type hints, `from __future__ import annotations`, and concrete union types over loose dictionaries.
-- Favor builder names like `build_agent`, `build_workflow`, and `build_repo_team` when constructing runtime objects.
+## Naming Patterns
 
-## Separation Of Concerns
-- Keep config parsing in `maf_starter/config.py` and out of agent, workflow, or UI code.
-- Keep provider fallback logic centralized in `maf_starter/provider_fallback.py`.
-- Keep route policy decisions in `maf_starter/routing_policy.py` and route data shapes in `maf_starter/routing_types.py`.
-- Keep command-center HTTP assembly in `command_center/app.py` and browser rendering in `command_center/static/app.js`.
+**Files:**
+- Use `snake_case.py` for Python modules across `maf_core/`, `autogen_dashboard/`, `command_center/`, and `entities/`.
+- Keep entry files literal and thin: `main.py`, `app.py`, `cli.py`, `config.py`, plus `agent.py` and `workflow.py` under `entities/`.
+- Use responsibility-based suffixes such as `*_factory.py`, `*_policy.py`, `*_parser.py`, `*_service.py`, `*_store.py`, and `*_contracts.py`.
+
+**Functions:**
+- Use `snake_case` for Python functions and methods, including async functions in `maf_core/routing_policy.py`, `maf_core/validation_runner.py`, and `autogen_dashboard/app.py`.
+- Name builders and factories literally, for example `build_agent`, `build_repo_team`, `build_routing_plan`, `create_command_center_app`, and `create_app`.
+- Browser-side helpers in `command_center/static/*.js` and `autogen_dashboard/static/app.js` use lower camel case names such as `normalizeMessage` and `renderMessageCard`.
+
+**Variables:**
+- Use `snake_case` for locals and parameters.
+- Use `UPPER_SNAKE_CASE` for module constants such as `PROJECT_ROOT`, `DEFAULT_MODEL`, `STATIC_DIR`, and `SCRATCH_ROOT`.
+- Test helpers use descriptive names like `make_scratch_dir`, `init_repo`, `fake_service`, and `mock_settings`.
+
+**Types:**
+- Use `PascalCase` for dataclasses and Pydantic models such as `Settings`, `RoutingPlan`, `ChainStep`, `ValidationPlan`, `RunSummary`, and `SessionDetail`.
+- Use `Literal` aliases and `TypeAlias` for constrained values in `maf_core/routing_types.py`, `maf_core/orchestration.py`, and `maf_core/config.py`.
+- Prefer typed collections and explicit model objects over loose dictionaries, except at JSON and SSE boundaries.
+
+## Code Style
+
+**Formatting:**
+- Use typed Python with `from __future__ import annotations` as the default in active modules such as `maf_core/config.py`, `command_center/app.py`, `autogen_dashboard/app.py`, and most files under `tests/`.
+- Keep imports grouped as stdlib, third-party, then local packages, separated by blank lines.
+- Favor small helper functions, guard clauses, and explicit dataclass or model construction over free-form dictionaries in core runtime code.
+- No committed formatter config was detected. The repo has no `pyproject.toml`, `.editorconfig`, `ruff.toml`, `.flake8`, or formatter-specific config files.
+
+**Linting:**
+- No committed lint runner or lint config was detected.
+- The checked-in static validation path in `maf_core/validation_runner.py` only plans `git diff --check`, `python -m compileall`, `python -m unittest discover -s tests -v`, and per-file `node --check ...`.
+- Keep formatting and import hygiene readable without assuming automated lint fixes exist.
+
+## Tooling Setup
+
+**Dependency manifests:**
+- `requirements.txt` is the only committed Python dependency manifest.
+- It includes runtime and observability packages such as `structlog` and `prometheus-fastapi-instrumentator`, but no dev-only quality tools like `pytest`, `pytest-asyncio`, `mypy`, `ruff`, or `black`.
+- No lockfile or separate dev requirements file was detected.
+
+## Import Organization
+
+**Order:**
+1. Standard library imports such as `pathlib`, `dataclasses`, `typing`, `subprocess`, and `unittest`.
+2. Third-party imports such as `fastapi`, `pydantic`, `pydantic_settings`, `structlog`, and `agent_framework`.
+3. Local package imports such as `maf_core.*`, `command_center.*`, `autogen_dashboard.*`, and `entities.*`.
+
+**Path Aliases:**
+- None detected. Imports use real package names and the repo's package layout.
+- Relative imports are rare. New code should follow the absolute-import pattern used in `command_center/app.py` and `tests/test_phase6_api_contract.py`.
+
+## Type Checking
+
+**Posture:**
+- Type hints are pervasive across the active runtime: `Path`, `Literal`, `TypeAlias`, dataclasses, and Pydantic models are used heavily in `maf_core/config.py`, `maf_core/routing_types.py`, `maf_core/control_plane/contracts.py`, and `autogen_dashboard/schemas.py`.
+- Runtime validation is delegated to `pydantic` and `pydantic-settings` for config and API contracts.
+- No committed type-checker config or command was detected. There is no `mypy.ini`, `pyrightconfig.json`, or repo-local type gate.
 
 ## Error Handling
-- Raise explicit exceptions at the point of failure instead of silently recovering in helper code.
-- Convert config and path validation problems to `ValueError` in core setup code such as `maf_starter/config.py`.
-- Convert boundary failures to `HTTPException` in FastAPI apps such as `autogen_dashboard/app.py` and `command_center/app.py`.
-- Keep fallback retries narrow and intentional in `maf_starter/provider_fallback.py`; do not broaden retry logic into unrelated modules.
 
-## Route And Event Modeling
-- Route decisions are modeled with dataclasses and literals in `maf_starter/routing_types.py` and `maf_starter/routing_policy.py`.
-- `ChainStep`, `RouteAttempt`, `CapabilityChange`, and `RoutingPlan` are the core structured route objects.
-- The command center streams AG-UI events from `command_center/app.py` and prepends route banners so the UI can surface the active provider and tier.
-- The browser client in `command_center/static/app.js` keys off event `type` values such as `RUN_STARTED`, `TOOL_CALL_START`, `CUSTOM`, `RUN_FINISHED`, and `RUN_ERROR`.
+**Patterns:**
+- Raise `ValueError` for invalid paths, config, or request payloads in setup and repo-resolution code such as `maf_core/config.py` and `autogen_dashboard/repo_context.py`.
+- Translate boundary failures to `HTTPException` in FastAPI surfaces such as `command_center/app.py` and `autogen_dashboard/app.py`.
+- Preserve structured state with dataclasses or Pydantic models instead of returning ad hoc error dictionaries.
+- Tests assert failure types explicitly with `self.assertRaises(...)` and `pytest.raises(...)`.
 
-## Frontend Patterns
-- `command_center/static/index.html` uses a three-column operator layout: workspace sidebar, transcript center, inspector rail.
-- `command_center/static/styles.css` uses dark enterprise cards, pill chips, rounded panels, and responsive grid breakpoints.
-- `command_center/static/app.js` is a single IIFE that owns state, rendering, and SSE request handling.
-- Keep the command center UI polished and readable, while treating `autogen_dashboard/static/*` as the legacy operator surface.
+## Logging
 
-## Legacy UI Boundaries
-- `autogen_dashboard/app.py` still exposes session APIs and static files for the older dashboard path.
-- `autogen_dashboard/static/app.js` and `autogen_dashboard/static/styles.css` remain contract-tested but should not drive new UI patterns.
-- New UI work should target `command_center/` unless the task explicitly concerns legacy compatibility.
+**Framework:** Mixed `structlog`, stdlib `logging`, and `print`.
 
-## Script Conventions
-- `main.py` is the top-level dispatcher and should stay a small pass-through to `maf_starter/cli.py`.
-- `maf_starter/cli.py` owns argparse parsing and runtime launch logic for `doctor`, `smoke`, `probe-models`, `ui`, and `devui`.
-- PowerShell launchers `start_ui.ps1`, `stop_ui.ps1`, `start_devui.ps1`, `stop_devui.ps1`, `start_debug_devui.ps1`, and `stop_debug_devui.ps1` are the preferred local entry scripts.
-- Script names should match their behavior closely and avoid hidden side effects outside the documented launch or shutdown task.
+**Patterns:**
+- `maf_core/logging.py` configures JSON `structlog`, and `maf_core/cli.py` calls `configure_logging()`.
+- `maf_core/cli.py` still prints doctor and smoke output directly for human operators.
+- `maf_core/worker_delegation.py` uses stdlib `logging.getLogger(__name__)` instead of `structlog`.
+- New logging work should stay at CLI, API, and service boundaries and avoid introducing another logging style.
+
+## Comments
+
+**When to Comment:**
+- Module docstrings are used at boundary files such as `autogen_dashboard/app.py` and in some test files to describe compatibility or contract scope.
+- Inline comments are sparse and usually reserved for setup or assertion rationale in tests, especially around scratch repos and validation expectations.
+- Prefer descriptive names over comment-heavy implementation.
+
+**JSDoc/TSDoc:**
+- Not detected in `command_center/static/*.js` or `autogen_dashboard/static/*.js`.
+- Python docstrings are used selectively for fixtures, tests, and boundary helpers.
+
+## Function Design
+
+**Size:**
+- Keep pure helpers small and focused as in `maf_core/routing_policy.py` and `maf_core/validation_runner.py`.
+- Large boundary modules already exist in `command_center/app.py` and `autogen_dashboard/session_runner.py`; new code should extract helpers instead of expanding those files further.
+
+**Parameters:**
+- Prefer explicit keyword arguments and typed objects such as `Settings`, `ValidationPlan`, and request or response models.
+- Use `Path` and typed tuples when the domain is known.
+
+**Return Values:**
+- Prefer dataclasses, Pydantic models, and explicit tuples, as seen in `maf_core/routing_policy.py`, `maf_core/validation_runner.py`, and `maf_core/control_plane/contracts.py`.
+- Use raw dictionaries primarily at JSON serialization and event-payload boundaries.
+
+## Module Design
+
+**Exports:**
+- Keep entrypoints thin: `main.py` dispatches to `maf_core/cli.py`, and `entities/*/agent.py` and `entities/*/workflow.py` should stay wrapper-only.
+- Keep shared orchestration logic in `maf_core/`.
+- Keep HTTP surface assembly in `command_center/app.py` and `autogen_dashboard/app.py`.
+- Keep schema contracts in `maf_core/control_plane/contracts.py` and `autogen_dashboard/schemas.py`.
+
+**Barrel Files:**
+- Minimal `__init__.py` files are used for package discovery, not for broad re-export barrels.
+- Import new code from its concrete module path instead of relying on umbrella exports.
+
+## CI & Automation
+
+**Current state:**
+- No `.github/workflows/`, `azure-pipelines.yml`, `.pre-commit-config.yaml`, or other committed CI automation was detected.
+- Quality checks are local and manual today: `README.md` documents `python main.py doctor`, `python main.py smoke`, and `python main.py probe-models`, while `maf_core/validation_runner.py` codifies the safe validation ladder.
+- New enforcement should assume no existing pipeline contract and add automation explicitly.
+
+---
+
+*Convention analysis: 2026-03-26*

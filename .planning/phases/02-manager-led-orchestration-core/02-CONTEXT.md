@@ -69,11 +69,11 @@ Deliver the usable one-prompt manager workflow and explicit orchestration state 
 ## Existing Code Insights
 
 ### Reusable Assets
-- `maf_starter/team_factory.py`: already builds a sequential `planner -> researcher -> implementer -> reviewer` workflow with request-info pauses after key specialist stages.
-- `maf_starter/workflow_factory.py`: already provides checkpointed workflow construction, which is the best current seam for persisting stage progress.
-- `maf_starter/agent_factory.py`: already centralizes active-agent instructions and is the natural place to formalize the manager role.
-- `maf_starter/tools.py`: already exposes repo inspection tools and a mandatory-approval boundary for risky actions.
-- `maf_starter/provider_fallback.py`: already attaches route and capability metadata to responses; the orchestration layer can extend this with stage metadata instead of inventing a parallel trace format.
+- `maf_core/team_factory.py`: already builds a sequential `planner -> researcher -> implementer -> reviewer` workflow with request-info pauses after key specialist stages.
+- `maf_core/workflow_factory.py`: already provides checkpointed workflow construction, which is the best current seam for persisting stage progress.
+- `maf_core/agent_factory.py`: already centralizes active-agent instructions and is the natural place to formalize the manager role.
+- `maf_core/tools.py`: already exposes repo inspection tools and a mandatory-approval boundary for risky actions.
+- `maf_core/provider_fallback.py`: already attaches route and capability metadata to responses; the orchestration layer can extend this with stage metadata instead of inventing a parallel trace format.
 - `autogen_dashboard/session_runner.py`: already has explicit run status, pause reasons, background execution, workspace refresh, and structured event emission.
 - `autogen_dashboard/schemas.py`: already models stable run summaries, pause fields, workspace metadata, and attempt metadata that can absorb stage-level orchestration state.
 
@@ -84,10 +84,10 @@ Deliver the usable one-prompt manager workflow and explicit orchestration state 
 - DevUI is useful for local inspection, but the durable orchestration contract should live in shared Python services and persisted run state first.
 
 ### Integration Points
-- `main.py` and `maf_starter/cli.py` are the bootstrap seam for any shared orchestration service or manager entrypoint.
+- `main.py` and `maf_core/cli.py` are the bootstrap seam for any shared orchestration service or manager entrypoint.
 - `entities/repo_copilot_workflow` and `entities/repo_team` are the current MAF entity seams that can be promoted into manager-led workflows instead of staying as disconnected demos.
 - `autogen_dashboard/app.py` and `autogen_dashboard/session_runner.py` are the best existing operator-facing API seams for exposing current stage, pause reasons, and stage outputs.
-- `maf_starter/provider_fallback.py` and `maf_starter/devui_patches.py` are the current metadata seams that can carry stage identifiers and route rationale into traces.
+- `maf_core/provider_fallback.py` and `maf_core/devui_patches.py` are the current metadata seams that can carry stage identifiers and route rationale into traces.
 
 </code_context>
 

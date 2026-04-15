@@ -21,12 +21,12 @@ tech-stack:
 key-files:
   created: []
   modified:
-    - maf_starter/config.py
-    - maf_starter/tools.py
-    - maf_starter/provider_fallback.py
-    - maf_starter/workflow_factory.py
-    - maf_starter/team_factory.py
-    - maf_starter/agent_factory.py
+    - maf_core/config.py
+    - maf_core/tools.py
+    - maf_core/provider_fallback.py
+    - maf_core/workflow_factory.py
+    - maf_core/team_factory.py
+    - maf_core/agent_factory.py
     - autogen_dashboard/schemas.py
     - autogen_dashboard/session_runner.py
     - autogen_dashboard/static/index.html
@@ -76,12 +76,12 @@ Each task was committed atomically:
 
 ## Files Created/Modified
 
-- `maf_starter/config.py` - immutable run-scoped settings helpers plus active repo/checkpoint scope management.
-- `maf_starter/tools.py` - dynamic repo-tool root resolution from the active run scope.
-- `maf_starter/provider_fallback.py` - run-scope extraction from middleware context plus workspace/checkpoint trace metadata.
-- `maf_starter/workflow_factory.py` - run-scoped checkpoint storage wrapper for workflow execution.
-- `maf_starter/team_factory.py` - team workflow checkpoint storage aligned to run-scoped paths.
-- `maf_starter/agent_factory.py` - explicit helper for building run-scoped agents from a settings clone.
+- `maf_core/config.py` - immutable run-scoped settings helpers plus active repo/checkpoint scope management.
+- `maf_core/tools.py` - dynamic repo-tool root resolution from the active run scope.
+- `maf_core/provider_fallback.py` - run-scope extraction from middleware context plus workspace/checkpoint trace metadata.
+- `maf_core/workflow_factory.py` - run-scoped checkpoint storage wrapper for workflow execution.
+- `maf_core/team_factory.py` - team workflow checkpoint storage aligned to run-scoped paths.
+- `maf_core/agent_factory.py` - explicit helper for building run-scoped agents from a settings clone.
 - `autogen_dashboard/schemas.py` - workspace freshness, last-checked, and drift-field summary fields.
 - `autogen_dashboard/session_runner.py` - snapshot refresh, stale detection, workspace events, and run-start runtime path metadata.
 - `autogen_dashboard/static/index.html` - dedicated workspace warning surface in the header area.
@@ -125,7 +125,7 @@ None - the existing local repo scan root and state folders continue to work.
 
 - `.\.venv\Scripts\python.exe -m unittest tests.test_phase1_runtime tests.test_maf_setup tests.test_phase1_api tests.test_run_persistence -v`
 - `.\.venv\Scripts\python.exe -m unittest discover -s tests -v`
-- `.\.venv\Scripts\python.exe -m compileall maf_starter autogen_dashboard tests main.py`
+- `.\.venv\Scripts\python.exe -m compileall maf_core autogen_dashboard tests main.py`
 - `node --check autogen_dashboard\static\app.js`
 
 ## Next Phase Readiness

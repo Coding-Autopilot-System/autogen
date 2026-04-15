@@ -19,7 +19,7 @@ completed: 2026-03-21
 
 ## Accomplishments
 
-- Added `maf_starter/gsd_autofill.py` to resolve routine GSD questions from `PROJECT.md`, `REQUIREMENTS.md`, `ROADMAP.md`, `STATE.md`, phase context, and workspace facts.
+- Added `maf_core/gsd_autofill.py` to resolve routine GSD questions from `PROJECT.md`, `REQUIREMENTS.md`, `ROADMAP.md`, `STATE.md`, phase context, and workspace facts.
 - Extended `autogen_dashboard` session schema and store with `current_stage`, `last_completed_stage`, `stage_timeline`, `stage_outputs`, `auto_answer_records`, `blocked_questions`, and `pause_kind`.
 - Added explicit stage and GSD artifacts under `artifacts/stages/`, `artifacts/gsd/`, and `runtime/orchestration/`.
 - Reworked `autogen_dashboard/session_runner.py` into a stage-aware manager loop that can pause for approval, pause for missing input, retry the current stage, and preserve prior completed stage outputs.
@@ -27,8 +27,8 @@ completed: 2026-03-21
 
 ## Files
 
-- `maf_starter/gsd_autofill.py`
-- `maf_starter/tools.py`
+- `maf_core/gsd_autofill.py`
+- `maf_core/tools.py`
 - `autogen_dashboard/schemas.py`
 - `autogen_dashboard/session_store.py`
 - `autogen_dashboard/session_runner.py`

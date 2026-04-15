@@ -26,13 +26,13 @@ completed: 2026-03-21
 
 ## Files
 
-- `maf_starter/routing_types.py`
-- `maf_starter/routing_policy.py`
-- `maf_starter/provider_fallback.py`
-- `maf_starter/config.py`
-- `maf_starter/agent_factory.py`
-- `maf_starter/team_factory.py`
-- `maf_starter/workflow_factory.py`
+- `maf_core/routing_types.py`
+- `maf_core/routing_policy.py`
+- `maf_core/provider_fallback.py`
+- `maf_core/config.py`
+- `maf_core/agent_factory.py`
+- `maf_core/team_factory.py`
+- `maf_core/workflow_factory.py`
 - `tests/test_phase3_routing.py`
 - `tests/test_maf_setup.py`
 
@@ -46,4 +46,4 @@ completed: 2026-03-21
 
 - `.\.venv\Scripts\python.exe -m unittest tests.test_phase3_routing tests.test_maf_setup -v`
 - `.\.venv\Scripts\python.exe -m unittest discover -s tests -v`
-- `.\.venv\Scripts\python.exe -m compileall maf_starter autogen_dashboard tests main.py`
+- `.\.venv\Scripts\python.exe -m compileall maf_core autogen_dashboard tests main.py`

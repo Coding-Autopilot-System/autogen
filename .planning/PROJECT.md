@@ -24,7 +24,7 @@ You can give one prompt and watch a trustworthy multi-agent coding system drive 
 
 ### Validated
 
-- Existing: repo-aware local agent runtime via Microsoft Agent Framework and DevUI in `maf_starter/` and `entities/`
+- Existing: repo-aware local agent runtime via Microsoft Agent Framework and DevUI in `maf_core/` and `entities/`
 - Existing: multi-agent workflow scaffolding, including the `repo_team` planner/researcher/implementer/reviewer workflow
 - Existing: provider and model routing with fallback across Gemini API, optional Anthropic, and CLI fallbacks
 - Existing: human-in-the-loop and route trace mechanisms in local form through tool approval, route metadata, and DevUI patching
@@ -53,7 +53,7 @@ You can give one prompt and watch a trustworthy multi-agent coding system drive 
 
 ## Context
 
-This is a brownfield codebase with an existing local agent runtime. The active path is MAF-first: `main.py` dispatches into `maf_starter/cli.py`, entities are discovered from `entities/`, and DevUI is used for local interaction. The repo also retains a substantial legacy AutoGen stack in `autogen_dashboard/` and `autogen_starter/`, which creates both opportunity and drift risk.
+This is a brownfield codebase with an existing local agent runtime. The active path is MAF-first: `main.py` dispatches into `maf_core/cli.py`, entities are discovered from `entities/`, and DevUI is used for local interaction. The repo also retains a substantial legacy AutoGen stack in `autogen_dashboard/` and `autogen_starter/`, which creates both opportunity and drift risk.
 
 The workstation context matters. GSD is already installed locally, and you also have Gemini CLI, Claude CLI, and Codex CLI available, along with Gemini API access and local Azure Functions development tools. On this machine, Azure Functions Core Tools `4.8.0`, Azure CLI `2.80.0`, and Docker `29.1.5` are available. `azd` is not currently installed, so this milestone should not depend on `azd`-only templates or flows. The intended operating model is to use the local machine as the main execution environment, let Gemini API answer most orchestration and GSD questions automatically, and use the installed CLIs as specialist workers or fallback engines when appropriate.
 

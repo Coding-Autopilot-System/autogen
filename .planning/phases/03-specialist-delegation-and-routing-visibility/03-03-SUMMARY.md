@@ -45,5 +45,5 @@ completed: 2026-03-21
 
 - `.\.venv\Scripts\python.exe -m unittest tests.test_phase3_api tests.test_phase3_specialists tests.test_phase3_routing tests.test_maf_setup -v`
 - `.\.venv\Scripts\python.exe -m unittest discover -s tests -v`
-- `.\.venv\Scripts\python.exe -m compileall maf_starter autogen_dashboard tests main.py`
+- `.\.venv\Scripts\python.exe -m compileall maf_core autogen_dashboard tests main.py`
 - `node --check autogen_dashboard\static\app.js`

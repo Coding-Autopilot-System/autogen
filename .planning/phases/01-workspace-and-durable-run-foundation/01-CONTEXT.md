@@ -75,8 +75,8 @@ Create the run and workspace contract that all later orchestration builds on. Th
 - `autogen_dashboard/session_runner.py`: already implements stable session IDs, queue or run or retry behavior, pause reasons, background runs, event emission, and repo-context refresh hooks.
 - `autogen_dashboard/schemas.py`: already models repo options, repo context, session summary, session detail, transcript entries, and structured events.
 - `autogen_dashboard/app.py`: already exposes a usable API surface for repo listing, session CRUD-like operations, and event streaming over SSE.
-- `maf_starter/config.py`: already defines the active repo root, entities directory, checkpoint directory, and fallback settings boundary.
-- `maf_starter/workflow_factory.py`: already defines the checkpoint storage seam for the active MAF workflow path.
+- `maf_core/config.py`: already defines the active repo root, entities directory, checkpoint directory, and fallback settings boundary.
+- `maf_core/workflow_factory.py`: already defines the checkpoint storage seam for the active MAF workflow path.
 
 ### Established Patterns
 - Paths and provider behavior are configured through environment variables and repo-local config rather than hard-coded values.
@@ -85,7 +85,7 @@ Create the run and workspace contract that all later orchestration builds on. Th
 - The current product is local-first and Windows-first, with loopback HTTP surfaces and local log files rather than production hosting assumptions.
 
 ### Integration Points
-- `main.py` dispatches to `maf_starter/cli.py`, so any durable run contract must either be exposed there or wrapped behind a shared service boundary.
+- `main.py` dispatches to `maf_core/cli.py`, so any durable run contract must either be exposed there or wrapped behind a shared service boundary.
 - `entities/` exposes MAF agents and workflows, but those entities do not yet own a stable operator-facing run identity or artifact model.
 - The active MAF path currently binds one startup-time `MAF_REPO_ROOT`; Phase 1 needs a run-level workspace concept above that static configuration.
 - `state/maf-checkpoints` and `state/sessions/` are the two current persistence roots that Phase 1 should reconcile or clearly separate.

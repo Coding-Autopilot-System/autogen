@@ -30,10 +30,10 @@
 ## Summary
 
 Phase 4 should extend the existing manager-owned run contract rather than inventing a separate execution subsystem. The current codebase already has the right durable seams:
-- `maf_starter/tools.py` already bounds file access to a selected repo root and owns the current approval boundary
+- `maf_core/tools.py` already bounds file access to a selected repo root and owns the current approval boundary
 - `autogen_dashboard/session_store.py` already persists stage artifacts, attempt summaries, and a run artifact manifest
 - `autogen_dashboard/session_runner.py` already owns manager-stage execution, pause and retry semantics, and projection into operator-facing run state
-- `maf_starter/provider_fallback.py` already records capability drift when fallback removes tool support
+- `maf_core/provider_fallback.py` already records capability drift when fallback removes tool support
 
 The missing pieces are: a controlled write service, structured change-capture artifacts, a validation runner that selects safe commands from repo context and changed files, and an approval classifier that can stop destructive or externally visible actions before execution.
 
@@ -54,10 +54,10 @@ No new framework is required for Phase 4. The best path is deeper use of existin
 | Library / Module | Version | Purpose | Why Standard Here |
 |---------|---------|---------|--------------|
 | `agent-framework` | `1.0.0rc5` | Active manager and workflow runtime | Already owns the specialist workflow and tool boundary |
-| `maf_starter/tools.py` | in-repo | Current repo-root boundary and approval seam | Best place to expose safe write and validation entrypoints |
+| `maf_core/tools.py` | in-repo | Current repo-root boundary and approval seam | Best place to expose safe write and validation entrypoints |
 | `autogen_dashboard/session_runner.py` | in-repo | Active manager-stage coordinator | Already owns pause, retry, and durable run projection |
 | `autogen_dashboard/session_store.py` | in-repo | Durable session and artifact persistence | Already indexes artifacts per run and attempt |
-| `maf_starter/provider_fallback.py` | in-repo | Provider capability tracking | Needed to block write or validation when fallback loses tool support |
+| `maf_core/provider_fallback.py` | in-repo | Provider capability tracking | Needed to block write or validation when fallback loses tool support |
 | `subprocess` | stdlib | Local validation command execution | Already used safely across repo helpers |
 | `pathlib` and `json` | stdlib | Safe path handling and durable artifact formats | Matches current repo conventions |
 
@@ -118,8 +118,8 @@ Problems that already have strong in-repo primitives:
 |---------|-------------|-------------|-----|
 | Run artifact indexing | A second storage tree for diffs and validation | `autogen_dashboard/session_store.py` artifact manifest and per-stage artifact directories | The repo already has a durable run layout and hydration path |
 | Pause and approval flow | A parallel queue or popup system | Existing `SessionSummary` pause fields, approval queue, and decision actions | The operator control surface already knows how to wait, approve, reject, and retry |
-| Provider capability reporting | New ad hoc flags in the UI | `maf_starter/provider_fallback.py` route attempts and capability changes | Fallback and tool-loss metadata already exists |
-| Workspace scoping | A separate repo selector inside execution helpers | Phase 1 workspace contract plus repo-root resolution in `maf_starter/tools.py` and `repo_context.py` | The selected repo or worktree is already a first-class run property |
+| Provider capability reporting | New ad hoc flags in the UI | `maf_core/provider_fallback.py` route attempts and capability changes | Fallback and tool-loss metadata already exists |
+| Workspace scoping | A separate repo selector inside execution helpers | Phase 1 workspace contract plus repo-root resolution in `maf_core/tools.py` and `repo_context.py` | The selected repo or worktree is already a first-class run property |
 
 **Key insight:** Phase 4 should deepen the current run contract, not fork it.
 </dont_hand_roll>
@@ -152,7 +152,7 @@ Verified in-repo patterns worth preserving:
 
 ### Current repo-root safety boundary
 ```python
-# Source: maf_starter/tools.py
+# Source: maf_core/tools.py
 # Pattern: resolve_repo_path(...) rejects paths that escape the selected repo root
 ```
 
@@ -170,7 +170,7 @@ Verified in-repo patterns worth preserving:
 
 ### Current provider capability drift reporting
 ```python
-# Source: maf_starter/provider_fallback.py
+# Source: maf_core/provider_fallback.py
 # Pattern: route attempts plus capability_changes when fallback changes provider, model, or tool support
 ```
 
@@ -195,7 +195,7 @@ Recommended commands once implementation lands:
 - Quick approval checks: `.\.venv\Scripts\python.exe -m unittest tests.test_phase4_approval -v`
 - Persistence regression: `.\.venv\Scripts\python.exe -m unittest tests.test_run_persistence -v`
 - Full suite: `.\.venv\Scripts\python.exe -m unittest discover -s tests -v`
-- Static sanity: `.\.venv\Scripts\python.exe -m compileall maf_starter autogen_dashboard tests main.py`
+- Static sanity: `.\.venv\Scripts\python.exe -m compileall maf_core autogen_dashboard tests main.py`
 - Frontend syntax: `node --check autogen_dashboard\static\app.js`
 
 Focus the test map on:
@@ -232,9 +232,9 @@ Focus the test map on:
 - `.planning/STATE.md`
 - `.planning/phases/04-autonomous-repo-execution-and-validation-guardrails/04-CONTEXT.md`
 - `.planning/phases/03-specialist-delegation-and-routing-visibility/03-CONTEXT.md`
-- `maf_starter/tools.py`
-- `maf_starter/orchestration.py`
-- `maf_starter/provider_fallback.py`
+- `maf_core/tools.py`
+- `maf_core/orchestration.py`
+- `maf_core/provider_fallback.py`
 - `autogen_dashboard/session_runner.py`
 - `autogen_dashboard/session_store.py`
 - `autogen_dashboard/schemas.py`

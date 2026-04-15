@@ -21,7 +21,7 @@ created: 2026-03-21
 | **Config file** | none - existing repo uses stdlib discovery |
 | **Quick run command** | `.\.venv\Scripts\python.exe -m unittest tests.test_phase2_manager` |
 | **Full suite command** | `.\.venv\Scripts\python.exe -m unittest discover -s tests -v` |
-| **Static sanity** | `.\.venv\Scripts\python.exe -m compileall maf_starter autogen_dashboard tests main.py` and `node --check autogen_dashboard\static\app.js` |
+| **Static sanity** | `.\.venv\Scripts\python.exe -m compileall maf_core autogen_dashboard tests main.py` and `node --check autogen_dashboard\static\app.js` |
 | **Estimated runtime** | ~60 seconds |
 
 ---
@@ -48,7 +48,7 @@ created: 2026-03-21
 | 02-03-01 | 02-03 | 3 | ORCH-01, ORCH-02 | API/runtime | `.\.venv\Scripts\python.exe -m unittest tests.test_phase2_api tests.test_maf_setup -v` | NO - W0 | pending |
 | 02-03-02 | 02-03 | 3 | ORCH-02 | UI contract | `node --check autogen_dashboard\static\app.js` | YES | pending |
 | 02-03-03 | 02-03 | 3 | ORCH-01, ORCH-02, ORCH-03, ORCH-04 | regression | `.\.venv\Scripts\python.exe -m unittest discover -s tests -v` | YES | pending |
-| 02-03-03b | 02-03 | 3 | ORCH-02 | static sanity | `.\.venv\Scripts\python.exe -m compileall maf_starter autogen_dashboard tests main.py` | YES | pending |
+| 02-03-03b | 02-03 | 3 | ORCH-02 | static sanity | `.\.venv\Scripts\python.exe -m compileall maf_core autogen_dashboard tests main.py` | YES | pending |
 
 *Status: pending / green / red / flaky*
 

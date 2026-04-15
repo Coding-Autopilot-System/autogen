@@ -66,14 +66,14 @@ Make delegation and model or provider behavior auditable and understandable. Thi
 - `.planning/codebase/ARCHITECTURE.md` - maps the current runtime layers and shows where specialist, routing, and operator-surface changes belong.
 - `.planning/codebase/STRUCTURE.md` - identifies the active MAF modules, dashboard operator surface, and entity wrappers that Phase 3 should build on.
 - `.planning/codebase/CONVENTIONS.md` - captures the module, typing, and error-handling patterns that new specialist and routing code should follow.
-- `maf_starter/orchestration.py` - defines the canonical stage names and the current stage record contract that specialist state should extend.
-- `maf_starter/team_factory.py` - defines the current `planner`, `researcher`, `implementer`, and `reviewer` workflow participants.
-- `maf_starter/agent_factory.py` - defines the shared specialist instruction and tool boundary used by the active runtime.
+- `maf_core/orchestration.py` - defines the canonical stage names and the current stage record contract that specialist state should extend.
+- `maf_core/team_factory.py` - defines the current `planner`, `researcher`, `implementer`, and `reviewer` workflow participants.
+- `maf_core/agent_factory.py` - defines the shared specialist instruction and tool boundary used by the active runtime.
 
 ### Routing and operator-surface seams
-- `maf_starter/routing_policy.py` - defines the current lane-like tier selection and fallback ordering that Phase 3 should surface and refine.
-- `maf_starter/provider_fallback.py` - defines the current route metadata, fallback metadata, and capability boundary between API and CLI providers.
-- `maf_starter/devui_patches.py` - shows the existing route banner and route trace payload shape, which must be treated as local-console glue rather than the final product contract.
+- `maf_core/routing_policy.py` - defines the current lane-like tier selection and fallback ordering that Phase 3 should surface and refine.
+- `maf_core/provider_fallback.py` - defines the current route metadata, fallback metadata, and capability boundary between API and CLI providers.
+- `maf_core/devui_patches.py` - shows the existing route banner and route trace payload shape, which must be treated as local-console glue rather than the final product contract.
 - `autogen_dashboard/schemas.py` - defines the current persisted operator-facing run schema and is the correct seam for adding per-specialist and routing fields.
 - `autogen_dashboard/session_runner.py` - owns the active run summary, orchestration state application, and stage-to-operator projection logic.
 - `autogen_dashboard/static/index.html` - defines the current operator shell layout that Phase 3 should extend with specialist and routing surfaces.
@@ -86,10 +86,10 @@ Make delegation and model or provider behavior auditable and understandable. Thi
 ## Existing Code Insights
 
 ### Reusable Assets
-- `maf_starter/team_factory.py`: already assembles the exact specialist roster Phase 3 needs, so the phase should formalize and expose those roles rather than invent new participants first.
-- `maf_starter/orchestration.py`: already centralizes stage names and records, making it the right place to add specialist-state and handoff primitives shared across runtime and UI.
-- `maf_starter/routing_policy.py`: already classifies prompts into `simple`, `standard`, and `deep` lanes, which can evolve into explicit operator-selectable route lanes.
-- `maf_starter/provider_fallback.py`: already emits route metadata, fallback flags, and tool-availability state. Phase 3 should extend that payload instead of rebuilding routing traces from scratch.
+- `maf_core/team_factory.py`: already assembles the exact specialist roster Phase 3 needs, so the phase should formalize and expose those roles rather than invent new participants first.
+- `maf_core/orchestration.py`: already centralizes stage names and records, making it the right place to add specialist-state and handoff primitives shared across runtime and UI.
+- `maf_core/routing_policy.py`: already classifies prompts into `simple`, `standard`, and `deep` lanes, which can evolve into explicit operator-selectable route lanes.
+- `maf_core/provider_fallback.py`: already emits route metadata, fallback flags, and tool-availability state. Phase 3 should extend that payload instead of rebuilding routing traces from scratch.
 - `autogen_dashboard/schemas.py` and `autogen_dashboard/session_runner.py`: already persist orchestration summaries, route metadata, and stage outputs, so per-agent and route-card data should be added here.
 - `autogen_dashboard/static/app.js` and `autogen_dashboard/static/index.html`: already render a card-based operator shell with approval, orchestration, and transcript regions that can absorb agent and routing tabs.
 
@@ -100,8 +100,8 @@ Make delegation and model or provider behavior auditable and understandable. Thi
 - DevUI patching is useful for local inspection but too brittle for the durable product UI, so specialist and routing visibility should be implemented primarily in the dashboard path.
 
 ### Integration Points
-- `maf_starter/team_factory.py` and `maf_starter/orchestration.py` are the main seams for adding a shared specialist roster, handoff model, and per-agent state.
-- `maf_starter/routing_policy.py` and `maf_starter/provider_fallback.py` are the main seams for explicit route lanes, route rationale, fallback attempt recording, and capability drift reporting.
+- `maf_core/team_factory.py` and `maf_core/orchestration.py` are the main seams for adding a shared specialist roster, handoff model, and per-agent state.
+- `maf_core/routing_policy.py` and `maf_core/provider_fallback.py` are the main seams for explicit route lanes, route rationale, fallback attempt recording, and capability drift reporting.
 - `autogen_dashboard/session_runner.py` is the projection seam from manager and routing internals into persisted operator-facing run data.
 - `autogen_dashboard/static/index.html`, `autogen_dashboard/static/app.js`, and `autogen_dashboard/static/styles.css` are the main seams for adding per-agent tabs, routing views, and route cards without depending on DevUI.
 

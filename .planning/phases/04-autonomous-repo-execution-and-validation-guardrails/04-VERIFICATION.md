@@ -31,7 +31,7 @@ Phase 04 passed automated verification. The runtime now performs bounded repo wr
 - `.\.venv\Scripts\python.exe -m unittest tests.test_phase4_approval tests.test_phase3_api -v`
 - `.\.venv\Scripts\python.exe -m unittest tests.test_maf_setup tests.test_phase1_runtime tests.test_phase2_manager tests.test_phase3_specialists tests.test_phase3_routing -v`
 - `.\.venv\Scripts\python.exe -m unittest discover -s tests -v`
-- `.\.venv\Scripts\python.exe -m compileall maf_starter autogen_dashboard tests main.py`
+- `.\.venv\Scripts\python.exe -m compileall maf_core autogen_dashboard tests main.py`
 - `node --check autogen_dashboard\static\app.js`
 
 ## Notes

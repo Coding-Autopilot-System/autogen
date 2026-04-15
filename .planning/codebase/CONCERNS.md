@@ -1,60 +1,135 @@
 # Codebase Concerns
 
-## Technical Debt
-- The repo still carries two meaningful runtime surfaces: the active MAF path in `maf_starter/` and the legacy AutoGen stack in `autogen_dashboard/` and `autogen_starter/`.
-- `README.md` now treats `command_center/` as the primary operator UI, while `.planning/PROJECT.md` still describes `autogen_dashboard/` as the primary local product UI. That mismatch is a planning debt signal.
-- `maf_starter/cli.py` still auto-starts the debug DevUI sidecar when launching the Command Center, which couples product flow to framework-debug behavior.
-- `maf_starter/config.py` hard-codes model lists and CLI command defaults, so environment drift is easy to encode in code instead of config.
+**Analysis Date:** 2026-03-26
 
-## Duplicated Runtime Surfaces
-- `command_center/app.py` and `autogen_dashboard/app.py` both expose repo-aware orchestration APIs, but they do so with different schemas, state models, and UI expectations.
-- `command_center/static/app.js` is a lighter operator shell, while `autogen_dashboard/static/app.js` still contains the deeper session-management implementation. The product has two frontends with overlapping intent.
-- `maf_starter/orchestration.py` and `autogen_dashboard/session_runner.py` both model pause, retry, and stage progression, which increases drift risk for resume semantics.
+## Tech Debt
+
+**Split runtime and schema surfaces:**
+- Issue: The active operator shell, the shared `/api/v1` control plane, and the legacy dashboard still carry overlapping run contracts, file stores, and lifecycle concepts instead of one authoritative runtime.
+- Files: `command_center/app.py`, `maf_core/control_plane/contracts.py`, `maf_core/control_plane/store.py`, `autogen_dashboard/app.py`, `autogen_dashboard/schemas.py`, `autogen_dashboard/session_store.py`, `autogen_dashboard/session_runner.py`
+- Impact: State-shape drift is already visible. `tests/test_phase6_api_contract.py` and `tests/test_phase6_command_center_parity.py` move `state/sessions` aside to avoid schema conflicts. Concurrent maintenance raises break risk across UI, API, and persisted artifacts.
+- Fix approach: Pick one durable run contract and store, then adapter-wrap the legacy path until it can be retired.
+
+**AG-UI and `/api/v1` are not the same execution path:**
+- Issue: The Command Center shell streams AG-UI sessions directly, while `/api/v1` helpers are only exported on `window.CommandCenterAPI` and do not drive the main interactive flow.
+- Files: `command_center/static/app.js`, `command_center/app.py`, `maf_core/control_plane/service.py`
+- Impact: Operators can see one live interaction model in the UI and a different durable run model in the external API. Delivery claims of parity are stronger than the current implementation.
+- Fix approach: Route the primary UI through the same run service, or explicitly separate the interactive stream surface from the durable run API.
+
+## Known Bugs
+
+**Cloud auth mode is selectable but not implemented:**
+- Symptoms: Setting `AUTH_POLICY=azure-functions` makes `/api/v1` authentication depend on `AzureFunctionsAuthPolicy.require_auth`, which raises `NotImplementedError`.
+- Files: `maf_core/control_plane/auth.py`
+- Trigger: Start the API with `AUTH_POLICY=azure-functions`.
+- Workaround: Keep `AUTH_POLICY=none` for local-only use. Do not treat the current control plane as cloud-ready.
+
+**`/api/v1` actions advance state without executing work:**
+- Symptoms: `continue`, `approve`, and `retry` mark runs as `running` and append events, but the real execution engine is stubbed out and `_execute_run` is never invoked.
+- Files: `maf_core/control_plane/service.py`, `command_center/static/app.js`
+- Trigger: Use `/api/v1/runs/*/actions/*` or build against `window.CommandCenterAPI`.
+- Workaround: Use AG-UI endpoints or the legacy `autogen_dashboard.session_runner.SessionService` for actual execution.
+
+## Security Considerations
+
+**No auth policy does not enforce loopback and metadata endpoints stay open:**
+- Risk: `NoAuthPolicy` always returns a local caller identity without checking source address, while `command_center/app.py` also exposes `/api/catalog`, `/api/repos`, and `/api/status` without auth.
+- Files: `maf_core/control_plane/auth.py`, `maf_core/control_plane/router.py`, `command_center/app.py`, `maf_core/cli.py`
+- Current mitigation: CLI defaults bind to `127.0.0.1` in `maf_core/cli.py`.
+- Recommendations: Enforce loopback at the auth layer, gate metadata endpoints, and fail closed when host binding is not local.
+
+**External run creation accepts arbitrary local paths:**
+- Risk: `RunService.create_run` accepts `request.repo_root` and only checks `Path.exists()`. Unlike the AG-UI repo selector, `/api/v1` does not constrain repo paths to the configured scan root.
+- Files: `maf_core/control_plane/service.py`, `command_center/app.py`, `autogen_dashboard/repo_context.py`
+- Current mitigation: None in the `/api/v1` path beyond existence checks.
+- Recommendations: Reuse `resolve_repo_root(...)` or an equivalent allowlist for every API entrypoint that accepts a repo root.
+
+**Approval and write blocking are shallow for enterprise repos:**
+- Risk: `classify_write_operations(...)` treats all `create_file`, `update_file`, and `append_file` actions as `routine_safe` unless they hit a small blocked path list. Secrets beyond `.env*`, CI files, policy files, deployment manifests, and workflow definitions are not specially gated.
+- Files: `maf_core/approval_policy.py`, `maf_core/tools.py`, `maf_core/repo_execution.py`
+- Current mitigation: Writes cannot escape the repo root and block `.git`, `.venv`, `state`, and `.env*`.
+- Recommendations: Add path-class risk tiers for infra, CI/CD, auth, secrets, and public-surface files, then require explicit approval for those classes.
+
+## Performance Bottlenecks
+
+**Repo discovery and context collection are synchronous and scale poorly:**
+- Problem: `_discover_repos_fast(...)` scans the parent tree and calls `collect_repo_context(...)` for each candidate on every `/api/repos` request. `build_repo_context_snapshot(...)` also counts repo files recursively.
+- Files: `command_center/app.py`, `autogen_dashboard/repo_context.py`, `maf_core/tools.py`
+- Cause: No caching, background indexing, or bounded git/context sampling beyond directory filters.
+- Improvement path: Cache repo inventory, debounce refreshes, and move heavier git/context collection off the request path.
 
 ## Fragile Areas
-- `maf_starter/provider_fallback.py` mixes route planning, streaming wrapping, CLI subprocess execution, and metadata reshaping in one boundary module.
-- `maf_starter/devui_patches.py` and `maf_starter/devui_overrides.py` remain version-coupled to DevUI internals, so small upstream changes can break local inspection behavior.
-- `autogen_dashboard/session_runner.py` is a large stateful file that concentrates prompt handling, persistence, retry, and run lifecycle code in one place.
-- `command_center/static/app.js` depends on a fairly implicit event contract; the shell is smaller, but the browser behavior still depends on many payload shapes staying stable.
 
-## Provider Capability Boundaries
-- `maf_starter/provider_fallback.py` explicitly drops tool calling on `gemini-cli`, `claude-cli`, and `codex-cli` fallback turns, so provider fallback is not capability-preserving.
-- `maf_starter/config.py` bakes in local command names like `gemini.cmd`, `claude`, and `codex.cmd`, which makes provider availability a workstation assumption.
-- `command_center/app.py` builds route previews from model names, but those previews are only as accurate as the current provider catalog and installed SDKs.
-- `autogen_dashboard/session_runner.py` still assumes the legacy provider layer can surface usable statuses and retry paths across all configured backends.
+**Provider fallback is not capability-preserving and only covers narrow failure shapes:**
+- Files: `maf_core/provider_fallback.py`, `maf_core/routing_policy.py`, `maf_core/worker_delegation.py`
+- Why fragile: CLI fallback strips tool availability (`tools_available=False`), flattens multi-turn tool context into a plain prompt, only retries on string-matched quota and rate-limit errors, and only falls back in streaming before the first emitted token.
+- Safe modification: Treat fallback targets as separate capability tiers and add tests for tool-use loss, mid-stream failure, and non-quota transient errors before extending the chain.
+- Test coverage: `tests/test_maf_setup.py` covers metadata decoration and pre-first-token streaming fallback, but not mid-stream recovery or tool-call parity.
 
-## Approval And Resume Risks
-- `maf_starter/approval_policy.py` uses coarse string matching for approval words and path classification, so approval semantics are easy to misread or over-approve.
-- `maf_starter/orchestration.py` persists pause kinds, retry targets, and stage records, but the same concepts also exist in the legacy session runner, so resume behavior can diverge.
-- `tests/test_phase1_runtime.py` and `tests/test_phase2_manager.py` cover retry and pause flows, but they do not prove crash-safe recovery after a mid-turn tool or write interruption.
-- `autogen_dashboard/app.py` exposes approve, reject, run, retry, stop, and cancel endpoints, which is powerful but raises the risk of inconsistent lifecycle transitions if the runtime contract changes.
+**The control-plane file store is atomic per file but not coordinated across callers:**
+- Files: `maf_core/control_plane/store.py`, `maf_core/control_plane/service.py`, `autogen_dashboard/session_runner.py`
+- Why fragile: JSON writes use atomic replace, but the control-plane service has no per-run locks, background worker ownership, or optimistic concurrency. The legacy runtime does use `asyncio.Lock` and `Condition`, so behavior can diverge under concurrent actions.
+- Safe modification: Add per-run coordination tokens or a worker owner before allowing concurrent API callers.
+- Test coverage: `tests/test_run_persistence.py` verifies atomic temp-file cleanup for the legacy store only. There is no concurrency test for `RunStore` or `RunService`.
 
-## Repo, CLI, And Environment Assumptions
-- `maf_starter/config.py` requires a repo-local `.env` and a valid repo root, so local startup is tightly coupled to workstation state.
-- `command_center/app.py` scans local directories for repos and assumes the operator machine can read them directly.
-- `maf_starter/repo_execution.py` writes directly into the selected repo root, so execution assumes a mutable local checkout rather than an isolated worker volume.
-- `README.md` assumes Windows PowerShell, a repo-local virtualenv, and locally installed CLI tools; `\\.venv\\`, `gemini.cmd`, `claude`, and `codex.cmd` are part of the normal path.
-- `.planning/STATE.md` notes `azd` is absent locally, so cloud work must not silently depend on it.
+**The legacy dashboard remains a monolithic frontend and a parallel operator surface:**
+- Files: `autogen_dashboard/static/app.js`, `autogen_dashboard/static/index.html`, `command_center/static/app.js`, `command_center/static/components/inspector.js`
+- Why fragile: The legacy dashboard still carries a 3395-line DOM script, while the current shell still depends on global mutable state plus manual DOM wiring. UI contract drift is easy while both surfaces remain live in-tree.
+- Safe modification: Freeze `autogen_dashboard/` except for break-fix, and keep new operator features inside the smaller `command_center/static/components/*` split.
+- Test coverage: `tests/test_command_center.py` only smoke-tests shell and API HTML. No browser-level tests protect Command Center interaction paths.
 
-## UI Gaps
-- `command_center/static/index.html` and `command_center/static/styles.css` present a clean shell, but the feature depth is still thinner than `autogen_dashboard/static/index.html` and `autogen_dashboard/static/app.js`.
-- `command_center/static/app.js` shows one live run and a compact approval panel, but it does not yet match the richer session list, pause banner, or workspace warning surface of the legacy dashboard.
-- `tests/test_command_center.py` only checks shell and API smoke behavior; it does not exercise real browser rendering or SSE streaming in a browser.
-- `tests/test_phase5_ui_contract.py` is a static contract test over files, not an end-to-end UI proof.
+**DevUI customization remains version-coupled:**
+- Files: `maf_core/devui_patches.py`, `maf_core/devui_overrides.py`, `maf_core/cli.py`
+- Why fragile: The local operator story still auto-starts a patched debug DevUI sidecar and relies on string-level UI rewrites against upstream DevUI assets.
+- Safe modification: Treat DevUI as optional debug tooling, not a product dependency, and isolate patching behind version checks.
+- Test coverage: `tests/test_maf_setup.py` covers patch text expectations but not upstream package drift.
 
-## Cloud Readiness Risks
-- `command_center/app.py` and `maf_starter/cli.py` both assume local-host behavior, with debug DevUI wiring and local repo access baked in.
-- `autogen_dashboard/app.py` still enables permissive CORS, which is acceptable for localhost but not a safe default for a broader control plane.
-- `maf_starter/provider_fallback.py` shells out to local CLIs with a 240-second timeout, which is fine for a desktop worker but awkward for hosted HTTP boundaries.
-- `maf_starter/orchestration.py` and `autogen_dashboard/session_runner.py` both persist state on the filesystem, so a future Azure Functions host will need an explicit durable-worker split.
+## Scaling Limits
 
-## Testing Gaps
-- `tests/test_command_center.py` verifies catalog and status payloads, but not the browser interaction or event streaming path in `command_center/static/app.js`.
-- `tests/test_phase4_write_execution.py` covers blocked paths and diff capture in `maf_starter/repo_execution.py`, but not a full repo-execution lifecycle through `maf_starter/provider_fallback.py` plus `maf_starter/orchestration.py`.
-- `tests/test_phase5_ui_contract.py` checks selectors and helper names in `autogen_dashboard/static/app.js`, but it does not validate rendered DOM or responsive behavior.
-- There is no dedicated test proving the cloud-control-plane assumptions in `.planning/PROJECT.md` or the worker-boundary split implied by `command_center/app.py`.
+**Current capacity is one workstation-oriented runtime, not a multi-user control plane:**
+- Current capacity: One local filesystem root, one `state/` tree, locally installed CLI executables, and loopback-oriented server defaults.
+- Limit: Multi-user, remote, or elastic hosting breaks on local repo access, filesystem-backed checkpoints, unimplemented auth, and CLI subprocess execution.
+- Scaling path: Split API, durable store, and worker execution. Replace local CLI dependence with service-backed workers or isolated job runners.
 
-## Watchlist
-- Keep an eye on `README.md`, `.planning/PROJECT.md`, and `.planning/STATE.md` whenever the primary UI or runtime ownership changes.
-- Treat `autogen_dashboard/` as frozen unless a specific legacy behavior still depends on it.
-- Re-check `maf_starter/provider_fallback.py` and `maf_starter/approval_policy.py` whenever provider catalogs or approval rules change.
+## Dependencies at Risk
+
+**CLI worker availability and preview model defaults are workstation assumptions:**
+- Risk: `gemini.cmd`, `claude`, `codex.cmd`, and preview Gemini model IDs are compiled into config and routing defaults.
+- Impact: Missing binaries or retired model IDs change fallback behavior at runtime, often after the primary provider has already failed.
+- Migration plan: Validate provider inventory at startup, move model catalogs out of code, and treat CLI workers as optional capabilities with health gates.
+
+## Missing Critical Features
+
+**Production-grade observability is largely absent:**
+- Problem: `structlog` is configured but lightly used, `prometheus-fastapi-instrumentator` is declared but not wired, and no trace or metric export exists for request latency, provider retries, approval latency, or run recovery.
+- Blocks: Reliable SRE monitoring, cloud deployment hardening, and incident triage across AG-UI, `/api/v1`, and legacy runtime paths.
+- Files: `maf_core/logging.py`, `maf_core/cli.py`, `requirements.txt`, `command_center/app.py`, `maf_core/provider_fallback.py`
+
+**The extracted control plane is not yet a durable execution plane:**
+- Problem: `RunService` persists metadata and events but does not own actual orchestration, resume, or worker execution.
+- Blocks: Safe external automation, reliable retries, and a cloud-hostable manager/worker split.
+- Files: `maf_core/control_plane/service.py`, `maf_core/control_plane/router.py`, `autogen_dashboard/session_runner.py`
+
+## Test Coverage Gaps
+
+**Auth and exposure paths are untested:**
+- What is not tested: `NoAuthPolicy` loopback assumptions, failure behavior for `AUTH_POLICY=azure-functions`, and protection of unauthenticated metadata endpoints.
+- Files: `maf_core/control_plane/auth.py`, `command_center/app.py`, `tests/test_phase6_api_contract.py`
+- Risk: A future deployment can expose local-only surfaces without failing fast in CI.
+- Priority: High
+
+**Command Center interaction is not browser-tested:**
+- What is not tested: The real browser flow that creates or resumes AG-UI sessions, processes interrupts, and renders inspector state from live streaming events.
+- Files: `command_center/static/app.js`, `command_center/static/components/inspector.js`, `tests/test_command_center.py`
+- Risk: Product-shell regressions can slip past the current HTML and API smoke tests.
+- Priority: High
+
+**Control-plane durability is only contract-tested, not recovery-tested:**
+- What is not tested: Concurrent `/api/v1` callers, crash recovery between state transitions, and consistency between `/api/v1` persisted runs and AG-UI live sessions.
+- Files: `maf_core/control_plane/store.py`, `maf_core/control_plane/service.py`, `tests/test_phase6_api_contract.py`, `tests/test_phase6_command_center_parity.py`
+- Risk: Delivery and cloud-readiness issues stay hidden until real operators or automation hit the same run simultaneously.
+- Priority: High
+
+---
+
+*Concerns audit: 2026-03-26*

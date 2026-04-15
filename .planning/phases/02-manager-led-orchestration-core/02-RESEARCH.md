@@ -32,17 +32,17 @@
 <research_summary>
 ## Summary
 
-Phase 2 should promote the existing `repo_team` proof-of-concept into a real manager-led orchestration contract instead of building another conversational surface around single-turn agents. The strongest implementation path is to preserve the current Phase 1 durable run model in `autogen_dashboard`, add an explicit orchestration state model in `maf_starter`, and let the manager workflow persist stage records, stage artifacts, pause reasons, and auto-answer decisions into the same run directory already established in Phase 1.
+Phase 2 should promote the existing `repo_team` proof-of-concept into a real manager-led orchestration contract instead of building another conversational surface around single-turn agents. The strongest implementation path is to preserve the current Phase 1 durable run model in `autogen_dashboard`, add an explicit orchestration state model in `maf_core`, and let the manager workflow persist stage records, stage artifacts, pause reasons, and auto-answer decisions into the same run directory already established in Phase 1.
 
 The current codebase already contains the raw pieces:
-- a sequential specialist workflow in `maf_starter/team_factory.py`
-- checkpointed workflow seams in `maf_starter/workflow_factory.py`
+- a sequential specialist workflow in `maf_core/team_factory.py`
+- checkpointed workflow seams in `maf_core/workflow_factory.py`
 - explicit run status and pause models in `autogen_dashboard/session_runner.py` and `autogen_dashboard/schemas.py`
-- route and capability metadata in `maf_starter/provider_fallback.py`
+- route and capability metadata in `maf_core/provider_fallback.py`
 
 The gap is not missing agent infrastructure. The gap is the absence of one explicit orchestration state machine that both the runtime and operator surface can agree on.
 
-**Primary recommendation:** introduce a shared orchestration module in `maf_starter/` that owns stage definitions, stage artifacts, pause semantics, and auto-answer provenance, then mirror that contract into the persisted run schemas and operator-facing API.
+**Primary recommendation:** introduce a shared orchestration module in `maf_core/` that owns stage definitions, stage artifacts, pause semantics, and auto-answer provenance, then mirror that contract into the persisted run schemas and operator-facing API.
 </research_summary>
 
 <standard_stack>
@@ -55,16 +55,16 @@ No new framework is required for Phase 2. This phase is primarily a consolidatio
 |---------|---------|---------|--------------|
 | `agent-framework` | `1.0.0rc5` | Active agent and workflow runtime | Already powers the live entities and checkpointed workflows |
 | `agent_framework_orchestrations.SequentialBuilder` | bundled | Specialist sequencing | Already expresses the planner/researcher/implementer/reviewer chain the manager will own |
-| `maf_starter/team_factory.py` | in-repo | Existing multi-agent workflow scaffold | Best starting point for a real manager workflow |
+| `maf_core/team_factory.py` | in-repo | Existing multi-agent workflow scaffold | Best starting point for a real manager workflow |
 | `autogen_dashboard/session_runner.py` | in-repo | Durable run lifecycle, pause states, event persistence | Already models the operator-facing run contract established in Phase 1 |
 | `autogen_dashboard/schemas.py` | in-repo | Typed persisted run and API payload models | Already carries status, pause, workspace, and attempt metadata |
 
 ### Supporting
 | Library / Module | Version | Purpose | When to Use |
 |---------|---------|---------|-------------|
-| `maf_starter/provider_fallback.py` | in-repo | Provider/model routing metadata and fallback execution | Use for route metadata and capability change annotations, not for orchestration state itself |
-| `maf_starter/tools.py` | in-repo | Repo inspection and approval boundary | Use as the current tool seam for manager and specialist stages |
-| `FileCheckpointStorage` via `maf_starter/workflow_factory.py` | bundled | Durable workflow checkpointing | Use to preserve stage state inside a run-scoped runtime directory |
+| `maf_core/provider_fallback.py` | in-repo | Provider/model routing metadata and fallback execution | Use for route metadata and capability change annotations, not for orchestration state itself |
+| `maf_core/tools.py` | in-repo | Repo inspection and approval boundary | Use as the current tool seam for manager and specialist stages |
+| `FileCheckpointStorage` via `maf_core/workflow_factory.py` | bundled | Durable workflow checkpointing | Use to preserve stage state inside a run-scoped runtime directory |
 | `unittest` | stdlib | Existing automated validation baseline | Extend with orchestration, stage, and API contract coverage |
 
 ### Alternatives Considered
@@ -81,7 +81,7 @@ No new framework is required for Phase 2. This phase is primarily a consolidatio
 
 ### Recommended Project Structure
 ```text
-maf_starter/
+maf_core/
 |- orchestration.py          # shared stage names, stage state, pause reasons, artifact helpers
 |- gsd_autofill.py           # project/phase/repo context resolver for routine GSD questions
 |- team_factory.py           # manager-owned specialist workflow
@@ -134,10 +134,10 @@ Problems that already have strong in-repo primitives:
 
 | Problem | Don't Build | Use Instead | Why |
 |---------|-------------|-------------|-----|
-| Specialist sequencing | A custom ad hoc agent chain runner | `maf_starter/team_factory.py` + `SequentialBuilder` | Already models the current specialist flow |
+| Specialist sequencing | A custom ad hoc agent chain runner | `maf_core/team_factory.py` + `SequentialBuilder` | Already models the current specialist flow |
 | Pause and status vocabulary | Transcript parsing or UI-only flags | `autogen_dashboard/session_runner.py` + `autogen_dashboard/schemas.py` | Already has explicit run statuses and pause state seams |
 | Run durability | A second persistence subsystem | Phase 1 run directory under `state/sessions/<run-id>/` | Already stores artifacts, attempts, events, and runtime state |
-| Route metadata | A parallel routing log format | `maf_starter/provider_fallback.py` additional properties | Already records provider/model/tier/capability information |
+| Route metadata | A parallel routing log format | `maf_core/provider_fallback.py` additional properties | Already records provider/model/tier/capability information |
 | Workspace summary | A new repo snapshot model | `autogen_dashboard/repo_context.py` | Already computes branch, dirty state, recent commits, and stack hints |
 
 **Key insight:** Phase 2 succeeds by joining the active MAF workflow path to the durable run model. It should not create a third orchestration vocabulary.
@@ -171,7 +171,7 @@ Verified in-repo patterns worth preserving:
 
 ### Sequential specialist workflow
 ```python
-# Source: maf_starter/team_factory.py
+# Source: maf_core/team_factory.py
 # Pattern: planner -> researcher -> implementer -> reviewer
 # with request-info pauses at selected points.
 ```
@@ -185,7 +185,7 @@ Verified in-repo patterns worth preserving:
 
 ### Route and fallback metadata
 ```python
-# Source: maf_starter/provider_fallback.py
+# Source: maf_core/provider_fallback.py
 # Pattern: attach provider/model/tier/fallback metadata to responses,
 # updates, and streams without rewriting the client surface.
 ```
@@ -206,7 +206,7 @@ Recommended commands once implementation lands:
 - Quick manager/state check: `.\.venv\Scripts\python.exe -m unittest tests.test_phase2_manager`
 - Runtime/API check: `.\.venv\Scripts\python.exe -m unittest tests.test_phase2_runtime tests.test_phase2_api`
 - Full suite: `.\.venv\Scripts\python.exe -m unittest discover -s tests -v`
-- Static sanity: `.\.venv\Scripts\python.exe -m compileall maf_starter autogen_dashboard tests main.py`
+- Static sanity: `.\.venv\Scripts\python.exe -m compileall maf_core autogen_dashboard tests main.py`
 - Frontend syntax: `node --check autogen_dashboard\static\app.js`
 
 Focus the test map on:
@@ -225,7 +225,7 @@ Focus the test map on:
 
 2. **Where should routine GSD auto-answer logic live?**
    - What we know: the answer inputs span planning docs, repo facts, and run state.
-   - Recommendation: keep it in `maf_starter/` as a shared runtime helper, then mirror results into the operator run model through `session_runner.py`.
+   - Recommendation: keep it in `maf_core/` as a shared runtime helper, then mirror results into the operator run model through `session_runner.py`.
 
 3. **How much operator UI should Phase 2 expose?**
    - What we know: `ORCH-02` requires visibility, but polished UX belongs later.
@@ -243,11 +243,11 @@ Focus the test map on:
 - `.planning/STATE.md` - current focus and known blockers
 - `.planning/phases/02-manager-led-orchestration-core/02-CONTEXT.md` - locked Phase 2 decisions
 - `.planning/phases/01-workspace-and-durable-run-foundation/01-CONTEXT.md` - locked Phase 1 durability contract
-- `maf_starter/team_factory.py` - current sequential specialist workflow
-- `maf_starter/workflow_factory.py` - checkpointed workflow seam
-- `maf_starter/agent_factory.py` - active agent construction and instructions seam
-- `maf_starter/tools.py` - repo tool and approval boundary
-- `maf_starter/provider_fallback.py` - route and capability metadata seam
+- `maf_core/team_factory.py` - current sequential specialist workflow
+- `maf_core/workflow_factory.py` - checkpointed workflow seam
+- `maf_core/agent_factory.py` - active agent construction and instructions seam
+- `maf_core/tools.py` - repo tool and approval boundary
+- `maf_core/provider_fallback.py` - route and capability metadata seam
 - `autogen_dashboard/session_runner.py` - durable operator-facing run lifecycle
 - `autogen_dashboard/schemas.py` - persisted run payload contract
 - `README.md` - active runtime notes and current workflow surface

@@ -31,14 +31,14 @@
 ## Summary
 
 Phase 3 should treat specialist visibility and route visibility as first-class product data contracts, not as UI-only embellishments. The current runtime already contains the right raw seams:
-- `maf_starter/team_factory.py` already declares the specialist roster
-- `maf_starter/orchestration.py` already owns the canonical manager stage contract
-- `maf_starter/routing_policy.py` and `maf_starter/provider_fallback.py` already classify prompts, order fallbacks, and emit route metadata
+- `maf_core/team_factory.py` already declares the specialist roster
+- `maf_core/orchestration.py` already owns the canonical manager stage contract
+- `maf_core/routing_policy.py` and `maf_core/provider_fallback.py` already classify prompts, order fallbacks, and emit route metadata
 - `autogen_dashboard/session_runner.py`, `autogen_dashboard/schemas.py`, and `autogen_dashboard/static/app.js` already persist and render manager-oriented orchestration cards
 
 The missing piece is explicit specialist-state and route-plan data that survives the run, can be queried by the API, and can be rendered in the operator UI without scraping transcript text or DevUI traces.
 
-**Primary recommendation:** add a shared specialist-state and handoff contract in `maf_starter/orchestration.py`, make route lanes and fallback attempt metadata explicit in the runtime contract, then project both into the dashboard API and UI as dedicated `Agents` and `Routing` surfaces. Keep DevUI trace enrichment as an engineering aid only.
+**Primary recommendation:** add a shared specialist-state and handoff contract in `maf_core/orchestration.py`, make route lanes and fallback attempt metadata explicit in the runtime contract, then project both into the dashboard API and UI as dedicated `Agents` and `Routing` surfaces. Keep DevUI trace enrichment as an engineering aid only.
 </research_summary>
 
 <standard_stack>
@@ -50,17 +50,17 @@ No new framework is required for Phase 3. This phase is primarily a deeper use o
 | Library / Module | Version | Purpose | Why Standard Here |
 |---------|---------|---------|--------------|
 | `agent-framework` | `1.0.0rc5` | Active agent and workflow runtime | Already powers the specialist workflow and entity surface |
-| `maf_starter/orchestration.py` | in-repo | Shared run and stage contract | Best place to extend the manager contract with specialist-state and handoff data |
-| `maf_starter/team_factory.py` | in-repo | Current specialist workflow | Already names the specialist roster that Phase 3 should expose |
-| `maf_starter/routing_policy.py` | in-repo | Current route classification and chain selection | Natural place to formalize lane selection and route-plan metadata |
-| `maf_starter/provider_fallback.py` | in-repo | Actual fallback execution and route metadata | Already records provider/model/fallback/tool-availability fields |
+| `maf_core/orchestration.py` | in-repo | Shared run and stage contract | Best place to extend the manager contract with specialist-state and handoff data |
+| `maf_core/team_factory.py` | in-repo | Current specialist workflow | Already names the specialist roster that Phase 3 should expose |
+| `maf_core/routing_policy.py` | in-repo | Current route classification and chain selection | Natural place to formalize lane selection and route-plan metadata |
+| `maf_core/provider_fallback.py` | in-repo | Actual fallback execution and route metadata | Already records provider/model/fallback/tool-availability fields |
 | `autogen_dashboard/session_runner.py` | in-repo | Durable run projection layer | Already maps orchestration state into persisted operator-facing state |
 | `autogen_dashboard/static/` | in-repo | Current product-facing dashboard shell | Already has the card-based UI surface Phase 3 should extend |
 
 ### Supporting
 | Library / Module | Version | Purpose | When to Use |
 |---------|---------|---------|-------------|
-| `maf_starter/devui_patches.py` | in-repo | Local route trace enrichment | Keep for engineering-console visibility, but not as the product contract |
+| `maf_core/devui_patches.py` | in-repo | Local route trace enrichment | Keep for engineering-console visibility, but not as the product contract |
 | `autogen_dashboard/schemas.py` | in-repo | Typed run, route, and stage payloads | Extend for specialist and route-lane data |
 | `unittest` | stdlib | Existing automated validation baseline | Add phase-specific specialist, routing, and API/UI contract tests |
 
@@ -111,10 +111,10 @@ Problems that already have strong in-repo primitives:
 
 | Problem | Don't Build | Use Instead | Why |
 |---------|-------------|-------------|-----|
-| Specialist roster discovery | A second role registry hidden in UI code | `maf_starter/team_factory.py` + `maf_starter/orchestration.py` | The runtime already knows the canonical participants |
+| Specialist roster discovery | A second role registry hidden in UI code | `maf_core/team_factory.py` + `maf_core/orchestration.py` | The runtime already knows the canonical participants |
 | Run-level state projection | A second persistence system for agent cards | `autogen_dashboard/session_runner.py` + `autogen_dashboard/schemas.py` | The dashboard already persists run-scoped orchestration data |
-| Route outcome metadata | A custom log parser over DevUI traces | `maf_starter/provider_fallback.py` additional properties | The route metadata is already emitted at runtime |
-| Lane classification | Ad hoc UI-only heuristics | `maf_starter/routing_policy.py` | The current classification logic already exists and should be surfaced, not replaced |
+| Route outcome metadata | A custom log parser over DevUI traces | `maf_core/provider_fallback.py` additional properties | The route metadata is already emitted at runtime |
+| Lane classification | Ad hoc UI-only heuristics | `maf_core/routing_policy.py` | The current classification logic already exists and should be surfaced, not replaced |
 
 **Key insight:** Phase 3 succeeds by promoting existing specialist and route metadata into durable operator contracts. It should not invent a parallel control plane for visibility alone.
 </dont_hand_roll>
@@ -147,13 +147,13 @@ Verified in-repo patterns worth preserving:
 
 ### Existing specialist roster
 ```python
-# Source: maf_starter/team_factory.py
+# Source: maf_core/team_factory.py
 # Pattern: planner -> researcher -> implementer -> reviewer
 ```
 
 ### Current route planning and fallback metadata
 ```python
-# Source: maf_starter/routing_policy.py and maf_starter/provider_fallback.py
+# Source: maf_core/routing_policy.py and maf_core/provider_fallback.py
 # Pattern: tier classification plus response metadata for provider, model, fallback, and tools availability
 ```
 
@@ -180,7 +180,7 @@ Recommended commands once implementation lands:
 - Quick routing check: `.\.venv\Scripts\python.exe -m unittest tests.test_phase3_routing tests.test_maf_setup -v`
 - API/UI contract check: `.\.venv\Scripts\python.exe -m unittest tests.test_phase3_api -v`
 - Full suite: `.\.venv\Scripts\python.exe -m unittest discover -s tests -v`
-- Static sanity: `.\.venv\Scripts\python.exe -m compileall maf_starter autogen_dashboard tests main.py`
+- Static sanity: `.\.venv\Scripts\python.exe -m compileall maf_core autogen_dashboard tests main.py`
 - Frontend syntax: `node --check autogen_dashboard\static\app.js`
 
 Focus the test map on:
@@ -217,12 +217,12 @@ Focus the test map on:
 - `.planning/STATE.md`
 - `.planning/phases/03-specialist-delegation-and-routing-visibility/03-CONTEXT.md`
 - `.planning/phases/02-manager-led-orchestration-core/02-CONTEXT.md`
-- `maf_starter/orchestration.py`
-- `maf_starter/team_factory.py`
-- `maf_starter/agent_factory.py`
-- `maf_starter/routing_policy.py`
-- `maf_starter/provider_fallback.py`
-- `maf_starter/devui_patches.py`
+- `maf_core/orchestration.py`
+- `maf_core/team_factory.py`
+- `maf_core/agent_factory.py`
+- `maf_core/routing_policy.py`
+- `maf_core/provider_fallback.py`
+- `maf_core/devui_patches.py`
 - `autogen_dashboard/schemas.py`
 - `autogen_dashboard/session_runner.py`
 - `autogen_dashboard/static/index.html`

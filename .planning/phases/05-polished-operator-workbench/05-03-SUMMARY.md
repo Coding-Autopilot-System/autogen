@@ -44,7 +44,7 @@ completed: 2026-03-22
 
 - `.\.venv\Scripts\python.exe -m unittest tests.test_phase5_ui_contract tests.test_phase5_operator_views -v`
 - `.\.venv\Scripts\python.exe -m unittest discover -s tests -v`
-- `.\.venv\Scripts\python.exe -m compileall maf_starter autogen_dashboard tests main.py`
+- `.\.venv\Scripts\python.exe -m compileall maf_core autogen_dashboard tests main.py`
 - `node --check autogen_dashboard\static\app.js`
 
 ## Manual Follow-Up

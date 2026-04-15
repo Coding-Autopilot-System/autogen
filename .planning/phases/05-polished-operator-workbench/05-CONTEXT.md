@@ -72,7 +72,7 @@ Turn the current operator shell into a professional, stylish workbench that make
 
 ### UI and runtime seams
 - `.planning/codebase/STACK.md` - confirms the current frontend path is static HTML, CSS, and JavaScript, not a React or SPA framework.
-- `.planning/codebase/STRUCTURE.md` - identifies `autogen_dashboard/` as the product-facing operator shell and `maf_starter/` as the active runtime base.
+- `.planning/codebase/STRUCTURE.md` - identifies `autogen_dashboard/` as the product-facing operator shell and `maf_core/` as the active runtime base.
 - `.planning/codebase/CONVENTIONS.md` - captures the current naming, payload-shaping, and UI implementation patterns that Phase 5 should follow unless blocked.
 - `autogen_dashboard/static/index.html` - defines the current shell layout, panel composition, and tab scaffolding that Phase 5 should restructure and refine.
 - `autogen_dashboard/static/styles.css` - defines the current design tokens, panel system, message presentation, and responsive rules that Phase 5 should evolve.
@@ -92,7 +92,7 @@ Turn the current operator shell into a professional, stylish workbench that make
 - `autogen_dashboard/static/app.js`: already normalizes route plans, specialist state, stage summaries, approvals, validation records, artifacts, and session modes into operator-facing rendering data.
 - `autogen_dashboard/static/styles.css`: already establishes a rounded, glassy, warm-toned design language with sticky controls and card-based grouping that can be pushed to a more professional finish.
 - `autogen_dashboard/session_runner.py` and `autogen_dashboard/schemas.py`: already expose durable run state for specialists, routing, approvals, changed files, validation results, and artifacts, which removes the need for UI-only backend invention in this phase.
-- `maf_starter/orchestration.py`, `maf_starter/provider_fallback.py`, and `maf_starter/routing_policy.py`: already produce the stage, specialist, route, and fallback metadata the UI should surface more cleanly.
+- `maf_core/orchestration.py`, `maf_core/provider_fallback.py`, and `maf_core/routing_policy.py`: already produce the stage, specialist, route, and fallback metadata the UI should surface more cleanly.
 
 ### Established Patterns
 - The manager is the canonical run owner, while specialists are visible collaborators with structured state and handoffs.

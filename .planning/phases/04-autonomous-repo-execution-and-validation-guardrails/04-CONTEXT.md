@@ -57,9 +57,9 @@ Turn the current manager-led orchestration runtime into a safe default-doer for 
 - `.planning/phases/03-specialist-delegation-and-routing-visibility/03-CONTEXT.md` - locks the manager-owned run model, route-lane contract, and operator tabs that Phase 4 must build on.
 
 ### Runtime execution seams
-- `maf_starter/orchestration.py` - defines the canonical stage model, pause kinds, specialist state, and stage artifact paths that Phase 4 write and validation records should extend.
-- `maf_starter/tools.py` - defines the current repo-tool boundary and the only active approval seam, which Phase 4 must evolve from read-only inspection into safe write and validation capabilities.
-- `maf_starter/provider_fallback.py` - defines provider fallback, capability drift, and CLI tool-loss behavior that Phase 4 must respect when write or validation actions depend on tool availability.
+- `maf_core/orchestration.py` - defines the canonical stage model, pause kinds, specialist state, and stage artifact paths that Phase 4 write and validation records should extend.
+- `maf_core/tools.py` - defines the current repo-tool boundary and the only active approval seam, which Phase 4 must evolve from read-only inspection into safe write and validation capabilities.
+- `maf_core/provider_fallback.py` - defines provider fallback, capability drift, and CLI tool-loss behavior that Phase 4 must respect when write or validation actions depend on tool availability.
 - `autogen_dashboard/session_runner.py` - is the active run coordinator for manager stages, artifact persistence, pause semantics, and route metadata projection.
 - `autogen_dashboard/session_store.py` - owns the durable run directory layout, artifact manifest, stage outputs, workspace snapshot storage, and attempt summaries that new change and validation artifacts must use.
 - `autogen_dashboard/schemas.py` - defines the operator-facing session, artifact, routing, and stage payload shapes that Phase 4 must extend rather than bypass.
@@ -77,12 +77,12 @@ Turn the current manager-led orchestration runtime into a safe default-doer for 
 ## Existing Code Insights
 
 ### Reusable Assets
-- `maf_starter/tools.py`: already constrains repo access to the selected repo root and exposes the current approval boundary through `request_human_approval`.
-- `maf_starter/orchestration.py`: already provides shared stage state, pause kinds, specialist records, and stage artifact path helpers that can anchor write and validation metadata.
+- `maf_core/tools.py`: already constrains repo access to the selected repo root and exposes the current approval boundary through `request_human_approval`.
+- `maf_core/orchestration.py`: already provides shared stage state, pause kinds, specialist records, and stage artifact path helpers that can anchor write and validation metadata.
 - `autogen_dashboard/session_store.py`: already persists attempt summaries, stage outputs, workspace snapshots, and an artifact manifest under stable per-run directories.
 - `autogen_dashboard/session_runner.py`: already owns manager-stage execution, pause and retry semantics, route metadata persistence, and the projection of run state into operator-facing session summaries.
 - `autogen_dashboard/repo_context.py`: already captures dirty state and changed-file summaries, which can seed later change-capture comparisons.
-- `maf_starter/provider_fallback.py`: already records route attempts and capability drift so Phase 4 can tell when a fallback lost tool support before write or validation work starts.
+- `maf_core/provider_fallback.py`: already records route attempts and capability drift so Phase 4 can tell when a fallback lost tool support before write or validation work starts.
 
 ### Established Patterns
 - Durable run state is file-backed under `state/sessions/<run-id>/` with JSON and JSONL artifacts plus a manifest file that indexes available outputs.
@@ -91,7 +91,7 @@ Turn the current manager-led orchestration runtime into a safe default-doer for 
 - Approval today is expressed through one explicit approval boundary. Phase 4 should formalize policy around that seam rather than scattering approval logic across ad hoc calls.
 
 ### Integration Points
-- `maf_starter/tools.py` is the primary seam for adding controlled write tools, diff helpers, and validation runners bounded to the selected repo.
+- `maf_core/tools.py` is the primary seam for adding controlled write tools, diff helpers, and validation runners bounded to the selected repo.
 - `autogen_dashboard/session_runner.py` is the primary seam for invoking write and validation actions during implementation and validation stages while preserving durable pause and retry behavior.
 - `autogen_dashboard/session_store.py` and `autogen_dashboard/schemas.py` are the primary seams for attaching change artifacts, validation records, and approval-scope details to runs.
 - `autogen_dashboard/static/app.js` and the existing operator tabs are the natural surface for changed-file summaries, diffs, validation results, and approval scope cards once backend artifacts exist.

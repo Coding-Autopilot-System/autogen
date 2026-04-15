@@ -19,18 +19,18 @@ completed: 2026-03-21
 
 ## Accomplishments
 
-- Added `maf_starter/orchestration.py` as the canonical stage machine for `planning -> research -> implementation -> review -> validation`.
+- Added `maf_core/orchestration.py` as the canonical stage machine for `planning -> research -> implementation -> review -> validation`.
 - Added serializable `RunOrchestrationState`, `StageRecord`, `StageSummary`, and `AutoAnswerRecord` helpers so stage transitions no longer depend on transcript parsing.
-- Updated `maf_starter/workflow_factory.py` to expose run-scoped orchestration and stage-artifact layout instead of raw checkpoint storage only.
-- Refactored `maf_starter/team_factory.py` into a manager-led workflow wrapper that exposes canonical stages and structured specialist handoff expectations.
-- Updated `maf_starter/agent_factory.py` and `entities/repo_team/workflow.py` so the active repo team clearly advertises manager-led engineering orchestration.
+- Updated `maf_core/workflow_factory.py` to expose run-scoped orchestration and stage-artifact layout instead of raw checkpoint storage only.
+- Refactored `maf_core/team_factory.py` into a manager-led workflow wrapper that exposes canonical stages and structured specialist handoff expectations.
+- Updated `maf_core/agent_factory.py` and `entities/repo_team/workflow.py` so the active repo team clearly advertises manager-led engineering orchestration.
 
 ## Files
 
-- `maf_starter/orchestration.py`
-- `maf_starter/workflow_factory.py`
-- `maf_starter/team_factory.py`
-- `maf_starter/agent_factory.py`
+- `maf_core/orchestration.py`
+- `maf_core/workflow_factory.py`
+- `maf_core/team_factory.py`
+- `maf_core/agent_factory.py`
 - `entities/repo_team/workflow.py`
 - `tests/test_phase2_manager.py`
 - `tests/test_maf_setup.py`

@@ -54,7 +54,7 @@ The established in-repo stack for this phase is not a new library choice. It is 
 | Library / Module | Version | Purpose | When to Use |
 |---------|---------|---------|-------------|
 | `FastAPI` via `autogen_dashboard/app.py` | existing env | Operator-facing API and SSE stream | Use as the current best local API seam for run lifecycle work |
-| `FileCheckpointStorage` via `maf_starter/workflow_factory.py` | bundled with Agent Framework | Durable workflow checkpoints | Keep as the MAF execution-state seam, but hang it off the run contract |
+| `FileCheckpointStorage` via `maf_core/workflow_factory.py` | bundled with Agent Framework | Durable workflow checkpoints | Keep as the MAF execution-state seam, but hang it off the run contract |
 | `unittest` via `tests/test_maf_setup.py` | stdlib | Current automated validation baseline | Use for Phase 1 regression coverage before adding broader test layers |
 | PowerShell launchers | in-repo | Local operator workflow for DevUI | Reuse for local serving until a better workbench shell replaces them |
 
@@ -83,7 +83,7 @@ state/
 |     |- workspace.json
 |     |- stage-*.json
 |     |- validation/
-maf_starter/
+maf_core/
 |- run_*.py            # shared active run contract and execution service
 autogen_dashboard/
 |- app.py              # current local operator API shell
@@ -134,7 +134,7 @@ Problems that look small but already have strong in-repo solutions:
 
 ### Pitfall 1: Split-brain run durability
 **What goes wrong:** MAF checkpoints and operator-facing run data evolve separately, so resume and retry behave inconsistently.
-**Why it happens:** Checkpoint storage exists in `maf_starter`, but operator session identity exists only in the legacy dashboard path.
+**Why it happens:** Checkpoint storage exists in `maf_core`, but operator session identity exists only in the legacy dashboard path.
 **How to avoid:** Introduce one shared run ID and make checkpoints, transcript, events, and artifacts all hang off that run directory.
 **Warning signs:** Resume works at the agent layer but not at the operator layer, or a run has transcript history without matching execution state.
 
@@ -179,7 +179,7 @@ Verified in-repo patterns worth preserving:
 
 ### Checkpoint seam in the active MAF path
 ```python
-# Source: maf_starter/workflow_factory.py
+# Source: maf_core/workflow_factory.py
 # Pattern: workflow execution state persists through FileCheckpointStorage,
 # which can be re-rooted under a run-scoped directory.
 ```
@@ -199,7 +199,7 @@ Recommended commands once Phase 1 implementation exists:
 
 - Quick: `.\.venv\Scripts\python.exe -m unittest tests.test_maf_setup`
 - Quick UI/API smoke: `.\.venv\Scripts\python.exe -m unittest discover -s tests -v`
-- Static import sanity: `.\.venv\Scripts\python.exe -m compileall maf_starter autogen_dashboard tests main.py`
+- Static import sanity: `.\.venv\Scripts\python.exe -m compileall maf_core autogen_dashboard tests main.py`
 
 Focus the test map on:
 - workspace selection stays inside allowed roots
@@ -212,9 +212,9 @@ Focus the test map on:
 ## Open Questions
 
 1. **Where should the shared run service live?**
-   - What we know: `maf_starter` is the active runtime home, but the stronger operator session model is in `autogen_dashboard`.
-   - What's unclear: whether to move the legacy session primitives into `maf_starter` or keep a thin dashboard service facade over them.
-   - Recommendation: plan for a shared Python service boundary first, then decide whether its module home is `maf_starter` or a small new shared package.
+   - What we know: `maf_core` is the active runtime home, but the stronger operator session model is in `autogen_dashboard`.
+   - What's unclear: whether to move the legacy session primitives into `maf_core` or keep a thin dashboard service facade over them.
+   - Recommendation: plan for a shared Python service boundary first, then decide whether its module home is `maf_core` or a small new shared package.
 
 2. **How much of the old dashboard becomes active again in Phase 1?**
    - What we know: the old dashboard already provides repo listing, sessions, SSE, and a repo-aware UI shell.
@@ -236,8 +236,8 @@ Focus the test map on:
 - `autogen_dashboard/repo_context.py` - existing repo discovery and repo summary pattern
 - `autogen_dashboard/schemas.py` - existing status, pause, and repo-context schema contract
 - `autogen_dashboard/app.py` - existing repo/session API and SSE event stream
-- `maf_starter/config.py` - current static repo-root and checkpoint configuration seam
-- `maf_starter/workflow_factory.py` - current MAF checkpoint storage seam
+- `maf_core/config.py` - current static repo-root and checkpoint configuration seam
+- `maf_core/workflow_factory.py` - current MAF checkpoint storage seam
 - `README.md` - current runtime boundary, DevUI boundary, and operator workflow notes
 - `docs/DEVUI_CUSTOMIZATION.md` - current DevUI limitation and customization notes
 

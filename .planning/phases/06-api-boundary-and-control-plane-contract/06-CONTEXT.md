@@ -64,11 +64,11 @@ Extract the existing local orchestration runtime into a host-agnostic control-pl
 
 ### Current runtime and API seams
 - `command_center/app.py` - current Command Center HTTP app, AG-UI endpoint registration, repo catalog, and status surface.
-- `maf_starter/cli.py` - current process entrypoints for UI and DevUI, which show how the product boots today.
-- `maf_starter/config.py` - current runtime configuration, repo-root scoping, and fallback chain settings that any shared API service must respect.
-- `maf_starter/orchestration.py` - canonical stage, specialist, pause, and artifact-path contract that the API must surface directly.
-- `maf_starter/routing_policy.py` - route-lane semantics and route planning rules that the API must expose consistently.
-- `maf_starter/provider_fallback.py` - active route/fallback metadata model and capability-drift behavior.
+- `maf_core/cli.py` - current process entrypoints for UI and DevUI, which show how the product boots today.
+- `maf_core/config.py` - current runtime configuration, repo-root scoping, and fallback chain settings that any shared API service must respect.
+- `maf_core/orchestration.py` - canonical stage, specialist, pause, and artifact-path contract that the API must surface directly.
+- `maf_core/routing_policy.py` - route-lane semantics and route planning rules that the API must expose consistently.
+- `maf_core/provider_fallback.py` - active route/fallback metadata model and capability-drift behavior.
 - `autogen_dashboard/app.py` - existing REST-style session API with explicit run actions and SSE event feed; strongest donor for the HTTP contract.
 - `autogen_dashboard/schemas.py` - existing durable run schema for summary, detail, routing, agents, approvals, and artifacts.
 - `autogen_dashboard/session_runner.py` - existing session-service logic for run creation, control actions, and orchestration projection.
@@ -102,7 +102,7 @@ Extract the existing local orchestration runtime into a host-agnostic control-pl
 - A new host-agnostic control-plane service should sit between `command_center/app.py` and the existing `autogen_dashboard` session logic so both the UI and future Azure Functions host can drive the same run contract.
 - `command_center/app.py` should evolve from a thin AG-UI shell into a consumer of the shared run-control endpoints rather than owning separate runtime concepts.
 - `autogen_dashboard/app.py` should either delegate to the same shared service or be treated as a compatibility wrapper until it can be retired.
-- `maf_starter/cli.py` and `main.py` are the current process entrypoints and should remain thin after the control-plane extraction.
+- `maf_core/cli.py` and `main.py` are the current process entrypoints and should remain thin after the control-plane extraction.
 
 </code_context>
 

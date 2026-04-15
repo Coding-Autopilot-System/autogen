@@ -16,7 +16,7 @@
 
 | Option | Description | Selected |
 |--------|-------------|----------|
-| `planner`, `researcher`, `implementer`, and `reviewer` as explicit visible specialists, with manager owning the run | Matches the current runtime roster in `maf_starter/team_factory.py` and keeps ownership legible | ✓ |
+| `planner`, `researcher`, `implementer`, and `reviewer` as explicit visible specialists, with manager owning the run | Matches the current runtime roster in `maf_core/team_factory.py` and keeps ownership legible | ✓ |
 | Hide specialists behind the manager and only show stage summaries | Simpler UI, but fails the phase goal for specialist visibility | |
 | Allow dynamic ad hoc specialist creation per run | Flexible, but too open-ended for the first visibility phase | |
 
@@ -73,7 +73,7 @@
 | No operator routing control before the run | Simpler, but fails `ROUT-01` | |
 
 **User's choice:** `[auto]` Use route-lane presets as the main control, with advanced model pinning available.
-**Notes:** This matches the current routing tiers in `maf_starter/routing_policy.py` while accommodating the desire for explicit model access.
+**Notes:** This matches the current routing tiers in `maf_core/routing_policy.py` while accommodating the desire for explicit model access.
 
 ### Decision: What is the default fallback ordering policy?
 
@@ -110,7 +110,7 @@
 | Do not surface capability drift separately | Fails the phase requirement to show fallback impact clearly | |
 
 **User's choice:** `[auto]` Surface explicit capability-drift badges and changes.
-**Notes:** This is especially important because `maf_starter/provider_fallback.py` already tracks `tools_available`, which can be promoted into a real operator-facing concept.
+**Notes:** This is especially important because `maf_core/provider_fallback.py` already tracks `tools_available`, which can be promoted into a real operator-facing concept.
 
 ---
 

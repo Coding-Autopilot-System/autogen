@@ -26,8 +26,8 @@ completed: 2026-03-21
 
 ## Files
 
-- `maf_starter/validation_runner.py`
-- `maf_starter/orchestration.py`
+- `maf_core/validation_runner.py`
+- `maf_core/orchestration.py`
 - `autogen_dashboard/schemas.py`
 - `autogen_dashboard/session_store.py`
 - `autogen_dashboard/session_runner.py`
@@ -44,4 +44,4 @@ completed: 2026-03-21
 ## Verification
 
 - `.\.venv\Scripts\python.exe -m unittest tests.test_phase4_validation tests.test_run_persistence tests.test_phase2_runtime -v`
-- `.\.venv\Scripts\python.exe -m compileall maf_starter autogen_dashboard tests main.py`
+- `.\.venv\Scripts\python.exe -m compileall maf_core autogen_dashboard tests main.py`

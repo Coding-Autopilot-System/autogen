@@ -24,9 +24,9 @@ completed: 2026-03-21
 
 ## Files
 
-- `maf_starter/repo_execution.py`
-- `maf_starter/tools.py`
-- `maf_starter/orchestration.py`
+- `maf_core/repo_execution.py`
+- `maf_core/tools.py`
+- `maf_core/orchestration.py`
 - `autogen_dashboard/schemas.py`
 - `autogen_dashboard/session_store.py`
 - `autogen_dashboard/session_runner.py`
@@ -42,4 +42,4 @@ completed: 2026-03-21
 ## Verification
 
 - `.\.venv\Scripts\python.exe -m unittest tests.test_phase4_write_execution tests.test_run_persistence -v`
-- `.\.venv\Scripts\python.exe -m compileall maf_starter autogen_dashboard tests main.py`
+- `.\.venv\Scripts\python.exe -m compileall maf_core autogen_dashboard tests main.py`

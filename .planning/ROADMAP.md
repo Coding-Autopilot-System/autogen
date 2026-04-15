@@ -16,8 +16,7 @@ This roadmap now enters milestone v1.1: Cloud API and Azure Function Hosting. Th
 - [x] **Phase 4: Autonomous Repo Execution and Validation Guardrails** - Turn the system into a safe default-doer for repo work
 - [x] **Phase 5: Polished Operator Workbench** - Replace prototype interaction with a durable operator-grade UI
 - [ ] **Phase 6: API Boundary and Control Plane Contract** - Extract a shared orchestration service layer and expose it through a stable HTTP API
-- [ ] **Phase 7: Azure Functions Host and Durable API Surface** - Host the control plane in Python Azure Functions with durable run state and async status behavior
-- [ ] **Phase 8: Worker Boundary and Cloud-Safe Execution Profiles** - Separate cloud ingress from long-running repo execution and local-only provider assumptions
+- [ ] **Phase 7: Worker Boundary and Cloud-Safe Execution Profiles** - Separate cloud ingress from long-running repo execution and local-only provider assumptions
 
 ## Phase Details
 
@@ -37,23 +36,7 @@ Plans:
 - [ ] 06-02: Add REST endpoints for submit, status, control, routing, agents, and artifacts
 - [ ] 06-03: Align Operator Workbench and HTTP API parity over the shared run contract
 
-### Phase 7: Azure Functions Host and Durable API Surface
-**Goal**: Host the control plane on Azure Functions with durable state and local Core Tools parity.
-**Depends on**: Phase 6
-**Requirements**: AZFN-01, AZFN-02, AZFN-03, AZFN-04
-**Success Criteria** (what must be TRUE):
-  1. The shared control-plane API can run inside a Python Azure Functions host without rewriting the orchestration core.
-  2. Long-running run state survives host restarts and outlives the original HTTP request.
-  3. The Functions-hosted API can be started and validated locally with Azure Functions Core Tools.
-  4. Routes, settings, and auth behavior are documented and behave consistently between local and Azure environments.
-**Plans**: 3 plans
-
-Plans:
-- [ ] 07-01: Create the Functions host entrypoint and cloud-safe configuration surface
-- [ ] 07-02: Add durable run-start and async status behavior with local Core Tools verification
-- [ ] 07-03: Document routes, auth, and deployment-ready function settings
-
-### Phase 8: Worker Boundary and Cloud-Safe Execution Profiles
+### Phase 7: Worker Boundary and Cloud-Safe Execution Profiles
 **Goal**: Make long-running execution explicit and safe when the control plane is hosted away from the local workstation.
 **Depends on**: Phase 7
 **Requirements**: WRKR-01, WRKR-02, WRKR-03
@@ -65,9 +48,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 08-01: Introduce the worker boundary and background run dispatch contract
-- [ ] 08-02: Add cloud-safe provider and execution profiles with explicit capability enforcement
-- [ ] 08-03: Validate end-to-end API-driven runs across local and cloud-safe execution modes
+- [ ] 07-01: Introduce the worker boundary and background run dispatch contract
+- [ ] 07-02: Add cloud-safe provider and execution profiles with explicit capability enforcement
+- [ ] 07-03: Validate end-to-end API-driven runs across local and cloud-safe execution modes
 
 ## Progress
 
@@ -76,11 +59,10 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Workspace and Durable Run Foundation | 3/3 | Complete | 2026-03-21 |
-| 2. Manager-Led Orchestration Core | 3/3 | Complete | 2026-03-21 |
-| 3. Specialist Delegation and Routing Visibility | 3/3 | Complete | 2026-03-21 |
-| 4. Autonomous Repo Execution and Validation Guardrails | 3/3 | Complete | 2026-03-21 |
-| 5. Polished Operator Workbench | 3/3 | Complete | 2026-03-22 |
+| 1. Workspace and Durable Run Foundation | 3/3 | Complete | 2007-03-21 |
+| 2. Manager-Led Orchestration Core | 3/3 | Complete | 2007-03-21 |
+| 3. Specialist Delegation and Routing Visibility | 3/3 | Complete | 2007-03-21 |
+| 4. Autonomous Repo Execution and Validation Guardrails | 3/3 | Complete | 2007-03-21 |
+| 5. Polished Operator Workbench | 3/3 | Complete | 2007-03-22 |
 | 6. API Boundary and Control Plane Contract | 0/3 | Planned | - |
-| 7. Azure Functions Host and Durable API Surface | 0/3 | Planned | - |
-| 8. Worker Boundary and Cloud-Safe Execution Profiles | 0/3 | Planned | - |
+| 7. Worker Boundary and Cloud-Safe Execution Profiles | 0/3 | Planned | - |

@@ -20,7 +20,7 @@ created: 2026-03-20
 | **Framework** | `unittest` (stdlib) |
 | **Config file** | none - existing repo uses stdlib discovery |
 | **Quick run command** | `.\.venv\Scripts\python.exe -m unittest tests.test_maf_setup` |
-| **Full suite command** | `.\.venv\Scripts\python.exe -m unittest discover -s tests -v && .\.venv\Scripts\python.exe -m compileall maf_starter autogen_dashboard tests main.py` |
+| **Full suite command** | `.\.venv\Scripts\python.exe -m unittest discover -s tests -v && .\.venv\Scripts\python.exe -m compileall maf_core autogen_dashboard tests main.py` |
 | **Estimated runtime** | ~40 seconds |
 
 ---
@@ -28,7 +28,7 @@ created: 2026-03-20
 ## Sampling Rate
 
 - **After every task commit:** Run `.\.venv\Scripts\python.exe -m unittest tests.test_maf_setup`
-- **After every plan wave:** Run `.\.venv\Scripts\python.exe -m unittest discover -s tests -v` and `.\.venv\Scripts\python.exe -m compileall maf_starter autogen_dashboard tests main.py`
+- **After every plan wave:** Run `.\.venv\Scripts\python.exe -m unittest discover -s tests -v` and `.\.venv\Scripts\python.exe -m compileall maf_core autogen_dashboard tests main.py`
 - **Before `$gsd-verify-work`:** Full suite must be green
 - **Max feedback latency:** 45 seconds
 
@@ -45,7 +45,7 @@ created: 2026-03-20
 | 01-02-03 | 01-02 | 2 | WKSP-03 | regression | `.\.venv\Scripts\python.exe -m unittest tests.test_run_persistence tests.test_phase1_api tests.test_phase1_runtime` | NO - W0 | pending |
 | 01-03-01 | 01-03 | 3 | WKSP-02 | runtime | `.\.venv\Scripts\python.exe -m unittest tests.test_phase1_runtime` | NO - W0 | pending |
 | 01-03-02 | 01-03 | 3 | WKSP-01, WKSP-02, WKSP-03 | regression | `.\.venv\Scripts\python.exe -m unittest discover -s tests -v` | YES | pending |
-| 01-03-03 | 01-03 | 3 | WKSP-01, WKSP-02, WKSP-03 | static sanity | `.\.venv\Scripts\python.exe -m compileall maf_starter autogen_dashboard tests main.py` | YES | pending |
+| 01-03-03 | 01-03 | 3 | WKSP-01, WKSP-02, WKSP-03 | static sanity | `.\.venv\Scripts\python.exe -m compileall maf_core autogen_dashboard tests main.py` | YES | pending |
 
 *Status: pending / green / red / flaky*
 

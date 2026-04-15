@@ -21,7 +21,7 @@ created: 2026-03-21
 | **Config file** | none - existing repo uses stdlib discovery |
 | **Quick run command** | `.\.venv\Scripts\python.exe -m unittest tests.test_phase4_write_execution -v` |
 | **Full suite command** | `.\.venv\Scripts\python.exe -m unittest discover -s tests -v` |
-| **Static sanity** | `.\.venv\Scripts\python.exe -m compileall maf_starter autogen_dashboard tests main.py` and `node --check autogen_dashboard\static\app.js` |
+| **Static sanity** | `.\.venv\Scripts\python.exe -m compileall maf_core autogen_dashboard tests main.py` and `node --check autogen_dashboard\static\app.js` |
 | **Estimated runtime** | ~90 seconds |
 
 ---
@@ -48,7 +48,7 @@ created: 2026-03-21
 | 04-03-01 | 04-03 | 3 | EXEC-04 | unit | `.\.venv\Scripts\python.exe -m unittest tests.test_phase4_approval -v` | YES | green |
 | 04-03-02 | 04-03 | 3 | EXEC-04 | API/UI contract | `.\.venv\Scripts\python.exe -m unittest tests.test_phase4_approval tests.test_phase3_api -v` | YES | green |
 | 04-03-03 | 04-03 | 3 | EXEC-01, EXEC-02, EXEC-03, EXEC-04 | regression | `.\.venv\Scripts\python.exe -m unittest discover -s tests -v` | YES | green |
-| 04-03-03b | 04-03 | 3 | EXEC-02, EXEC-04 | static sanity | `.\.venv\Scripts\python.exe -m compileall maf_starter autogen_dashboard tests main.py` and `node --check autogen_dashboard\static\app.js` | YES | green |
+| 04-03-03b | 04-03 | 3 | EXEC-02, EXEC-04 | static sanity | `.\.venv\Scripts\python.exe -m compileall maf_core autogen_dashboard tests main.py` and `node --check autogen_dashboard\static\app.js` | YES | green |
 
 *Status: pending / green / red / flaky*
 

@@ -196,7 +196,7 @@ Recommended commands once implementation lands:
 - Operator-view payloads: `.\.venv\Scripts\python.exe -m unittest tests.test_phase5_operator_views tests.test_phase3_api -v`
 - Approval and artifact regression: `.\.venv\Scripts\python.exe -m unittest tests.test_phase5_operator_views tests.test_phase4_approval tests.test_run_persistence -v`
 - Full suite: `.\.venv\Scripts\python.exe -m unittest discover -s tests -v`
-- Static sanity: `.\.venv\Scripts\python.exe -m compileall maf_starter autogen_dashboard tests main.py`
+- Static sanity: `.\.venv\Scripts\python.exe -m compileall maf_core autogen_dashboard tests main.py`
 - Frontend syntax: `node --check autogen_dashboard\static\app.js`
 
 Focus the test map on:
