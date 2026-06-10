@@ -48,27 +48,32 @@ This repo already carries more engineering evidence than the old README surfaced
 - `tests/test_phase4_approval.py` proves destructive writes and externally visible commands are classified and paused behind approval.
 - `tests/test_phase4_validation.py` checks that changed files produce a proportionate validation ladder including `git diff --check`, Python compile checks, unit discovery, and JavaScript syntax checks.
 - `tests/test_phase5_ui_contract.py` and `tests/test_phase5_operator_views.py` lock the operator UI to timeline, routing, artifact, and specialist-view contracts.
-- `.github/workflows/ci.yml` currently runs the static UI contract suite in CI; the broader local suite demonstrates the intended validation model even though the automation surface is still narrow.
+- `.github/workflows/ci.yml` installs the declared environment and runs the full suite, Python compilation, dependency consistency, and JavaScript syntax checks on Windows and Linux.
 
 ## Quickstart
 
-The checked-in snapshot is immediately useful for architecture review and for running the same dependency-light contract tests used by CI:
+The checked-in snapshot supports a clean-clone local dashboard and full validation workflow:
 
 ```powershell
 git clone https://github.com/Coding-Autopilot-System/autogen.git
 Set-Location autogen
 
-python -m pip install pytest
-python -m pytest tests/test_phase5_ui_contract.py tests/test_phase5_operator_views.py -v
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+Copy-Item .env.example .env
+
+.\.venv\Scripts\python.exe main.py providers
+.\.venv\Scripts\python.exe main.py dashboard --host 127.0.0.1 --port 8000
 ```
 
-Those tests inspect the checked-in operator-workbench assets and require only Python plus `pytest`.
+Run the complete regression suite before changing runtime behavior:
 
-This snapshot does **not** currently include a dependency manifest, `.env.example`, application launcher, or all modules imported by the legacy dashboard path. As a result, there is no supported clean-clone command for launching the full MAF runtime or dashboard from this branch. Treat the runtime code as implementation evidence until its packaging and bootstrap files are restored.
+```powershell
+.\.venv\Scripts\python.exe -m pytest -q --tb=short
+```
 
 ## Configuration
-
-`maf_starter/config.py` is the source of truth for the active MAF configuration contract. It reads process environment variables and, when present, a repo-root `.env` file. No `.env.example` is checked in, so create a local `.env` only when integrating the runtime into an environment that supplies the missing dependencies and entrypoint. Never commit API keys.
+`maf_starter/config.py` is the source of truth for the active MAF configuration contract. Copy `.env.example` to `.env`, set only the providers you intend to use, and never commit API keys. The legacy dashboard launcher also reads `AUTOGEN_*` settings through `autogen_starter/config.py`.
 
 Minimal provider and workspace settings:
 
@@ -88,7 +93,8 @@ MAF_REPO_ROOT=C:\path\to\target-repository
 | `MAF_ROUTE_LANE` | No | `auto` | Routing lane used to select task depth and provider order. |
 | `MAF_REQUESTED_PROVIDER`, `MAF_REQUESTED_MODEL` | No | None | Optional explicit provider/model selection. |
 | `MAF_FALLBACK_CHAIN` | No | Built-in Gemini/API/CLI chain | Comma-separated fallback steps. |
-| `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL` | No | No key; `claude-sonnet-4-6` model | Enables the optional Anthropic fallback when its package is installed. |
+| ANTHROPIC_API_KEY, ANTHROPIC_MODEL | No | No key; claude-sonnet-4-6 model | Enables the optional Anthropic fallback when its package is installed. |
+| `AUTOGEN_CORS_ORIGINS` | No | Explicit loopback origins | Comma-separated origins allowed to call the local dashboard API; wildcard CORS is rejected. |
 | `GEMINI_CLI_COMMAND`, `CLAUDE_CLI_COMMAND`, `CODEX_CLI_COMMAND` | No | `gemini.cmd`, `claude`, `codex.cmd` | Executable names used by optional local CLI fallbacks. |
 
 Additional optional model-candidate and CLI-model overrides are defined directly in `maf_starter/config.py`.
