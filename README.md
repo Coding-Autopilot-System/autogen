@@ -50,6 +50,49 @@ This repo already carries more engineering evidence than the old README surfaced
 - `tests/test_phase5_ui_contract.py` and `tests/test_phase5_operator_views.py` lock the operator UI to timeline, routing, artifact, and specialist-view contracts.
 - `.github/workflows/ci.yml` currently runs the static UI contract suite in CI; the broader local suite demonstrates the intended validation model even though the automation surface is still narrow.
 
+## Quickstart
+
+The checked-in snapshot is immediately useful for architecture review and for running the same dependency-light contract tests used by CI:
+
+```powershell
+git clone https://github.com/Coding-Autopilot-System/autogen.git
+Set-Location autogen
+
+python -m pip install pytest
+python -m pytest tests/test_phase5_ui_contract.py tests/test_phase5_operator_views.py -v
+```
+
+Those tests inspect the checked-in operator-workbench assets and require only Python plus `pytest`.
+
+This snapshot does **not** currently include a dependency manifest, `.env.example`, application launcher, or all modules imported by the legacy dashboard path. As a result, there is no supported clean-clone command for launching the full MAF runtime or dashboard from this branch. Treat the runtime code as implementation evidence until its packaging and bootstrap files are restored.
+
+## Configuration
+
+`maf_starter/config.py` is the source of truth for the active MAF configuration contract. It reads process environment variables and, when present, a repo-root `.env` file. No `.env.example` is checked in, so create a local `.env` only when integrating the runtime into an environment that supplies the missing dependencies and entrypoint. Never commit API keys.
+
+Minimal provider and workspace settings:
+
+```dotenv
+GEMINI_API_KEY=your-gemini-api-key
+MAF_REPO_ROOT=C:\path\to\target-repository
+```
+
+| Variable | Required | Default | Purpose |
+|----------|----------|---------|---------|
+| `MAF_API_KEY` or `GEMINI_API_KEY` | Yes for MAF agent construction | None | API key used by the OpenAI-compatible Gemini client; `MAF_API_KEY` takes precedence. |
+| `MAF_MODEL` or `GEMINI_MODEL` | No | `gemini-2.5-flash` | Primary model; the `MAF_*` name takes precedence. |
+| `MAF_BASE_URL` or `GEMINI_BASE_URL` | No | Gemini OpenAI-compatible endpoint | Provider base URL; the `MAF_*` name takes precedence. |
+| `MAF_REPO_ROOT` | No | Repository root | Repository exposed to bounded repo tools. The path must exist. |
+| `MAF_ENTITIES_DIR` | No | `entities` | Entity discovery directory. |
+| `MAF_CHECKPOINT_DIR` | No | `state\maf-checkpoints` | File-backed checkpoint location. |
+| `MAF_ROUTE_LANE` | No | `auto` | Routing lane used to select task depth and provider order. |
+| `MAF_REQUESTED_PROVIDER`, `MAF_REQUESTED_MODEL` | No | None | Optional explicit provider/model selection. |
+| `MAF_FALLBACK_CHAIN` | No | Built-in Gemini/API/CLI chain | Comma-separated fallback steps. |
+| `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL` | No | No key; `claude-sonnet-4-6` model | Enables the optional Anthropic fallback when its package is installed. |
+| `GEMINI_CLI_COMMAND`, `CLAUDE_CLI_COMMAND`, `CODEX_CLI_COMMAND` | No | `gemini.cmd`, `claude`, `codex.cmd` | Executable names used by optional local CLI fallbacks. |
+
+Additional optional model-candidate and CLI-model overrides are defined directly in `maf_starter/config.py`.
+
 ## Why This Is A Strong Hiring Signal
 
 This project demonstrates more than framework familiarity. It shows judgment about:
