@@ -7,55 +7,78 @@
 Part of the [Coding-Autopilot-System](https://github.com/Coding-Autopilot-System) ecosystem:
 [gsd-orchestrator](https://github.com/Coding-Autopilot-System/gsd-orchestrator) | [Promptimprover](https://github.com/Coding-Autopilot-System/Promptimprover)
 
-autogen is a Python multi-agent orchestration runtime built on Microsoft Agent Framework — combining a Gemini/Claude provider fallback chain, AG-UI observability, and a local operator workbench for end-to-end autonomous engineering workflows.
+`autogen` is a local-first multi-agent engineering workbench built on Microsoft Agent Framework. The product goal is simple: point the system at a real repository, give it one engineering objective, and let a manager-led workflow coordinate planning, research, implementation, review, approvals, validation, and durable artifacts with less manual steering than a chat-first coding loop.
 
-## Features
+This repository is strongest as an architecture and operator-systems portfolio piece: it shows how to turn LLM tooling into a controlled engineering runtime instead of a demo chatbot.
 
-- **Provider fallback chain** — Gemini API (primary) -> Anthropic API -> local CLI fallback; routing policy classifies prompt complexity and selects provider automatically
-- **Multi-agent team orchestration** — sequential planner->researcher->implementer->reviewer chain with FileCheckpointStorage for resumable runs
-- **Bounded repo tools** — read/list/search/write with enforced scope limits; agents cannot access paths outside the configured repo root
-- **AG-UI observability** — DevUI-discoverable workflows expose run state, specialist handoffs, and pause/approval events
-- **Human-in-the-loop approvals** — approval policy gates destructive writes; operators review before execution proceeds
+## Product Story
 
-## Architecture
+Most agent demos stop at "the model answered." `autogen` focuses on the operator problem after that:
 
-```mermaid
-flowchart LR
-    Op["Operator\n(DevUI / Workbench)"] -->|"prompt"| MAF["autogen\n(MAF Runtime)"]
-    MAF --> Gemini["Gemini API\n(primary)"]
-    MAF --> Anthropic["Anthropic API\n(fallback)"]
-    MAF --> CLI["Local CLIs\n(gemini-cli / claude)"]
-    MAF --> Entities["Entities\n(repo_team, copilots)"]
-    MAF --> Tools["Repo Tools\n(read / write / search)"]
-    MAF --> Checkpoints["Checkpoints\n(FileCheckpointStorage)"]
-    Entities --> Out["Run Output\n+ Artifacts"]
-    Tools --> Out
-    Checkpoints --> Out
-```
+- How do you scope agents to a real repo without letting them roam the machine?
+- How do you keep a manager, specialists, and provider fallback chain inspectable?
+- How do you pause for approval before destructive changes?
+- How do you leave behind run artifacts, validation results, and retryable state instead of ephemeral chat output?
 
-## Quickstart
+The answer in this codebase is a manager-led orchestration model with bounded repo tools, approval-aware execution, and a UI contract designed for traceability.
 
-```bash
-git clone https://github.com/Coding-Autopilot-System/autogen.git
-cd autogen
-python -m venv .venv
-# Windows: .\.venv\Scripts\Activate.ps1
-# macOS/Linux: source .venv/bin/activate
-pip install agent-framework python-dotenv
-```
+## What Exists In The Repo Today
 
-Copy `.env.example` to `.env` and set `GEMINI_API_KEY`. See the [Setup Guide](https://github.com/Coding-Autopilot-System/autogen/wiki/Setup-Guide) for full configuration instructions.
+- **Manager-led orchestration**: `entities/repo_team/workflow.py` wires a workflow for planner, researcher, implementer, reviewer, and validation-stage visibility.
+- **Scoped repository operations**: `maf_starter/tools.py` enforces repo-root path boundaries, blocks writes to sensitive targets like `.env`, and limits read/search surfaces.
+- **Routed provider execution**: `maf_starter/provider_fallback.py` and `maf_starter/routing_policy.py` select models by task depth and fall back across API and CLI providers when needed.
+- **Approval and guardrails**: `maf_starter/approval_policy.py` classifies file operations and validation commands so destructive or externally visible actions stop for operator approval.
+- **Durable run artifacts**: `autogen_dashboard/session_store.py` persists transcripts, runtime state, stage summaries, diffs, validation records, and attempt metadata.
+- **Operator-facing visibility**: the dashboard contract covers timeline, routing, agents, artifacts, and approval surfaces rather than a single opaque transcript.
 
-## Configuration
+## Demo Scenarios
 
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `GEMINI_API_KEY` | Yes | -- | Gemini API key for primary model |
-| `MAF_MODEL` | No | `gemini-2.5-flash` | Primary model for agent runs |
-| `MAF_FALLBACK_CHAIN` | No | Auto | Comma-separated provider fallback order |
-| `ANTHROPIC_API_KEY` | No | -- | Anthropic API key for Claude fallback |
+The best way to understand the product is through operator outcomes:
 
-See the [Configuration Reference](https://github.com/Coding-Autopilot-System/autogen/wiki/Configuration-Reference) for the full variable list.
+- **Architecture review on a real repo**: point the system at a checked-out repository and ask for a plan. The manager can retain workspace metadata, route to the right model tier, and preserve the resulting artifacts for follow-up attempts.
+- **Guardrailed implementation run**: ask for a change that touches code or config. Safe edits can proceed through bounded repo tools, while destructive actions pause with an explicit approval scope.
+- **Provider-resilience drill**: trigger a quota or rate-limit failure on the primary model path and inspect how the fallback chain records the route attempt history and capability changes.
+
+## Evidence And Evaluation Posture
+
+This repo already carries more engineering evidence than the old README surfaced:
+
+- `tests/test_workspace_contract.py` validates workspace discovery, repo-root safety, and session creation contracts against real temporary git repos.
+- `tests/test_run_persistence.py` verifies durable session layout, artifact manifests, attempts, diffs, validation outputs, and atomic persistence behavior.
+- `tests/test_phase4_approval.py` proves destructive writes and externally visible commands are classified and paused behind approval.
+- `tests/test_phase4_validation.py` checks that changed files produce a proportionate validation ladder including `git diff --check`, Python compile checks, unit discovery, and JavaScript syntax checks.
+- `tests/test_phase5_ui_contract.py` and `tests/test_phase5_operator_views.py` lock the operator UI to timeline, routing, artifact, and specialist-view contracts.
+- `.github/workflows/ci.yml` currently runs the static UI contract suite in CI; the broader local suite demonstrates the intended validation model even though the automation surface is still narrow.
+
+## Why This Is A Strong Hiring Signal
+
+This project demonstrates more than framework familiarity. It shows judgment about:
+
+- turning agent capabilities into bounded operational surfaces,
+- separating operator control from model improvisation,
+- preserving artifacts and retry semantics for long-running engineering work,
+- designing UI and API contracts around observability instead of novelty,
+- and shaping local-first tooling so it can evolve toward service boundaries later.
+
+## Cloud-Ready Direction
+
+`autogen` is intentionally local-first today, but its primitives already point toward a future control plane:
+
+- durable run IDs and persisted artifacts,
+- explicit pause, approve, retry, and resume semantics,
+- structured route-attempt metadata,
+- workspace and execution contracts that can sit behind HTTP later,
+- and an orchestration core that can be split from the local operator shell.
+
+That is the right foundation for a later Azure-hosted control plane or worker boundary without rebuilding the product concept from scratch.
+
+## Repository Pointers
+
+- `maf_starter/` - orchestration core, routing, fallback, repo tools, approvals, validation
+- `autogen_dashboard/` - API and operator-facing session surfaces
+- `entities/repo_team/` - manager-led workflow entrypoint
+- `tests/` - contract, runtime, approval, persistence, and operator-view evidence
+- `.planning/` - architecture notes, phased roadmap, and future control-plane direction
 
 ## License
 
