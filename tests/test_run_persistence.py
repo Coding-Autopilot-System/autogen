@@ -310,5 +310,19 @@ class RunPersistenceTests(unittest.TestCase):
         self.assertEqual(temp_files, [])
 
 
+    def test_store_rejects_path_traversal_identifiers(self) -> None:
+        store = SessionStore(self.make_scratch_dir() / "state" / "sessions")
+
+        for invalid_session_id in ("../outside", "..\\outside", ".", "C:\\outside"):
+            with self.subTest(session_id=invalid_session_id):
+                with self.assertRaisesRegex(ValueError, "Invalid session id"):
+                    store.session_dir(invalid_session_id)
+
+        with self.assertRaisesRegex(ValueError, "Invalid stage"):
+            store.stage_artifact_dir("run-001", "../../outside")
+
+        with self.assertRaisesRegex(ValueError, "Invalid attempt id"):
+            store.attempt_dir("run-001", "../attempt-001")
+
 if __name__ == "__main__":
     unittest.main()

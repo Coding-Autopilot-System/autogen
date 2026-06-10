@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import tempfile
 from pathlib import Path
 from typing import Any
@@ -8,13 +9,22 @@ from typing import Any
 from autogen_dashboard.schemas import RepoContext, SessionDetail, SessionEvent, SessionSummary, TranscriptMessage
 
 
+SAFE_PATH_COMPONENT = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
+
+
+def _safe_path_component(value: str, *, label: str) -> str:
+    if not SAFE_PATH_COMPONENT.fullmatch(value) or value in {".", ".."}:
+        raise ValueError(f"Invalid {label}: expected a single safe path component")
+    return value
+
+
 class SessionStore:
     def __init__(self, sessions_root: Path) -> None:
-        self.sessions_root = sessions_root
+        self.sessions_root = sessions_root.resolve()
         self.sessions_root.mkdir(parents=True, exist_ok=True)
 
     def session_dir(self, session_id: str) -> Path:
-        return self.sessions_root / session_id
+        return self.sessions_root / _safe_path_component(session_id, label="session id")
 
     def metadata_path(self, session_id: str) -> Path:
         return self.session_dir(session_id) / "metadata.json"
@@ -38,7 +48,7 @@ class SessionStore:
         return self.artifacts_dir(session_id) / "stages"
 
     def stage_artifact_dir(self, session_id: str, stage: str) -> Path:
-        return self.stage_artifacts_dir(session_id) / stage
+        return self.stage_artifacts_dir(session_id) / _safe_path_component(stage, label="stage")
 
     def stage_summary_path(self, session_id: str, stage: str) -> Path:
         return self.stage_artifact_dir(session_id, stage) / "summary.json"
@@ -92,7 +102,7 @@ class SessionStore:
         return self.session_dir(session_id) / "attempts"
 
     def attempt_dir(self, session_id: str, attempt_id: str) -> Path:
-        return self.attempts_dir(session_id) / attempt_id
+        return self.attempts_dir(session_id) / _safe_path_component(attempt_id, label="attempt id")
 
     def attempt_summary_path(self, session_id: str, attempt_id: str) -> Path:
         return self.attempt_dir(session_id, attempt_id) / "summary.json"
