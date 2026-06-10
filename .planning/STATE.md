@@ -4,8 +4,8 @@ milestone: v1.1
 milestone_name: milestone
 status: completed
 stopped_at: Phase 6 complete
-last_updated: "2026-04-15T19:56:10.036Z"
-last_activity: 2026-03-22 - Phase 6 complete - Plan 03 delivered Command Center parity tests, legacy compatibility notices, and README External API section
+last_updated: "2026-06-10T18:30:00+03:00"
+last_activity: 2026-06-10 - Completed quick task 260610-ppt: PR #1 follow-up truthful Quickstart and Configuration guidance
 progress:
   total_phases: 2
   completed_phases: 1
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-03-22)
 Phase: 07 (azure-functions-and-cloud-control-plane) - READY TO START
 Plan: 07-01 (next)
 Status: Phase 6 complete - Shared control-plane API delivered with /api/v1 REST router, Command Center parity validation, and external API documentation. Ready for Azure Functions deployment.
-Last activity: 2026-03-22 - Phase 6 complete - Plan 03 delivered Command Center parity tests, legacy compatibility notices, and README External API section
+Last activity: 2026-06-10 - Completed quick task 260610-ppt: PR #1 follow-up truthful Quickstart and Configuration guidance
 
 ## Performance Metrics
 
@@ -134,6 +134,12 @@ None yet.
 - `azd` is not installed locally, so milestone work should rely on Azure Functions Core Tools, Azure CLI, and deployment-ready packaging instead of `azd` as a hard prerequisite
 - Local Python is `3.14.2`, but Azure Functions hosted deployment work should target GA-supported Python such as `3.13` or `3.12`
 - A cloud-hosted control plane cannot assume local CLI logins, desktop-bound tooling, or direct repo access unless a compatible worker is attached
+
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Status | Directory |
+|---|-------------|------|--------|--------|-----------|
+| 260610-ppt | PR #1 follow-up: truthful Quickstart and Configuration guidance | 2026-06-10 | 5487e05 | Verified | [260610-ppt-pr-1-follow-up-restore-practical-truthfu](./quick/260610-ppt-pr-1-follow-up-restore-practical-truthfu/) |
 
 ## Session Continuity
 
