@@ -117,5 +117,19 @@ class Phase4WriteExecutionTests(unittest.TestCase):
         self.assertEqual(result.diff_patch, "")
 
 
+    def test_write_operations_are_utf8_only_and_leave_no_temp_files(self) -> None:
+        scratch = self.make_scratch_dir()
+        repo_root = scratch / "repo"
+        init_repo(repo_root)
+
+        with self.assertRaisesRegex(ValueError, "UTF-8"):
+            apply_write_operations(
+                repo_root,
+                [WriteOperation(action="update_file", path="README.md", content="changed", encoding="utf-16")],
+            )
+
+        self.assertEqual((repo_root / "README.md").read_text(encoding="utf-8"), "# repo\n")
+        self.assertEqual(list(repo_root.rglob("*.tmp")), [])
+
 if __name__ == "__main__":
     unittest.main()
