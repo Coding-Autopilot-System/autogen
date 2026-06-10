@@ -112,8 +112,10 @@ class MafSetupTests(RepoScratchTestCase):
         allowed = root / "notes.txt"
         allowed.write_text("ok", encoding="utf-8")
         self.assertEqual(resolve_repo_path(root, "notes.txt"), allowed)
-        with self.assertRaises(ValueError):
-            resolve_repo_path(root, "..\\outside.txt")
+        for unsafe_path in ("../outside.txt", "..\\outside.txt", "C:\\outside.txt"):
+            with self.subTest(path=unsafe_path):
+                with self.assertRaises(ValueError):
+                    resolve_repo_path(root, unsafe_path)
 
     def test_build_repo_tools_contains_expected_tool_names(self) -> None:
         tools = build_repo_tools(self.make_scratch_dir())

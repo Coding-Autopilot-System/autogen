@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import subprocess
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 
 from agent_framework import tool
 
@@ -18,7 +18,10 @@ MAX_SEARCH_MATCHES = 60
 
 
 def _resolve_candidate(repo_root: Path, raw_path: str) -> Path:
-    candidate = Path(raw_path)
+    normalized_raw = raw_path.replace("\\", "/")
+    if PureWindowsPath(raw_path).is_absolute() and not Path(normalized_raw).is_absolute():
+        raise ValueError(f"Path escapes the configured repo root: {raw_path}")
+    candidate = Path(normalized_raw)
     if not candidate.is_absolute():
         candidate = (repo_root / candidate).resolve()
     else:
