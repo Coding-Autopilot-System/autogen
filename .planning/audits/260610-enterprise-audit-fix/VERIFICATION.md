@@ -17,7 +17,7 @@ CI installs from `requirements.txt` in a clean environment and now treats depend
 
 ## Manual Verification Remaining
 
-- Observe the Windows and Linux GitHub Actions jobs on PR #1 after push.
+- Push the branch after the GitHub CLI token gains the `workflow` scope, then observe the Windows and Linux GitHub Actions jobs on PR #1. The current token has `repo` but not `workflow`, so GitHub rejected the workflow update.
 - Exercise one real provider-backed dashboard run with a non-production key.
 - Decide whether to consolidate or retire the parallel legacy and MAF runtime contracts.
 - Define production authentication and isolated worker execution before any non-loopback deployment.
