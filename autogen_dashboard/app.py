@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, HTTPException
@@ -26,13 +27,24 @@ from autogen_dashboard.session_runner import SessionService
 from autogen_starter.providers import ProviderConfigError
 
 
+DEFAULT_CORS_ORIGINS = ("http://127.0.0.1:8000", "http://localhost:8000")
+
+
+def _cors_origins() -> list[str]:
+    configured = os.getenv("AUTOGEN_CORS_ORIGINS", "")
+    origins = [origin.strip() for origin in configured.split(",") if origin.strip()]
+    if "*" in origins:
+        raise ValueError("AUTOGEN_CORS_ORIGINS must list explicit origins; wildcard CORS is not allowed.")
+    return origins or list(DEFAULT_CORS_ORIGINS)
+
+
 def create_app() -> FastAPI:
     app = FastAPI(title="AutoGen Dashboard", version="0.1.0")
 
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
-        allow_credentials=True,
+        allow_origins=_cors_origins(),
+        allow_credentials=False,
         allow_methods=["*"],
         allow_headers=["*"],
     )

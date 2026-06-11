@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from difflib import unified_diff
 from pathlib import Path
+import tempfile
 from typing import Any, Literal
 
 from maf_starter.tools import resolve_repo_path
@@ -154,9 +155,7 @@ def append_file(repo_root: Path, operation: WriteOperation) -> WriteOperationRec
         raise ValueError(f"append_file requires a file path: {operation.path}")
     before_text = _read_text(target)
     if operation.content:
-        target.parent.mkdir(parents=True, exist_ok=True)
-        with target.open("a", encoding=operation.encoding, newline="") as handle:
-            handle.write(operation.content)
+        _write_text(target, before_text + operation.content, operation.encoding)
     after_text = _read_text(target)
     changed = before_text != after_text
     return WriteOperationRecord(
@@ -216,8 +215,13 @@ def _resolve_write_target(repo_root: Path, raw_path: str) -> Path:
 
 
 def _write_text(path: Path, content: str, encoding: str) -> None:
+    if encoding.lower() != "utf-8":
+        raise ValueError("Only UTF-8 write operations are supported")
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(content, encoding=encoding, newline="")
+    with tempfile.NamedTemporaryFile("w", encoding="utf-8", newline="", delete=False, dir=path.parent, suffix=".tmp") as handle:
+        handle.write(content)
+        temp_path = Path(handle.name)
+    temp_path.replace(path)
 
 
 def _read_text(path: Path) -> str:

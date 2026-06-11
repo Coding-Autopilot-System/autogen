@@ -28,6 +28,11 @@ from maf_starter.workflow_factory import build_workflow
 SCRATCH_ROOT = Path(__file__).resolve().parents[1] / ".tmp-tests"
 
 
+def load_test_settings():
+    with patch.dict("os.environ", {"MAF_API_KEY": "test-key"}, clear=False):
+        return load_settings(project_root=Path.cwd(), env_path=Path.cwd() / ".missing-env")
+
+
 class RepoScratchTestCase(unittest.TestCase):
     def make_scratch_dir(self) -> Path:
         path = SCRATCH_ROOT / uuid.uuid4().hex
@@ -107,8 +112,10 @@ class MafSetupTests(RepoScratchTestCase):
         allowed = root / "notes.txt"
         allowed.write_text("ok", encoding="utf-8")
         self.assertEqual(resolve_repo_path(root, "notes.txt"), allowed)
-        with self.assertRaises(ValueError):
-            resolve_repo_path(root, "..\\outside.txt")
+        for unsafe_path in ("../outside.txt", "..\\outside.txt", "C:\\outside.txt"):
+            with self.subTest(path=unsafe_path):
+                with self.assertRaises(ValueError):
+                    resolve_repo_path(root, unsafe_path)
 
     def test_build_repo_tools_contains_expected_tool_names(self) -> None:
         tools = build_repo_tools(self.make_scratch_dir())
@@ -189,7 +196,7 @@ class MafSetupTests(RepoScratchTestCase):
             options={},
             stream=True,
         )
-        settings = load_settings(project_root=Path.cwd(), env_path=Path.cwd() / ".env")
+        settings = load_test_settings()
 
         async def fallback_updates():
             yield ChatResponseUpdate(role="assistant", contents=[Content.from_text("READY")], model_id="fallback")
@@ -267,7 +274,7 @@ class MafSetupTests(RepoScratchTestCase):
             reset_run_scope(tokens)
 
     def test_auto_routing_plan_uses_simple_tier_for_light_prompt(self) -> None:
-        settings = load_settings(project_root=Path.cwd(), env_path=Path.cwd() / ".env")
+        settings = load_test_settings()
         plan = build_routing_plan(
             settings,
             routing_mode="auto",
@@ -279,7 +286,7 @@ class MafSetupTests(RepoScratchTestCase):
         self.assertEqual(plan.primary_model, "gemini-2.5-flash-lite")
 
     def test_auto_routing_plan_uses_deep_tier_for_repo_work(self) -> None:
-        settings = load_settings(project_root=Path.cwd(), env_path=Path.cwd() / ".env")
+        settings = load_test_settings()
         plan = build_routing_plan(
             settings,
             routing_mode="auto",
@@ -312,7 +319,7 @@ class MafSetupTests(RepoScratchTestCase):
         self.assertIn("CdxRoutePanel", patched)
 
     def test_route_metadata_contains_tools_available_flag(self) -> None:
-        settings = load_settings(project_root=Path.cwd(), env_path=Path.cwd() / ".env")
+        settings = load_test_settings()
         metadata = _merge_route_metadata(
             None,
             settings=settings,
