@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: milestone
 status: completed
-stopped_at: Phase 6 complete
-last_updated: "2026-06-10T18:30:00+03:00"
-last_activity: 2026-06-10 - Completed quick task 260610-ppt: PR #1 follow-up truthful Quickstart and Configuration guidance
+stopped_at: Phase 7 complete
+last_updated: "2026-06-14T00:00:00+03:00"
+last_activity: 2026-06-14 - Completed Phase 7: Worker Boundary and Cloud-Safe Execution Profiles
 progress:
   total_phases: 2
-  completed_phases: 1
-  total_plans: 3
-  completed_plans: 4
+  completed_phases: 2
+  total_plans: 6
+  completed_plans: 7
   percent: 100
 ---
 
@@ -25,10 +25,10 @@ See: .planning/PROJECT.md (updated 2026-03-22)
 
 ## Current Position
 
-Phase: 07 (azure-functions-and-cloud-control-plane) - READY TO START
-Plan: 07-01 (next)
-Status: Phase 6 complete - Shared control-plane API delivered with /api/v1 REST router, Command Center parity validation, and external API documentation. Ready for Azure Functions deployment.
-Last activity: 2026-06-10 - Completed quick task 260610-ppt: PR #1 follow-up truthful Quickstart and Configuration guidance
+Phase: 07 (worker-boundary-and-cloud-safe-execution-profiles) - COMPLETE
+Plan: 07-03 (last completed)
+Status: Phase 7 complete - Worker boundary and cloud-safe execution profiles delivered. WorkerBoundary async dispatch, ExecutionProfile enforcement, IncompatibleProviderError, and --profile CLI flag are all in place. All three plans (07-01, 07-02, 07-03) completed.
+Last activity: 2026-06-14 - Completed Phase 7: Worker Boundary and Cloud-Safe Execution Profiles
 
 ## Performance Metrics
 
@@ -72,6 +72,9 @@ Last activity: 2026-06-10 - Completed quick task 260610-ppt: PR #1 follow-up tru
 | Phase 06 P01 | 1 min | 4 tasks | 4 files |
 | Phase 06 P02 | 1 min | 4 tasks | 4 files |
 | Phase 06 P03 | 1 min | 4 tasks | 4 files |
+| Phase 07 P01 | 1 min | 2 tasks | 2 files |
+| Phase 07 P02 | 1 min | 3 tasks | 3 files |
+| Phase 07 P03 | 1 min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -121,6 +124,13 @@ Recent decisions affecting current work:
 - Milestone v1.1: Continue phase numbering from 6 instead of resetting roadmap numbering
 - Milestone v1.1: Use Azure Functions as the cloud control-plane host and keep long-running repo execution behind a worker boundary
 - Milestone v1.1: Keep the Operator Workbench and the external HTTP API on one shared orchestration contract
+- Phase 07 planning: WorkerBoundary uses asyncio.create_task for background dispatch with no new dependencies
+- Phase 07 planning: Cloud-safe profile is strictly opt-in via --profile flag; local execution path is unchanged
+- Phase 07-01: WorkerProfile is a string enum for clean serialization and CLI parsing
+- Phase 07-01: WorkerBoundary tracks status in a plain dict; terminal states are "done" and "error:<msg>"
+- Phase 07-02: IncompatibleProviderError carries provider and profile name in a human-readable message
+- Phase 07-02: assert_provider_allowed guard is placed at the top of _execute_chain_step before any subprocess is spawned
+- Phase 07-03: SUBPROCESS_PROVIDERS frozenset is the single source of truth for which providers require subprocess access
 
 ### Pending Todos
 
