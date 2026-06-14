@@ -17,6 +17,8 @@ from autogen_starter.providers import (
     collect_provider_statuses,
     create_model_client,
 )
+from maf_starter.execution_profile import CLOUD_SAFE_PROFILE, LOCAL_PROFILE
+from maf_starter.worker_boundary import WorkerProfile
 
 DEFAULT_CHAT_SYSTEM_MESSAGE = (
     "You are a collaborative assistant. Work with the human in short iterations. "
@@ -29,8 +31,22 @@ DEFAULT_STEP_SYSTEM_MESSAGE = (
 )
 
 
+def _profile_choices() -> tuple[str, ...]:
+    return tuple(p.value for p in WorkerProfile)
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="AutoGen AgentChat starter.")
+    parser.add_argument(
+        "--profile",
+        choices=_profile_choices(),
+        default=WorkerProfile.LOCAL.value,
+        help=(
+            "Execution profile: 'local' (default) allows all providers including "
+            "subprocess-backed CLI tools; 'cloud-safe' restricts to API-only providers "
+            "and rejects subprocess execution."
+        ),
+    )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     subparsers.add_parser("providers", help="Show provider readiness.")
@@ -140,8 +156,13 @@ def main() -> int:
     parser = build_parser()
     args = parser.parse_args()
 
+    # Resolve execution profile from --profile flag (default: local).
+    profile = CLOUD_SAFE_PROFILE if args.profile == WorkerProfile.CLOUD_SAFE.value else LOCAL_PROFILE
+
     try:
         settings = load_settings()
+        if profile.profile != WorkerProfile.LOCAL:
+            print(f"[profile] Active execution profile: {profile.profile.value} — subprocess providers are disabled.")
         if args.command == "providers":
             print_provider_statuses(settings)
             return 0
