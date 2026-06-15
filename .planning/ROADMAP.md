@@ -15,8 +15,8 @@ This roadmap now enters milestone v1.1: Cloud API and Azure Function Hosting. Th
 - [x] **Phase 3: Specialist Delegation and Routing Visibility** - Make specialist participation and provider routing fully visible
 - [x] **Phase 4: Autonomous Repo Execution and Validation Guardrails** - Turn the system into a safe default-doer for repo work
 - [x] **Phase 5: Polished Operator Workbench** - Replace prototype interaction with a durable operator-grade UI
-- [ ] **Phase 6: API Boundary and Control Plane Contract** - Extract a shared orchestration service layer and expose it through a stable HTTP API
-- [ ] **Phase 7: Worker Boundary and Cloud-Safe Execution Profiles** - Separate cloud ingress from long-running repo execution and local-only provider assumptions
+- [x] **Phase 6: API Boundary and Control Plane Contract** - Extract a shared orchestration service layer and expose it through a stable HTTP API
+- [x] **Phase 7: Worker Boundary and Cloud-Safe Execution Profiles** - Separate cloud ingress from long-running repo execution and local-only provider assumptions
 
 ## Phase Details
 
@@ -48,9 +48,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 07-01: Introduce the worker boundary and background run dispatch contract
-- [ ] 07-02: Add cloud-safe provider and execution profiles with explicit capability enforcement
-- [ ] 07-03: Validate end-to-end API-driven runs across local and cloud-safe execution modes
+- [x] 07-01: Introduce the worker boundary and background run dispatch contract
+- [x] 07-02: Add cloud-safe provider and execution profiles with explicit capability enforcement
+- [x] 07-03: Validate end-to-end API-driven runs across local and cloud-safe execution modes
 
 ## Progress
 
@@ -64,5 +64,5 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8
 | 3. Specialist Delegation and Routing Visibility | 3/3 | Complete | 2007-03-21 |
 | 4. Autonomous Repo Execution and Validation Guardrails | 3/3 | Complete | 2007-03-21 |
 | 5. Polished Operator Workbench | 3/3 | Complete | 2007-03-22 |
-| 6. API Boundary and Control Plane Contract | 0/3 | Planned | - |
-| 7. Worker Boundary and Cloud-Safe Execution Profiles | 0/3 | Planned | - |
+| 6. API Boundary and Control Plane Contract | 3/3 | Complete | 2026-06-10 |
+| 7. Worker Boundary and Cloud-Safe Execution Profiles | 3/3 | Complete | 2026-06-14 |

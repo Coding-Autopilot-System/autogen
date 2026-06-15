@@ -65,6 +65,7 @@ except ModuleNotFoundError:  # pragma: no cover - optional dependency
     AnthropicClient = None
 
 from maf_starter.config import Settings, activate_run_scope, reset_run_scope
+from maf_starter.execution_profile import CLOUD_SAFE_PROFILE, LOCAL_PROFILE, ExecutionProfile
 from maf_starter.routing_policy import RoutingPlan, build_routing_plan
 from maf_starter.routing_types import CapabilityChange, ChainStep, RouteAttempt
 
@@ -317,7 +318,11 @@ async def _execute_chain_step(
     prior_error: Exception,
     attempt_log: list[RouteAttempt] | None = None,
     fallback_index: int = 0,
+    profile: ExecutionProfile = LOCAL_PROFILE,
 ):
+    # Guard: reject subprocess-backed providers when the profile disallows them.
+    profile.assert_provider_allowed(step.provider)
+
     if step.provider == "gemini":
         client = OpenAIChatClient(
             model_id=step.model or settings.model,
