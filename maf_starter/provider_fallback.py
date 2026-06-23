@@ -446,6 +446,44 @@ async def _execute_chain_step(
             return _stream_from_response(response)
         return response
 
+    if step.provider == "ollama":
+        if not settings.ollama_base_url:
+            raise RuntimeError("Ollama base URL is not configured. Set OLLAMA_BASE_URL.")
+        client = OpenAIChatClient(
+            model_id=step.model or settings.ollama_model,
+            api_key="ollama",
+            base_url=settings.ollama_base_url,
+        )
+        if _context_is_streaming(context):
+            response = client.get_streaming_response(
+                context.messages,
+                **_context_response_kwargs(context, _override_model(context.options, step.model or settings.ollama_model)),
+            )
+        else:
+            response = await client.get_response(
+                context.messages,
+                **_context_response_kwargs(context, _override_model(context.options, step.model or settings.ollama_model)),
+            )
+        if attempt_log is not None:
+            attempt_log.append(
+                _build_route_attempt(
+                    step.provider,
+                    step.model or settings.ollama_model,
+                    status="succeeded",
+                    fallback_index=fallback_index,
+                    tools_available=True,
+                )
+            )
+        return _decorate_result(
+            response,
+            settings=settings,
+            step=step,
+            route=route,
+            prior_error=prior_error,
+            add_notice=False,
+            attempt_log=attempt_log,
+        )
+
     raise RuntimeError(f"Unsupported fallback provider: {step.provider}")
 
 

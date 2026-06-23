@@ -192,7 +192,24 @@ def create_app() -> FastAPI:
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-    @app.get("/api/sessions/{session_id}/events")
+    @app.get(
+        "/api/sessions/{session_id}/events",
+        summary="Stream session events (SSE)",
+        description=(
+            "Server-Sent Events stream for the given session. "
+            "Each event frame carries a typed payload. "
+            "The first event is always a 'snapshot' containing the full current session state. "
+            "Subsequent events are incremental updates. "
+            "Media type: text/event-stream."
+        ),
+        responses={
+            200: {
+                "description": "SSE stream of session events",
+                "content": {"text/event-stream": {"schema": {"type": "string"}}},
+            },
+            404: {"description": "Session not found"},
+        },
+    )
     async def api_session_events(
         session_id: str,
         since_seq: int = 0,

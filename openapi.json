@@ -1,0 +1,3527 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "AutoGen Dashboard",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/healthz": {
+      "get": {
+        "summary": "Healthz",
+        "operationId": "healthz_healthz_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/providers": {
+      "get": {
+        "summary": "Api Providers",
+        "operationId": "api_providers_api_providers_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderListResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/repos": {
+      "get": {
+        "summary": "Api Repos",
+        "operationId": "api_repos_api_repos_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RepoListResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sessions": {
+      "get": {
+        "summary": "Api List Sessions",
+        "operationId": "api_list_sessions_api_sessions_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionListResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Api Create Session",
+        "operationId": "api_create_session_api_sessions_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SessionCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionCreateResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sessions/{session_id}": {
+      "get": {
+        "summary": "Api Get Session",
+        "operationId": "api_get_session_api_sessions__session_id__get",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sessions/{session_id}/messages": {
+      "post": {
+        "summary": "Api Add Message",
+        "operationId": "api_add_message_api_sessions__session_id__messages_post",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SessionMessageRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionActionResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sessions/{session_id}/approve": {
+      "post": {
+        "summary": "Api Approve",
+        "operationId": "api_approve_api_sessions__session_id__approve_post",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SessionDecisionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionActionResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sessions/{session_id}/reject": {
+      "post": {
+        "summary": "Api Reject",
+        "operationId": "api_reject_api_sessions__session_id__reject_post",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SessionDecisionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionActionResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sessions/{session_id}/run": {
+      "post": {
+        "summary": "Api Run",
+        "operationId": "api_run_api_sessions__session_id__run_post",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/SessionRunRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Request"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionActionResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sessions/{session_id}/stop": {
+      "post": {
+        "summary": "Api Stop",
+        "operationId": "api_stop_api_sessions__session_id__stop_post",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionActionResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sessions/{session_id}/cancel": {
+      "post": {
+        "summary": "Api Cancel",
+        "operationId": "api_cancel_api_sessions__session_id__cancel_post",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionActionResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sessions/{session_id}/retry": {
+      "post": {
+        "summary": "Api Retry",
+        "operationId": "api_retry_api_sessions__session_id__retry_post",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionActionResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sessions/{session_id}/events": {
+      "get": {
+        "summary": "Stream session events (SSE)",
+        "description": "Server-Sent Events stream for the given session. Each event frame carries a typed payload. The first event is always a 'snapshot' containing the full current session state. Subsequent events are incremental updates. Media type: text/event-stream.",
+        "operationId": "api_session_events_api_sessions__session_id__events_get",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          },
+          {
+            "name": "since_seq",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 0,
+              "title": "Since Seq"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "SSE stream of session events",
+            "content": {
+              "application/json": {
+                "schema": {}
+              },
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Session not found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/": {
+      "get": {
+        "summary": "Root",
+        "operationId": "root__get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ApprovalDecision": {
+        "properties": {
+          "decision": {
+            "type": "string",
+            "enum": [
+              "approve",
+              "reject"
+            ],
+            "title": "Decision"
+          },
+          "note": {
+            "type": "string",
+            "title": "Note"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "decision",
+          "note",
+          "created_at"
+        ],
+        "title": "ApprovalDecision"
+      },
+      "AutoAnswerRecordModel": {
+        "properties": {
+          "question": {
+            "type": "string",
+            "title": "Question"
+          },
+          "answer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Answer"
+          },
+          "sources": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Sources"
+          },
+          "confidence": {
+            "type": "number",
+            "title": "Confidence",
+            "default": 0.0
+          },
+          "decision_type": {
+            "type": "string",
+            "title": "Decision Type",
+            "default": "needs_input"
+          },
+          "needs_input": {
+            "type": "boolean",
+            "title": "Needs Input",
+            "default": false
+          },
+          "stage": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "planning",
+                  "research",
+                  "implementation",
+                  "review",
+                  "validation"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stage"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Metadata"
+          }
+        },
+        "type": "object",
+        "required": [
+          "question",
+          "created_at"
+        ],
+        "title": "AutoAnswerRecordModel"
+      },
+      "CapabilityChangeModel": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "before": {
+            "title": "Before"
+          },
+          "after": {
+            "title": "After"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "CapabilityChangeModel"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "HealthResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "default": "ok"
+          }
+        },
+        "type": "object",
+        "title": "HealthResponse"
+      },
+      "ProviderListResponse": {
+        "properties": {
+          "active_provider": {
+            "type": "string",
+            "enum": [
+              "ollama",
+              "openai",
+              "gemini",
+              "anthropic",
+              "azure-openai",
+              "codex-cli",
+              "gemini-cli",
+              "claude-cli"
+            ],
+            "title": "Active Provider"
+          },
+          "providers": {
+            "items": {
+              "$ref": "#/components/schemas/ProviderStatusModel"
+            },
+            "type": "array",
+            "title": "Providers"
+          }
+        },
+        "type": "object",
+        "required": [
+          "active_provider"
+        ],
+        "title": "ProviderListResponse"
+      },
+      "ProviderStatusModel": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "enum": [
+              "ollama",
+              "openai",
+              "gemini",
+              "anthropic",
+              "azure-openai",
+              "codex-cli",
+              "gemini-cli",
+              "claude-cli"
+            ],
+            "title": "Name"
+          },
+          "ready": {
+            "type": "boolean",
+            "title": "Ready"
+          },
+          "detail": {
+            "type": "string",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "ready",
+          "detail"
+        ],
+        "title": "ProviderStatusModel"
+      },
+      "RepoContext": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "repo",
+              "worktree",
+              "manual"
+            ],
+            "title": "Kind",
+            "default": "repo"
+          },
+          "root": {
+            "type": "string",
+            "title": "Root"
+          },
+          "branch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Branch"
+          },
+          "dirty": {
+            "type": "boolean",
+            "title": "Dirty",
+            "default": false
+          },
+          "changed_files": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Changed Files"
+          },
+          "recent_commits": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Recent Commits"
+          },
+          "stack_hints": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Stack Hints"
+          },
+          "scanned_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Scanned At"
+          },
+          "signature": {
+            "type": "string",
+            "title": "Signature",
+            "default": ""
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "root",
+          "scanned_at"
+        ],
+        "title": "RepoContext"
+      },
+      "RepoListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/RepoOption"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "title": "RepoListResponse"
+      },
+      "RepoOption": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "root": {
+            "type": "string",
+            "title": "Root"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "repo",
+              "worktree",
+              "manual"
+            ],
+            "title": "Kind",
+            "default": "repo"
+          },
+          "branch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Branch"
+          },
+          "dirty": {
+            "type": "boolean",
+            "title": "Dirty",
+            "default": false
+          },
+          "detail": {
+            "type": "string",
+            "title": "Detail",
+            "default": ""
+          },
+          "changed_files": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Changed Files"
+          },
+          "recent_commits": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Recent Commits"
+          },
+          "stack_hints": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Stack Hints"
+          },
+          "scanned_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scanned At"
+          },
+          "signature": {
+            "type": "string",
+            "title": "Signature",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "path",
+          "root"
+        ],
+        "title": "RepoOption"
+      },
+      "RouteAttemptModel": {
+        "properties": {
+          "provider": {
+            "type": "string",
+            "title": "Provider"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "default": "planned"
+          },
+          "tools_available": {
+            "type": "boolean",
+            "title": "Tools Available",
+            "default": true
+          },
+          "fallback_index": {
+            "type": "integer",
+            "title": "Fallback Index",
+            "default": 0
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "provider"
+        ],
+        "title": "RouteAttemptModel"
+      },
+      "RoutePlanStepModel": {
+        "properties": {
+          "provider": {
+            "type": "string",
+            "title": "Provider"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "execution_mode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Execution Mode"
+          },
+          "tools_available": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tools Available"
+          },
+          "order": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Order"
+          }
+        },
+        "type": "object",
+        "required": [
+          "provider"
+        ],
+        "title": "RoutePlanStepModel"
+      },
+      "SessionActionResponse": {
+        "properties": {
+          "session": {
+            "$ref": "#/components/schemas/SessionDetail"
+          }
+        },
+        "type": "object",
+        "required": [
+          "session"
+        ],
+        "title": "SessionActionResponse"
+      },
+      "SessionCreateRequest": {
+        "properties": {
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "task": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Task"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "ollama",
+                  "openai",
+                  "gemini",
+                  "anthropic",
+                  "azure-openai",
+                  "codex-cli",
+                  "gemini-cli",
+                  "claude-cli"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "route_lane": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "auto",
+                  "deep",
+                  "balanced",
+                  "fast"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Route Lane"
+          },
+          "repo_root": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Repo Root"
+          },
+          "workspace_kind": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "repo",
+                  "worktree",
+                  "manual"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Workspace Kind"
+          },
+          "system_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "System Message"
+          }
+        },
+        "type": "object",
+        "title": "SessionCreateRequest"
+      },
+      "SessionCreateResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "provider": {
+            "type": "string",
+            "enum": [
+              "ollama",
+              "openai",
+              "gemini",
+              "anthropic",
+              "azure-openai",
+              "codex-cli",
+              "gemini-cli",
+              "claude-cli"
+            ],
+            "title": "Provider"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "route_lane": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "deep",
+              "balanced",
+              "fast"
+            ],
+            "title": "Route Lane",
+            "default": "auto"
+          },
+          "requested_provider": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "ollama",
+                  "openai",
+                  "gemini",
+                  "anthropic",
+                  "azure-openai",
+                  "codex-cli",
+                  "gemini-cli",
+                  "claude-cli"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requested Provider"
+          },
+          "requested_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requested Model"
+          },
+          "route_plan": {
+            "items": {
+              "$ref": "#/components/schemas/RoutePlanStepModel"
+            },
+            "type": "array",
+            "title": "Route Plan"
+          },
+          "route_attempts": {
+            "items": {
+              "$ref": "#/components/schemas/RouteAttemptModel"
+            },
+            "type": "array",
+            "title": "Route Attempts"
+          },
+          "capability_changes": {
+            "items": {
+              "$ref": "#/components/schemas/CapabilityChangeModel"
+            },
+            "type": "array",
+            "title": "Capability Changes"
+          },
+          "original_task": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Original Task"
+          },
+          "latest_human_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Human Note"
+          },
+          "approval_decisions": {
+            "items": {
+              "$ref": "#/components/schemas/ApprovalDecision"
+            },
+            "type": "array",
+            "title": "Approval Decisions"
+          },
+          "retry_seed_prompt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retry Seed Prompt"
+          },
+          "workspace_kind": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "repo",
+                  "worktree",
+                  "manual"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Workspace Kind"
+          },
+          "workspace_snapshot": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RepoContext"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "workspace_stale": {
+            "type": "boolean",
+            "title": "Workspace Stale",
+            "default": false
+          },
+          "workspace_stale_detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Workspace Stale Detail"
+          },
+          "workspace_last_checked_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Workspace Last Checked At"
+          },
+          "workspace_drift_fields": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Workspace Drift Fields"
+          },
+          "attempt_count": {
+            "type": "integer",
+            "title": "Attempt Count",
+            "default": 0
+          },
+          "latest_attempt_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Attempt Id"
+          },
+          "artifact_manifest": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Artifact Manifest"
+          },
+          "last_provider_used": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "ollama",
+                  "openai",
+                  "gemini",
+                  "anthropic",
+                  "azure-openai",
+                  "codex-cli",
+                  "gemini-cli",
+                  "claude-cli"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Provider Used"
+          },
+          "last_model_used": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Model Used"
+          },
+          "last_attempts": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Last Attempts"
+          },
+          "last_fallback_count": {
+            "type": "integer",
+            "title": "Last Fallback Count",
+            "default": 0
+          },
+          "repo_root": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Repo Root"
+          },
+          "repo_context": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RepoContext"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "running",
+              "waiting",
+              "completed",
+              "stopped",
+              "error"
+            ],
+            "title": "Status"
+          },
+          "pause_reason": {
+            "type": "string",
+            "enum": [
+              "not_started",
+              "needs_input",
+              "needs_approval",
+              "blocked",
+              "retryable_error",
+              "completed",
+              "stopped",
+              "error"
+            ],
+            "title": "Pause Reason",
+            "default": "not_started"
+          },
+          "pause_kind": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "needs_input",
+                  "needs_approval",
+                  "blocked",
+                  "retryable_error",
+                  "completed",
+                  "stopped"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pause Kind"
+          },
+          "pause_title": {
+            "type": "string",
+            "title": "Pause Title",
+            "default": "Ready"
+          },
+          "pause_detail": {
+            "type": "string",
+            "title": "Pause Detail",
+            "default": "No action has been taken yet."
+          },
+          "current_stage": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "planning",
+                  "research",
+                  "implementation",
+                  "review",
+                  "validation"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Stage",
+            "default": "planning"
+          },
+          "last_completed_stage": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "planning",
+                  "research",
+                  "implementation",
+                  "review",
+                  "validation"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Completed Stage"
+          },
+          "stage_timeline": {
+            "items": {
+              "$ref": "#/components/schemas/StageTimelineEntry"
+            },
+            "type": "array",
+            "title": "Stage Timeline"
+          },
+          "stage_outputs": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/StageOutputModel"
+            },
+            "type": "object",
+            "title": "Stage Outputs"
+          },
+          "specialist_states": {
+            "items": {
+              "$ref": "#/components/schemas/SpecialistStateModel"
+            },
+            "type": "array",
+            "title": "Specialist States"
+          },
+          "specialist_handoffs": {
+            "items": {
+              "$ref": "#/components/schemas/SpecialistHandoffModel"
+            },
+            "type": "array",
+            "title": "Specialist Handoffs"
+          },
+          "auto_answer_records": {
+            "items": {
+              "$ref": "#/components/schemas/AutoAnswerRecordModel"
+            },
+            "type": "array",
+            "title": "Auto Answer Records"
+          },
+          "blocked_questions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Blocked Questions"
+          },
+          "pending_approval": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pending Approval"
+          },
+          "route_metadata": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Route Metadata"
+          },
+          "system_message": {
+            "type": "string",
+            "title": "System Message"
+          },
+          "queued_prompt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Queued Prompt"
+          },
+          "last_prompt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Prompt"
+          },
+          "last_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error"
+          },
+          "last_assistant_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Assistant Message"
+          },
+          "last_stop_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Stop Reason"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "last_run_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Run At"
+          },
+          "transcript_count": {
+            "type": "integer",
+            "title": "Transcript Count",
+            "default": 0
+          },
+          "event_count": {
+            "type": "integer",
+            "title": "Event Count",
+            "default": 0
+          },
+          "transcript": {
+            "items": {
+              "$ref": "#/components/schemas/TranscriptMessage"
+            },
+            "type": "array",
+            "title": "Transcript"
+          },
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/SessionEvent"
+            },
+            "type": "array",
+            "title": "Events"
+          },
+          "state_saved": {
+            "type": "boolean",
+            "title": "State Saved",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "provider",
+          "status",
+          "system_message",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "SessionCreateResponse"
+      },
+      "SessionDecisionRequest": {
+        "properties": {
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "type": "object",
+        "title": "SessionDecisionRequest"
+      },
+      "SessionDetail": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "provider": {
+            "type": "string",
+            "enum": [
+              "ollama",
+              "openai",
+              "gemini",
+              "anthropic",
+              "azure-openai",
+              "codex-cli",
+              "gemini-cli",
+              "claude-cli"
+            ],
+            "title": "Provider"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "route_lane": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "deep",
+              "balanced",
+              "fast"
+            ],
+            "title": "Route Lane",
+            "default": "auto"
+          },
+          "requested_provider": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "ollama",
+                  "openai",
+                  "gemini",
+                  "anthropic",
+                  "azure-openai",
+                  "codex-cli",
+                  "gemini-cli",
+                  "claude-cli"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requested Provider"
+          },
+          "requested_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requested Model"
+          },
+          "route_plan": {
+            "items": {
+              "$ref": "#/components/schemas/RoutePlanStepModel"
+            },
+            "type": "array",
+            "title": "Route Plan"
+          },
+          "route_attempts": {
+            "items": {
+              "$ref": "#/components/schemas/RouteAttemptModel"
+            },
+            "type": "array",
+            "title": "Route Attempts"
+          },
+          "capability_changes": {
+            "items": {
+              "$ref": "#/components/schemas/CapabilityChangeModel"
+            },
+            "type": "array",
+            "title": "Capability Changes"
+          },
+          "original_task": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Original Task"
+          },
+          "latest_human_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Human Note"
+          },
+          "approval_decisions": {
+            "items": {
+              "$ref": "#/components/schemas/ApprovalDecision"
+            },
+            "type": "array",
+            "title": "Approval Decisions"
+          },
+          "retry_seed_prompt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retry Seed Prompt"
+          },
+          "workspace_kind": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "repo",
+                  "worktree",
+                  "manual"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Workspace Kind"
+          },
+          "workspace_snapshot": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RepoContext"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "workspace_stale": {
+            "type": "boolean",
+            "title": "Workspace Stale",
+            "default": false
+          },
+          "workspace_stale_detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Workspace Stale Detail"
+          },
+          "workspace_last_checked_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Workspace Last Checked At"
+          },
+          "workspace_drift_fields": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Workspace Drift Fields"
+          },
+          "attempt_count": {
+            "type": "integer",
+            "title": "Attempt Count",
+            "default": 0
+          },
+          "latest_attempt_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Attempt Id"
+          },
+          "artifact_manifest": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Artifact Manifest"
+          },
+          "last_provider_used": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "ollama",
+                  "openai",
+                  "gemini",
+                  "anthropic",
+                  "azure-openai",
+                  "codex-cli",
+                  "gemini-cli",
+                  "claude-cli"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Provider Used"
+          },
+          "last_model_used": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Model Used"
+          },
+          "last_attempts": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Last Attempts"
+          },
+          "last_fallback_count": {
+            "type": "integer",
+            "title": "Last Fallback Count",
+            "default": 0
+          },
+          "repo_root": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Repo Root"
+          },
+          "repo_context": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RepoContext"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "running",
+              "waiting",
+              "completed",
+              "stopped",
+              "error"
+            ],
+            "title": "Status"
+          },
+          "pause_reason": {
+            "type": "string",
+            "enum": [
+              "not_started",
+              "needs_input",
+              "needs_approval",
+              "blocked",
+              "retryable_error",
+              "completed",
+              "stopped",
+              "error"
+            ],
+            "title": "Pause Reason",
+            "default": "not_started"
+          },
+          "pause_kind": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "needs_input",
+                  "needs_approval",
+                  "blocked",
+                  "retryable_error",
+                  "completed",
+                  "stopped"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pause Kind"
+          },
+          "pause_title": {
+            "type": "string",
+            "title": "Pause Title",
+            "default": "Ready"
+          },
+          "pause_detail": {
+            "type": "string",
+            "title": "Pause Detail",
+            "default": "No action has been taken yet."
+          },
+          "current_stage": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "planning",
+                  "research",
+                  "implementation",
+                  "review",
+                  "validation"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Stage",
+            "default": "planning"
+          },
+          "last_completed_stage": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "planning",
+                  "research",
+                  "implementation",
+                  "review",
+                  "validation"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Completed Stage"
+          },
+          "stage_timeline": {
+            "items": {
+              "$ref": "#/components/schemas/StageTimelineEntry"
+            },
+            "type": "array",
+            "title": "Stage Timeline"
+          },
+          "stage_outputs": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/StageOutputModel"
+            },
+            "type": "object",
+            "title": "Stage Outputs"
+          },
+          "specialist_states": {
+            "items": {
+              "$ref": "#/components/schemas/SpecialistStateModel"
+            },
+            "type": "array",
+            "title": "Specialist States"
+          },
+          "specialist_handoffs": {
+            "items": {
+              "$ref": "#/components/schemas/SpecialistHandoffModel"
+            },
+            "type": "array",
+            "title": "Specialist Handoffs"
+          },
+          "auto_answer_records": {
+            "items": {
+              "$ref": "#/components/schemas/AutoAnswerRecordModel"
+            },
+            "type": "array",
+            "title": "Auto Answer Records"
+          },
+          "blocked_questions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Blocked Questions"
+          },
+          "pending_approval": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pending Approval"
+          },
+          "route_metadata": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Route Metadata"
+          },
+          "system_message": {
+            "type": "string",
+            "title": "System Message"
+          },
+          "queued_prompt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Queued Prompt"
+          },
+          "last_prompt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Prompt"
+          },
+          "last_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error"
+          },
+          "last_assistant_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Assistant Message"
+          },
+          "last_stop_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Stop Reason"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "last_run_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Run At"
+          },
+          "transcript_count": {
+            "type": "integer",
+            "title": "Transcript Count",
+            "default": 0
+          },
+          "event_count": {
+            "type": "integer",
+            "title": "Event Count",
+            "default": 0
+          },
+          "transcript": {
+            "items": {
+              "$ref": "#/components/schemas/TranscriptMessage"
+            },
+            "type": "array",
+            "title": "Transcript"
+          },
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/SessionEvent"
+            },
+            "type": "array",
+            "title": "Events"
+          },
+          "state_saved": {
+            "type": "boolean",
+            "title": "State Saved",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "provider",
+          "status",
+          "system_message",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "SessionDetail"
+      },
+      "SessionEvent": {
+        "properties": {
+          "seq": {
+            "type": "integer",
+            "title": "Seq"
+          },
+          "type": {
+            "type": "string",
+            "title": "Type"
+          },
+          "session_id": {
+            "type": "string",
+            "title": "Session Id"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "payload": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Payload"
+          }
+        },
+        "type": "object",
+        "required": [
+          "seq",
+          "type",
+          "session_id",
+          "created_at"
+        ],
+        "title": "SessionEvent"
+      },
+      "SessionListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SessionSummary"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "title": "SessionListResponse"
+      },
+      "SessionMessageRequest": {
+        "properties": {
+          "content": {
+            "type": "string",
+            "title": "Content"
+          }
+        },
+        "type": "object",
+        "required": [
+          "content"
+        ],
+        "title": "SessionMessageRequest"
+      },
+      "SessionRunRequest": {
+        "properties": {
+          "input": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Input"
+          }
+        },
+        "type": "object",
+        "title": "SessionRunRequest"
+      },
+      "SessionSummary": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "provider": {
+            "type": "string",
+            "enum": [
+              "ollama",
+              "openai",
+              "gemini",
+              "anthropic",
+              "azure-openai",
+              "codex-cli",
+              "gemini-cli",
+              "claude-cli"
+            ],
+            "title": "Provider"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "route_lane": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "deep",
+              "balanced",
+              "fast"
+            ],
+            "title": "Route Lane",
+            "default": "auto"
+          },
+          "requested_provider": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "ollama",
+                  "openai",
+                  "gemini",
+                  "anthropic",
+                  "azure-openai",
+                  "codex-cli",
+                  "gemini-cli",
+                  "claude-cli"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requested Provider"
+          },
+          "requested_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requested Model"
+          },
+          "route_plan": {
+            "items": {
+              "$ref": "#/components/schemas/RoutePlanStepModel"
+            },
+            "type": "array",
+            "title": "Route Plan"
+          },
+          "route_attempts": {
+            "items": {
+              "$ref": "#/components/schemas/RouteAttemptModel"
+            },
+            "type": "array",
+            "title": "Route Attempts"
+          },
+          "capability_changes": {
+            "items": {
+              "$ref": "#/components/schemas/CapabilityChangeModel"
+            },
+            "type": "array",
+            "title": "Capability Changes"
+          },
+          "original_task": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Original Task"
+          },
+          "latest_human_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Human Note"
+          },
+          "approval_decisions": {
+            "items": {
+              "$ref": "#/components/schemas/ApprovalDecision"
+            },
+            "type": "array",
+            "title": "Approval Decisions"
+          },
+          "retry_seed_prompt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retry Seed Prompt"
+          },
+          "workspace_kind": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "repo",
+                  "worktree",
+                  "manual"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Workspace Kind"
+          },
+          "workspace_snapshot": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RepoContext"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "workspace_stale": {
+            "type": "boolean",
+            "title": "Workspace Stale",
+            "default": false
+          },
+          "workspace_stale_detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Workspace Stale Detail"
+          },
+          "workspace_last_checked_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Workspace Last Checked At"
+          },
+          "workspace_drift_fields": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Workspace Drift Fields"
+          },
+          "attempt_count": {
+            "type": "integer",
+            "title": "Attempt Count",
+            "default": 0
+          },
+          "latest_attempt_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Attempt Id"
+          },
+          "artifact_manifest": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Artifact Manifest"
+          },
+          "last_provider_used": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "ollama",
+                  "openai",
+                  "gemini",
+                  "anthropic",
+                  "azure-openai",
+                  "codex-cli",
+                  "gemini-cli",
+                  "claude-cli"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Provider Used"
+          },
+          "last_model_used": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Model Used"
+          },
+          "last_attempts": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Last Attempts"
+          },
+          "last_fallback_count": {
+            "type": "integer",
+            "title": "Last Fallback Count",
+            "default": 0
+          },
+          "repo_root": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Repo Root"
+          },
+          "repo_context": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RepoContext"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "running",
+              "waiting",
+              "completed",
+              "stopped",
+              "error"
+            ],
+            "title": "Status"
+          },
+          "pause_reason": {
+            "type": "string",
+            "enum": [
+              "not_started",
+              "needs_input",
+              "needs_approval",
+              "blocked",
+              "retryable_error",
+              "completed",
+              "stopped",
+              "error"
+            ],
+            "title": "Pause Reason",
+            "default": "not_started"
+          },
+          "pause_kind": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "needs_input",
+                  "needs_approval",
+                  "blocked",
+                  "retryable_error",
+                  "completed",
+                  "stopped"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pause Kind"
+          },
+          "pause_title": {
+            "type": "string",
+            "title": "Pause Title",
+            "default": "Ready"
+          },
+          "pause_detail": {
+            "type": "string",
+            "title": "Pause Detail",
+            "default": "No action has been taken yet."
+          },
+          "current_stage": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "planning",
+                  "research",
+                  "implementation",
+                  "review",
+                  "validation"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Stage",
+            "default": "planning"
+          },
+          "last_completed_stage": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "planning",
+                  "research",
+                  "implementation",
+                  "review",
+                  "validation"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Completed Stage"
+          },
+          "stage_timeline": {
+            "items": {
+              "$ref": "#/components/schemas/StageTimelineEntry"
+            },
+            "type": "array",
+            "title": "Stage Timeline"
+          },
+          "stage_outputs": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/StageOutputModel"
+            },
+            "type": "object",
+            "title": "Stage Outputs"
+          },
+          "specialist_states": {
+            "items": {
+              "$ref": "#/components/schemas/SpecialistStateModel"
+            },
+            "type": "array",
+            "title": "Specialist States"
+          },
+          "specialist_handoffs": {
+            "items": {
+              "$ref": "#/components/schemas/SpecialistHandoffModel"
+            },
+            "type": "array",
+            "title": "Specialist Handoffs"
+          },
+          "auto_answer_records": {
+            "items": {
+              "$ref": "#/components/schemas/AutoAnswerRecordModel"
+            },
+            "type": "array",
+            "title": "Auto Answer Records"
+          },
+          "blocked_questions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Blocked Questions"
+          },
+          "pending_approval": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pending Approval"
+          },
+          "route_metadata": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Route Metadata"
+          },
+          "system_message": {
+            "type": "string",
+            "title": "System Message"
+          },
+          "queued_prompt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Queued Prompt"
+          },
+          "last_prompt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Prompt"
+          },
+          "last_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error"
+          },
+          "last_assistant_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Assistant Message"
+          },
+          "last_stop_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Stop Reason"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "last_run_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Run At"
+          },
+          "transcript_count": {
+            "type": "integer",
+            "title": "Transcript Count",
+            "default": 0
+          },
+          "event_count": {
+            "type": "integer",
+            "title": "Event Count",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "provider",
+          "status",
+          "system_message",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "SessionSummary"
+      },
+      "SpecialistHandoffModel": {
+        "properties": {
+          "from_role": {
+            "type": "string",
+            "enum": [
+              "manager",
+              "planner",
+              "researcher",
+              "implementer",
+              "reviewer"
+            ],
+            "title": "From Role"
+          },
+          "to_role": {
+            "type": "string",
+            "enum": [
+              "manager",
+              "planner",
+              "researcher",
+              "implementer",
+              "reviewer"
+            ],
+            "title": "To Role"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          },
+          "requested_by": {
+            "type": "string",
+            "enum": [
+              "manager",
+              "planner",
+              "researcher",
+              "implementer",
+              "reviewer"
+            ],
+            "title": "Requested By"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "default": "requested"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "from_role",
+          "to_role",
+          "reason",
+          "requested_by",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "SpecialistHandoffModel"
+      },
+      "SpecialistStateModel": {
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "manager",
+              "planner",
+              "researcher",
+              "implementer",
+              "reviewer"
+            ],
+            "title": "Role"
+          },
+          "stage": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "planning",
+                  "research",
+                  "implementation",
+                  "review",
+                  "validation"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stage"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "default": "not_started"
+          },
+          "current_task": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Task"
+          },
+          "latest_output_summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Output Summary"
+          },
+          "last_handoff_target": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "manager",
+                  "planner",
+                  "researcher",
+                  "implementer",
+                  "reviewer"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Handoff Target"
+          },
+          "last_handoff_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Handoff Reason"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "role",
+          "updated_at"
+        ],
+        "title": "SpecialistStateModel"
+      },
+      "StageOutputModel": {
+        "properties": {
+          "stage": {
+            "type": "string",
+            "enum": [
+              "planning",
+              "research",
+              "implementation",
+              "review",
+              "validation"
+            ],
+            "title": "Stage"
+          },
+          "summary": {
+            "type": "string",
+            "title": "Summary"
+          },
+          "artifacts": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Artifacts"
+          },
+          "next_action": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Action"
+          },
+          "needs_approval": {
+            "type": "boolean",
+            "title": "Needs Approval",
+            "default": false
+          },
+          "needs_input": {
+            "type": "boolean",
+            "title": "Needs Input",
+            "default": false
+          },
+          "blocked_questions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Blocked Questions"
+          },
+          "route_metadata": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Route Metadata"
+          },
+          "changed_files": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Changed Files"
+          },
+          "write_operations": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Write Operations"
+          },
+          "proposed_write_operations": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Proposed Write Operations"
+          },
+          "diff_artifacts": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Diff Artifacts"
+          },
+          "diff_patch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Diff Patch"
+          },
+          "validation_commands": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Validation Commands"
+          },
+          "validation_results": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Validation Results"
+          },
+          "pending_approval": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pending Approval"
+          },
+          "raw_output": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Raw Output"
+          }
+        },
+        "type": "object",
+        "required": [
+          "stage",
+          "summary"
+        ],
+        "title": "StageOutputModel"
+      },
+      "StageTimelineEntry": {
+        "properties": {
+          "stage": {
+            "type": "string",
+            "enum": [
+              "planning",
+              "research",
+              "implementation",
+              "review",
+              "validation"
+            ],
+            "title": "Stage"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "running",
+              "paused",
+              "blocked",
+              "completed",
+              "failed"
+            ],
+            "title": "Status"
+          },
+          "pause_kind": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "needs_input",
+                  "needs_approval",
+                  "blocked",
+                  "retryable_error",
+                  "completed",
+                  "stopped"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pause Kind"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "attempt_count": {
+            "type": "integer",
+            "title": "Attempt Count",
+            "default": 0
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "blocked_questions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Blocked Questions"
+          },
+          "auto_answer_count": {
+            "type": "integer",
+            "title": "Auto Answer Count",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "stage",
+          "status",
+          "updated_at"
+        ],
+        "title": "StageTimelineEntry"
+      },
+      "TranscriptMessage": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "user",
+              "assistant",
+              "system",
+              "event"
+            ],
+            "title": "Role"
+          },
+          "content": {
+            "type": "string",
+            "title": "Content"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Metadata"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "role",
+          "content",
+          "source",
+          "created_at"
+        ],
+        "title": "TranscriptMessage"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    }
+  }
+}
