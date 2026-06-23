@@ -1,11 +1,11 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.1
-milestone_name: milestone
+milestone: v1.2
+milestone_name: local-llm-and-openapi
 status: completed
-stopped_at: Phase 7 complete
-last_updated: "2026-06-14T00:00:00+03:00"
-last_activity: 2026-06-14 - Completed Phase 7: Worker Boundary and Cloud-Safe Execution Profiles
+stopped_at: Phase 8 complete
+last_updated: "2026-06-23T00:00:00+03:00"
+last_activity: 2026-06-23 - Completed Phase 8: Local Ollama Provider + OpenAPI Spec
 progress:
   total_phases: 2
   completed_phases: 2
