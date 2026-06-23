@@ -17,6 +17,7 @@ This roadmap now enters milestone v1.1: Cloud API and Azure Function Hosting. Th
 - [x] **Phase 5: Polished Operator Workbench** - Replace prototype interaction with a durable operator-grade UI
 - [x] **Phase 6: API Boundary and Control Plane Contract** - Extract a shared orchestration service layer and expose it through a stable HTTP API
 - [x] **Phase 7: Worker Boundary and Cloud-Safe Execution Profiles** - Separate cloud ingress from long-running repo execution and local-only provider assumptions
+- [x] **Phase 8: Local Ollama Provider + OpenAPI Spec** - Wire Gemma/Ollama as tier-0 provider and export OpenAPI 3.1 spec for the dashboard API
 
 ## Phase Details
 
@@ -66,3 +67,4 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8
 | 5. Polished Operator Workbench | 3/3 | Complete | 2007-03-22 |
 | 6. API Boundary and Control Plane Contract | 3/3 | Complete | 2026-06-10 |
 | 7. Worker Boundary and Cloud-Safe Execution Profiles | 3/3 | Complete | 2026-06-14 |
+| 8. Local Ollama Provider + OpenAPI Spec | 2/2 | Complete | 2026-06-23 |
