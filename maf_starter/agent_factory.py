@@ -12,6 +12,12 @@ from maf_starter.tools import build_repo_tools
 
 
 def create_client(settings: Settings, *, routing_mode: str = "auto"):
+    if settings.ollama_base_url:
+        return OpenAIChatClient(
+            model_id=settings.ollama_model,
+            api_key="ollama",
+            base_url=settings.ollama_base_url,
+        )
     return OpenAIChatClient(
         model_id=settings.model,
         api_key=settings.api_key,
@@ -49,8 +55,8 @@ def build_agent(
         middleware=[
             build_fallback_middleware(
                 current,
-                primary_provider="gemini",
-                primary_model=current.model,
+                primary_provider="ollama" if current.ollama_base_url else "gemini",
+                primary_model=current.ollama_model if current.ollama_base_url else current.model,
                 routing_mode=routing_mode,
             )
         ],

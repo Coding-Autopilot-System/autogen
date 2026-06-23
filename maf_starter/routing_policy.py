@@ -157,6 +157,10 @@ def _build_lane_chain(
 
 def _lane_default_chain(settings: Settings, *, lane: RouteLane, tier: str) -> tuple[ChainStep, tuple[ChainStep, ...]]:
     normalized_tier = tier if lane == "auto" else _tier_for_lane(lane)[0]
+    if settings.ollama_base_url:
+        ollama_primary = ChainStep("ollama", settings.ollama_model)
+        gemini_fallbacks = _gemini_fallbacks_for_tier(settings, normalized_tier)
+        return ollama_primary, gemini_fallbacks
     if normalized_tier == "simple":
         primary = ChainStep("gemini", "gemini-2.5-flash-lite")
         fallbacks = [
@@ -185,6 +189,23 @@ def _lane_default_chain(settings: Settings, *, lane: RouteLane, tier: str) -> tu
             ChainStep("gemini-cli", settings.gemini_cli_model or "gemini-2.5-flash"),
         ]
     return primary, tuple(fallbacks)
+
+
+def _gemini_fallbacks_for_tier(settings: Settings, tier: str) -> tuple[ChainStep, ...]:
+    if tier == "simple":
+        return (
+            ChainStep("gemini", "gemini-2.5-flash-lite"),
+            ChainStep("gemini", "gemini-2.5-flash"),
+        )
+    if tier == "deep":
+        return (
+            ChainStep("gemini", "gemini-2.5-pro"),
+            ChainStep("gemini", "gemini-2.5-flash"),
+        )
+    return (
+        ChainStep("gemini", "gemini-2.5-flash"),
+        ChainStep("gemini", "gemini-2.5-pro"),
+    )
 
 
 def _tier_for_lane(lane: RouteLane) -> tuple[str, str]:

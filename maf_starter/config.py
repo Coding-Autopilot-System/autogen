@@ -50,6 +50,8 @@ class Settings:
     codex_cli_command: str = "codex.cmd"
     codex_cli_model: str | None = None
     model_candidates: tuple[str, ...] = DEFAULT_MODEL_CANDIDATES
+    ollama_base_url: str | None = None
+    ollama_model: str = "gemma3"
 
     def with_run_scope(
         self,
@@ -110,7 +112,13 @@ def _split_candidates(raw_value: str | None) -> tuple[str, ...]:
     return values or DEFAULT_MODEL_CANDIDATES
 
 
-def _default_fallback_chain(*, anthropic_model: str | None, anthropic_api_key: str | None) -> tuple[str, ...]:
+def _default_fallback_chain(
+    *,
+    anthropic_model: str | None,
+    anthropic_api_key: str | None,
+    ollama_base_url: str | None = None,
+    ollama_model: str = "gemma3",
+) -> tuple[str, ...]:
     chain: list[str] = [
         "gemini:gemini-2.5-pro",
         "gemini:gemini-2.5-flash",
@@ -118,6 +126,8 @@ def _default_fallback_chain(*, anthropic_model: str | None, anthropic_api_key: s
     ]
     if anthropic_api_key:
         chain.insert(1, f"anthropic:{anthropic_model or DEFAULT_ANTHROPIC_MODEL}")
+    if ollama_base_url:
+        chain.insert(0, f"ollama:{ollama_model}")
     chain.extend(
         [
             "claude-cli",
@@ -133,11 +143,15 @@ def _split_fallback_chain(
     *,
     anthropic_model: str | None,
     anthropic_api_key: str | None,
+    ollama_base_url: str | None = None,
+    ollama_model: str = "gemma3",
 ) -> tuple[str, ...]:
     if not raw_value:
         return _default_fallback_chain(
             anthropic_model=anthropic_model,
             anthropic_api_key=anthropic_api_key,
+            ollama_base_url=ollama_base_url,
+            ollama_model=ollama_model,
         )
     values = tuple(part.strip() for part in raw_value.split(",") if part.strip())
     return values
@@ -185,8 +199,13 @@ def load_settings(*, env_path: Path | None = None, project_root: Path | None = N
         load_dotenv(dotenv_path=dotenv_path, override=False)
 
     api_key = (os.getenv("MAF_API_KEY") or os.getenv("GEMINI_API_KEY") or "").strip()
-    if not api_key:
-        raise ValueError("Set GEMINI_API_KEY or MAF_API_KEY in the repo .env file.")
+    ollama_base_url = (os.getenv("OLLAMA_BASE_URL") or "").strip() or None
+    ollama_model = (os.getenv("OLLAMA_MODEL") or "gemma3").strip()
+    if not api_key and not ollama_base_url:
+        raise ValueError(
+            "Set GEMINI_API_KEY or MAF_API_KEY in the repo .env file, "
+            "or set OLLAMA_BASE_URL for local-only operation."
+        )
 
     model = (os.getenv("MAF_MODEL") or os.getenv("GEMINI_MODEL") or DEFAULT_MODEL).strip()
     base_url = (os.getenv("MAF_BASE_URL") or os.getenv("GEMINI_BASE_URL") or DEFAULT_GEMINI_BASE_URL).strip()
@@ -215,7 +234,11 @@ def load_settings(*, env_path: Path | None = None, project_root: Path | None = N
             os.getenv("MAF_FALLBACK_CHAIN"),
             anthropic_model=anthropic_model,
             anthropic_api_key=anthropic_api_key,
+            ollama_base_url=ollama_base_url,
+            ollama_model=ollama_model,
         ),
+        ollama_base_url=ollama_base_url,
+        ollama_model=ollama_model,
         anthropic_api_key=anthropic_api_key,
         anthropic_model=anthropic_model or DEFAULT_ANTHROPIC_MODEL,
         gemini_cli_command=(os.getenv("GEMINI_CLI_COMMAND") or "gemini.cmd").strip(),

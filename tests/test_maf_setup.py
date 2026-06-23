@@ -338,5 +338,106 @@ class MafSetupTests(RepoScratchTestCase):
         self.assertIn("tools_available", metadata)
 
 
+    def test_load_settings_ollama_no_api_key(self) -> None:
+        root = self.make_scratch_dir()
+        (root / "entities").mkdir()
+        (root / "repo").mkdir()
+
+        with patch.dict(
+            "os.environ",
+            {
+                "OLLAMA_BASE_URL": "http://localhost:11434/v1",
+                "OLLAMA_MODEL": "gemma3",
+                "MAF_REPO_ROOT": str(root / "repo"),
+                "MAF_ENTITIES_DIR": str(root / "entities"),
+            },
+            clear=False,
+        ):
+            # Must not raise even though MAF_API_KEY and GEMINI_API_KEY are absent
+            with patch.dict("os.environ", {"MAF_API_KEY": "", "GEMINI_API_KEY": ""}, clear=False):
+                settings = load_settings(project_root=root, env_path=root / ".missing-env")
+
+        self.assertEqual(settings.ollama_base_url, "http://localhost:11434/v1")
+        self.assertEqual(settings.ollama_model, "gemma3")
+
+    def test_load_settings_requires_key_or_ollama(self) -> None:
+        root = self.make_scratch_dir()
+        (root / "entities").mkdir()
+        (root / "repo").mkdir()
+
+        with patch.dict(
+            "os.environ",
+            {
+                "MAF_API_KEY": "",
+                "GEMINI_API_KEY": "",
+                "OLLAMA_BASE_URL": "",
+                "MAF_REPO_ROOT": str(root / "repo"),
+                "MAF_ENTITIES_DIR": str(root / "entities"),
+            },
+            clear=False,
+        ):
+            with self.assertRaises(ValueError) as ctx:
+                load_settings(project_root=root, env_path=root / ".missing-env")
+
+        self.assertIn("OLLAMA_BASE_URL", str(ctx.exception))
+
+    def test_ollama_is_tier_0_when_configured(self) -> None:
+        root = self.make_scratch_dir()
+        (root / "entities").mkdir()
+        (root / "repo").mkdir()
+
+        with patch.dict(
+            "os.environ",
+            {
+                "OLLAMA_BASE_URL": "http://localhost:11434/v1",
+                "OLLAMA_MODEL": "gemma3",
+                "MAF_API_KEY": "",
+                "GEMINI_API_KEY": "",
+                "MAF_REPO_ROOT": str(root / "repo"),
+                "MAF_ENTITIES_DIR": str(root / "entities"),
+            },
+            clear=False,
+        ):
+            settings = load_settings(project_root=root, env_path=root / ".missing-env")
+
+        self.assertTrue(settings.fallback_chain[0].startswith("ollama:"))
+        self.assertIn("gemma3", settings.fallback_chain[0])
+
+    def test_build_agent_uses_ollama_client(self) -> None:
+        root = self.make_scratch_dir()
+        (root / "entities").mkdir()
+        (root / "repo").mkdir()
+
+        with patch.dict(
+            "os.environ",
+            {
+                "OLLAMA_BASE_URL": "http://localhost:11434/v1",
+                "OLLAMA_MODEL": "gemma3",
+                "MAF_API_KEY": "",
+                "GEMINI_API_KEY": "",
+                "MAF_REPO_ROOT": str(root / "repo"),
+                "MAF_ENTITIES_DIR": str(root / "entities"),
+            },
+            clear=False,
+        ):
+            settings = load_settings(project_root=root, env_path=root / ".missing-env")
+
+        with patch("maf_starter.agent_factory.build_fallback_middleware") as mock_mw:
+            mock_mw.return_value = object()
+            build_agent(settings)
+            _, kwargs = mock_mw.call_args
+            self.assertEqual(kwargs["primary_provider"], "ollama")
+            self.assertEqual(kwargs["primary_model"], "gemma3")
+
+    def test_env_example_documents_ollama(self) -> None:
+        env_example = (
+            Path(__file__).resolve().parents[1] / ".env.example"
+        )
+        text = env_example.read_text(encoding="utf-8")
+        self.assertIn("OLLAMA_BASE_URL", text)
+        self.assertIn("OLLAMA_MODEL", text)
+        self.assertIn("gemma3", text)
+
+
 if __name__ == "__main__":
     unittest.main()
