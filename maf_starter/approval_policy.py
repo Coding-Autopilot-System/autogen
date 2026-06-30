@@ -142,6 +142,35 @@ def is_execution_approved(prompt: str, approval_word: str) -> bool:
     return normalized == approval_token or normalized.startswith("approve") or normalized.startswith("approved") or normalized.startswith("proceed")
 
 
+def classify_external_action(action: str, target: str) -> ExecutionRiskDecision:
+    normalized = str(action or "").strip().lower()
+    external = {"push", "deploy", "message", "production_mutation"}
+    destructive = {"delete"}
+    if normalized in external:
+        return _decision(
+            "externally_visible",
+            action_kind=normalized,
+            reason=f"{normalized} requires deterministic approval before execution.",
+            external_targets=[target],
+        )
+    if normalized in destructive:
+        return _decision(
+            "destructive",
+            action_kind=normalized,
+            reason=f"{normalized} requires deterministic approval before execution.",
+            external_targets=[target],
+        )
+    return _decision("blocked", action_kind=normalized or "unknown", reason="Unknown external action is blocked.")
+
+
+def require_action_approval(action: str, target: str, *, approved: bool) -> None:
+    decision = classify_external_action(action, target)
+    if decision.blocked:
+        raise PermissionError(decision.scope.reason)
+    if decision.approval_required and not approved:
+        raise PermissionError(decision.scope.reason)
+
+
 def _decision(
     classification: RiskLevel,
     *,
