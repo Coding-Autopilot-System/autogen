@@ -1,5 +1,6 @@
 agent-framework==1.0.0rc5
 agent-framework-devui==1.0.0b260319
+agent-framework-orchestrations==1.0.0b260319
 autogen-agentchat>=0.7.5,<0.8.0
 autogen-core>=0.7.5,<0.8.0
 autogen-ext[anthropic,ollama,openai]>=0.7.5,<0.8.0
