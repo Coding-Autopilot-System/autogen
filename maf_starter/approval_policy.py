@@ -105,9 +105,9 @@ def classify_validation_commands(commands: list[ValidationCommand]) -> Execution
         normalized = " ".join(command.command).strip().lower()
         if normalized.startswith("git diff --check"):
             continue
-        if normalized.startswith("python -m compileall"):
+        if _is_safe_python_compileall_command(command.command):
             continue
-        if normalized.startswith("python -m unittest discover -s tests -v"):
+        if _is_safe_python_validation_command(command.command, "unittest", "discover", "-s", "tests", "-v"):
             continue
         if normalized.startswith("node --check "):
             continue
@@ -216,3 +216,29 @@ def _is_blocked_write_path(raw_path: str) -> bool:
     if name == ".env" or name.startswith(".env."):
         return True
     return False
+
+
+def _is_safe_python_validation_command(command: list[str], *expected_args: str) -> bool:
+    if not _is_python_command(command):
+        return False
+    if command[1:3] != ["-m", expected_args[0]]:
+        return False
+    return command[3:] == list(expected_args[1:])
+
+
+def _is_safe_python_compileall_command(command: list[str]) -> bool:
+    if not _is_python_command(command):
+        return False
+    if command[1:3] != ["-m", "compileall"]:
+        return False
+    return len(command) >= 4
+
+
+def _is_python_command(command: list[str]) -> bool:
+    if len(command) < 3:
+        return False
+    executable = str(command[0]).strip().lower().replace("\\", "/")
+    if not executable:
+        return False
+    executable_name = executable.rsplit("/", 1)[-1]
+    return executable_name in {"python", "python3", "python.exe", "python3.exe"}

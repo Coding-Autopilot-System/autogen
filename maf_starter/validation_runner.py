@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import shutil
 import subprocess
+import sys
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -72,6 +74,7 @@ def plan_validation(repo_root: Path, changed_files: list[str]) -> ValidationPlan
     normalized_root = repo_root.resolve()
     unique_files = sorted({path.replace("\\", "/") for path in changed_files if path})
     commands: list[ValidationCommand] = []
+    python_command = _python_command()
 
     if (normalized_root / ".git").exists():
         commands.append(
@@ -89,7 +92,7 @@ def plan_validation(repo_root: Path, changed_files: list[str]) -> ValidationPlan
         commands.append(
             ValidationCommand(
                 label="python -m compileall",
-                command=["python", "-m", "compileall", *compile_targets],
+                command=[*python_command, "-m", "compileall", *compile_targets],
                 reason="Compile touched Python paths to catch syntax errors.",
                 cwd=str(normalized_root),
             )
@@ -98,7 +101,7 @@ def plan_validation(repo_root: Path, changed_files: list[str]) -> ValidationPlan
             commands.append(
                 ValidationCommand(
                     label="python -m unittest discover -s tests -v",
-                    command=["python", "-m", "unittest", "discover", "-s", "tests", "-v"],
+                    command=[*python_command, "-m", "unittest", "discover", "-s", "tests", "-v"],
                     reason="Run the repo's stdlib test suite when runtime or test Python paths changed.",
                     cwd=str(normalized_root),
                 )
@@ -180,3 +183,10 @@ def _summarize_output(stdout: str, stderr: str) -> str:
     if len(summary) > 1600:
         return summary[:1597] + "..."
     return summary
+
+
+def _python_command() -> list[str]:
+    configured = shutil.which("python")
+    if configured:
+        return [configured]
+    return [sys.executable]

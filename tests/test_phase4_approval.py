@@ -156,6 +156,31 @@ class Phase4ApprovalTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(external.classification, "externally_visible")
 
+    def test_classifier_allows_local_venv_python_validation_ladder(self) -> None:
+        decision = classify_validation_commands(
+            [
+                ValidationCommand(
+                    label="git diff --check",
+                    command=["git", "diff", "--check"],
+                    reason="Patch formatting",
+                    cwd="C:\\repo\\autogen",
+                ),
+                ValidationCommand(
+                    label="python -m compileall",
+                    command=["C:\\repo\\autogen\\.venv\\Scripts\\python.exe", "-m", "compileall", "maf_starter"],
+                    reason="Compile changed Python paths",
+                    cwd="C:\\repo\\autogen",
+                ),
+                ValidationCommand(
+                    label="python -m unittest discover -s tests -v",
+                    command=["C:\\repo\\autogen\\.venv\\Scripts\\python.exe", "-m", "unittest", "discover", "-s", "tests", "-v"],
+                    reason="Run stdlib tests",
+                    cwd="C:\\repo\\autogen",
+                ),
+            ]
+        )
+        self.assertEqual(decision.classification, "routine_safe")
+
     async def test_destructive_write_plan_pauses_with_pending_approval_scope(self) -> None:
         service, created = await self._create_service_and_session()
 
