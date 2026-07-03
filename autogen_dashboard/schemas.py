@@ -8,6 +8,33 @@ from pydantic import BaseModel, Field
 from maf_starter.orchestration import RunStagePauseKind, SpecialistRole, StageName, StageStatus
 from maf_starter.routing_types import RouteLane
 
+SDLC_PHASE_ID = Literal[
+    "understand",
+    "research",
+    "analyze",
+    "plan",
+    "risk-assessment",
+    "implement",
+    "verify",
+    "review",
+    "improve",
+    "document",
+    "update-memory",
+    "finished",
+]
+ExecutionBatch = Literal["discovery", "design", "change", "assurance", "closure"]
+PhaseStatus = Literal[
+    "pending",
+    "ready",
+    "running",
+    "passed",
+    "failed",
+    "invalidated",
+    "rolled-back",
+    "waiting",
+    "terminal",
+]
+
 ProviderName = Literal[
     "ollama",
     "openai",
@@ -138,6 +165,84 @@ class StageOutputModel(BaseModel):
     raw_output: str | None = None
 
 
+class SdlcPhaseModel(BaseModel):
+    id: SDLC_PHASE_ID
+    name: str
+    batch: ExecutionBatch
+    dependencies: list[SDLC_PHASE_ID] = Field(default_factory=list)
+    verifier: str
+    required_artifacts: list[str] = Field(default_factory=list)
+    success_criteria: list[str] = Field(default_factory=list)
+    rollback_to: SDLC_PHASE_ID | None = None
+    max_attempts: int | None = None
+
+
+class SdlcProfileModel(BaseModel):
+    kind: Literal["SdlcProfile"] = "SdlcProfile"
+    profile_id: str
+    profile_version: Literal["v1.1"] = "v1.1"
+    goal_budget: int
+    phases: list[SdlcPhaseModel] = Field(default_factory=list)
+    goal_attempts: int | None = None
+    iterations: int | None = None
+    runtime_minutes: int | None = None
+    model_calls: int | None = None
+    no_progress_limit: int | None = None
+    repository_overrides: dict[str, Any] = Field(default_factory=dict)
+
+
+class PhaseExecutionRequestModel(BaseModel):
+    kind: Literal["PhaseExecutionRequest"] = "PhaseExecutionRequest"
+    profile_version: Literal["v1.1"] = "v1.1"
+    phase: SDLC_PHASE_ID
+    batch: ExecutionBatch
+    goal: str
+    constraints: list[str] = Field(default_factory=list)
+    validated_inputs: list[str] = Field(default_factory=list)
+    prior_evidence: list[dict[str, Any]] = Field(default_factory=list)
+    required_output_schema: str | None = None
+    required_artifacts: list[str] = Field(default_factory=list)
+    success_criteria: list[str] = Field(default_factory=list)
+    verifier: str = ""
+    failure_behavior: str | None = None
+    rollback_behavior: str | None = None
+    memory_candidate_fields: list[str] = Field(default_factory=list)
+    human_escalation_conditions: list[str] = Field(default_factory=list)
+
+
+class PhaseExecutionResultModel(BaseModel):
+    kind: Literal["PhaseExecutionResult"] = "PhaseExecutionResult"
+    phase: SDLC_PHASE_ID
+    batch: ExecutionBatch | None = None
+    status: PhaseStatus
+    prompt_digest: str
+    artifacts: list[dict[str, Any]] = Field(default_factory=list)
+    output: dict[str, Any] = Field(default_factory=dict)
+    prompt_metadata: dict[str, Any] = Field(default_factory=dict)
+    sanitized_prompt: str | None = None
+    verifier: str = ""
+    checkpoint: str | None = None
+
+
+class PhaseVerificationResultModel(BaseModel):
+    kind: Literal["PhaseVerificationResult"] = "PhaseVerificationResult"
+    phase: SDLC_PHASE_ID
+    verifier: str
+    outcome: Literal["passed", "failed", "inconclusive"]
+    invalidated_phase_ids: list[SDLC_PHASE_ID] = Field(default_factory=list)
+    evidence: list[dict[str, Any]] = Field(default_factory=list)
+    reason: str | None = None
+
+
+class MemoryCandidateRecordModel(BaseModel):
+    kind: Literal["MemoryCandidateRecord"] = "MemoryCandidateRecord"
+    phase: SDLC_PHASE_ID
+    version: str
+    summary: str
+    evidence: list[str] = Field(default_factory=list)
+    created_at: datetime
+
+
 class StageTimelineEntry(BaseModel):
     stage: StageName
     status: StageStatus
@@ -240,6 +345,15 @@ class SessionSummary(BaseModel):
     workspace_stale_detail: str | None = None
     workspace_last_checked_at: datetime | None = None
     workspace_drift_fields: list[str] = Field(default_factory=list)
+    sdlc_profile: SdlcProfileModel | None = None
+    current_sdlc_phase: SDLC_PHASE_ID | None = None
+    current_sdlc_batch: ExecutionBatch | None = None
+    current_sdlc_verifier: str | None = None
+    current_sdlc_budget: dict[str, Any] = Field(default_factory=dict)
+    rollback_origin: SDLC_PHASE_ID | None = None
+    rollback_reason: str | None = None
+    phase_execution: dict[str, PhaseExecutionResultModel] = Field(default_factory=dict)
+    phase_verifications: dict[str, PhaseVerificationResultModel] = Field(default_factory=dict)
     attempt_count: int = 0
     latest_attempt_id: str | None = None
     artifact_manifest: dict[str, Any] = Field(default_factory=dict)

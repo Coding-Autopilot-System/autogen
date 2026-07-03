@@ -50,6 +50,13 @@
     },
   ];
   const OPERATOR_TABS = ["overview", "timeline", "agents", "routing", "artifacts"];
+  const SDLC_BATCHES = [
+    { id: "discovery", label: "Discovery", phases: ["understand", "research", "analyze"] },
+    { id: "design", label: "Design", phases: ["plan", "risk-assessment"] },
+    { id: "change", label: "Change", phases: ["implement"] },
+    { id: "assurance", label: "Assurance", phases: ["verify", "review", "improve"] },
+    { id: "closure", label: "Closure", phases: ["document", "update-memory", "finished"] },
+  ];
   const SPECIALIST_SOURCES = new Set([
     "assistant",
     "planner",
@@ -384,6 +391,101 @@
     return entries;
   }
 
+  function normalizeSdlcProfile(value) {
+    if (!value || typeof value !== "object") return null;
+    const phases = Array.isArray(value.phases)
+      ? value.phases
+          .filter((item) => item && typeof item === "object")
+          .map((item) => ({
+            id: pick(item, ["id"], ""),
+            name: pick(item, ["name"], ""),
+            batch: pick(item, ["batch"], ""),
+            dependencies: normalizeTextList(pick(item, ["dependencies"], [])),
+            verifier: pick(item, ["verifier"], ""),
+            requiredArtifacts: normalizeTextList(pick(item, ["required_artifacts", "requiredArtifacts"], [])),
+            successCriteria: normalizeTextList(pick(item, ["success_criteria", "successCriteria"], [])),
+            rollbackTo: pick(item, ["rollback_to", "rollbackTo"], ""),
+            maxAttempts: Number(pick(item, ["max_attempts", "maxAttempts"], 0)) || 0,
+          }))
+      : [];
+    return {
+      kind: pick(value, ["kind"], "SdlcProfile"),
+      profileId: pick(value, ["profile_id", "profileId"], ""),
+      profileVersion: pick(value, ["profile_version", "profileVersion"], ""),
+      goalBudget: Number(pick(value, ["goal_budget", "goalBudget"], 0)) || 0,
+      phases,
+      goalAttempts: Number(pick(value, ["goal_attempts", "goalAttempts"], 0)) || 0,
+      iterations: Number(pick(value, ["iterations"], 0)) || 0,
+      runtimeMinutes: Number(pick(value, ["runtime_minutes", "runtimeMinutes"], 0)) || 0,
+      modelCalls: Number(pick(value, ["model_calls", "modelCalls"], 0)) || 0,
+      noProgressLimit: Number(pick(value, ["no_progress_limit", "noProgressLimit"], 0)) || 0,
+      repositoryOverrides: pick(value, ["repository_overrides", "repositoryOverrides"], {}) || {},
+    };
+  }
+
+  function normalizePhaseExecutionResults(value) {
+    const source = value && typeof value === "object" ? value : {};
+    return Object.fromEntries(
+      Object.entries(source)
+        .filter(([, payload]) => payload && typeof payload === "object")
+        .map(([phaseId, payload]) => [
+          phaseId,
+          {
+            kind: pick(payload, ["kind"], "PhaseExecutionResult"),
+            phase: pick(payload, ["phase"], phaseId),
+            batch: pick(payload, ["batch"], ""),
+            status: pick(payload, ["status"], "pending"),
+            promptDigest: pick(payload, ["prompt_digest", "promptDigest"], ""),
+            artifacts: normalizeArray(payload, ["artifacts"]).filter(Boolean),
+            output: normalizeMetadataObject(pick(payload, ["output"], {})),
+            promptMetadata: normalizeMetadataObject(pick(payload, ["prompt_metadata", "promptMetadata"], {})),
+            sanitizedPrompt: pick(payload, ["sanitized_prompt", "sanitizedPrompt"], ""),
+            verifier: pick(payload, ["verifier"], ""),
+            checkpoint: pick(payload, ["checkpoint"], ""),
+          },
+        ])
+    );
+  }
+
+  function normalizePhaseVerificationResults(value) {
+    const source = value && typeof value === "object" ? value : {};
+    return Object.fromEntries(
+      Object.entries(source)
+        .filter(([, payload]) => payload && typeof payload === "object")
+        .map(([phaseId, payload]) => [
+          phaseId,
+          {
+            kind: pick(payload, ["kind"], "PhaseVerificationResult"),
+            phase: pick(payload, ["phase"], phaseId),
+            verifier: pick(payload, ["verifier"], ""),
+            outcome: pick(payload, ["outcome"], "inconclusive"),
+            invalidatedPhaseIds: normalizeTextList(pick(payload, ["invalidated_phase_ids", "invalidatedPhaseIds"], [])),
+            evidence: normalizeArray(payload, ["evidence"]).filter(Boolean),
+            reason: pick(payload, ["reason"], ""),
+          },
+        ])
+    );
+  }
+
+  function normalizeMemoryCandidateRecords(value) {
+    const source = value && typeof value === "object" ? value : {};
+    return Object.fromEntries(
+      Object.entries(source)
+        .filter(([, payload]) => payload && typeof payload === "object")
+        .map(([phaseId, payload]) => [
+          phaseId,
+          {
+            kind: pick(payload, ["kind"], "MemoryCandidateRecord"),
+            phase: pick(payload, ["phase"], phaseId),
+            version: pick(payload, ["version"], ""),
+            summary: pick(payload, ["summary"], ""),
+            evidence: normalizeTextList(pick(payload, ["evidence"], [])),
+            createdAt: pick(payload, ["created_at", "createdAt"], ""),
+          },
+        ])
+    );
+  }
+
   function normalizeRoutePlan(value) {
     const items = Array.isArray(value) ? value : [];
     return items
@@ -556,6 +658,94 @@
         "The manager has not produced a stage summary yet.",
       blockedCount: Array.isArray(session?.blockedQuestions) ? session.blockedQuestions.length : 0,
     };
+  }
+
+  function buildSdlcBatchSummary(session) {
+    const profile = session?.sdlcProfile || null;
+    const currentPhase = String(session?.currentSdlcPhase || "").trim();
+    const currentBatch = String(session?.currentSdlcBatch || "").trim();
+    const phases = Array.isArray(profile?.phases) ? profile.phases : [];
+    const batchMap = new Map(
+      SDLC_BATCHES.map((batch) => [
+        batch.id,
+        {
+          ...batch,
+          phaseCount: 0,
+          passed: 0,
+          failed: 0,
+          waiting: 0,
+        },
+      ])
+    );
+    phases.forEach((phase) => {
+      const batch = batchMap.get(phase.batch);
+      if (!batch) return;
+      batch.phaseCount += 1;
+      const result = session?.phaseExecution?.[phase.id];
+      if (!result) return;
+      if (result.status === "passed") batch.passed += 1;
+      else if (result.status === "failed") batch.failed += 1;
+      else if (result.status === "waiting") batch.waiting += 1;
+    });
+    return {
+      profileId: profile?.profileId || "cas-sdlc-v1",
+      profileVersion: profile?.profileVersion || "v1.1",
+      goalBudget: profile?.goalBudget || 0,
+      currentPhase: currentPhase || "pending",
+      currentBatch: currentBatch || "pending",
+      batches: [...batchMap.values()],
+      rollbackOrigin: session?.rollbackOrigin || "",
+      rollbackReason: session?.rollbackReason || "",
+      verifier: session?.currentSdlcVerifier || "",
+      budget: session?.currentSdlcBudget || {},
+    };
+  }
+
+  function renderSdlcStrip(session) {
+    if (!session || !session.sdlcProfile) return "";
+    const summary = buildSdlcBatchSummary(session);
+    const activePhase = String(summary.currentPhase || "").trim();
+    const activeBatch = String(summary.currentBatch || "").trim();
+    return `
+      <section class="sdlc-strip">
+        <div class="sdlc-strip-head">
+          <div>
+            <div class="workspace-summary-label">SDLC engine</div>
+            <div class="workspace-summary-name">${escapeHtml(summary.profileId)}</div>
+          </div>
+          <div class="workspace-summary-chips">
+            <span class="tiny-chip">${escapeHtml(summary.profileVersion)}</span>
+            <span class="tiny-chip">${escapeHtml(String(summary.goalBudget || "0"))} budget</span>
+          </div>
+        </div>
+        <div class="sdlc-batch-grid">
+          ${summary.batches
+            .map((batch) => {
+              const isActive = batch.id === activeBatch;
+              return `
+                <article class="sdlc-batch-card ${isActive ? "active" : ""}">
+                  <div class="sdlc-batch-top">
+                    <strong>${escapeHtml(batch.label)}</strong>
+                    <span class="tiny-chip">${escapeHtml(String(batch.phaseCount))} phases</span>
+                  </div>
+                  <div class="sdlc-batch-phase-counts">
+                    <span class="status-pill completed">${escapeHtml(String(batch.passed))} passed</span>
+                    <span class="status-pill error">${escapeHtml(String(batch.failed))} failed</span>
+                    <span class="status-pill waiting">${escapeHtml(String(batch.waiting))} waiting</span>
+                  </div>
+                  <div class="sdlc-batch-phases">${escapeHtml(batch.phases.join(" → "))}</div>
+                </article>
+              `;
+            })
+            .join("")}
+        </div>
+        <div class="sdlc-strip-foot">
+          <span class="tiny-chip">phase ${escapeHtml(activePhase || "pending")}</span>
+          ${summary.verifier ? `<span class="tiny-chip">verifier ${escapeHtml(summary.verifier)}</span>` : ""}
+          ${summary.rollbackOrigin ? `<span class="tiny-chip warning">rollback ${escapeHtml(summary.rollbackOrigin)}</span>` : ""}
+        </div>
+      </section>
+    `;
   }
 
   function renderActiveRunFocus(session) {
@@ -1345,6 +1535,16 @@
     const capabilityChanges = normalizeCapabilityChanges(
       pick(item, ["capability_changes", "capabilityChanges"], pick(routeMetadata, ["capability_changes"], []))
     );
+    const sdlcProfile = normalizeSdlcProfile(pick(item, ["sdlc_profile", "sdlcProfile"], null));
+    const phaseExecution = normalizePhaseExecutionResults(
+      pick(item, ["phase_execution", "phaseExecution"], {})
+    );
+    const phaseVerifications = normalizePhaseVerificationResults(
+      pick(item, ["phase_verifications", "phaseVerifications"], {})
+    );
+    const memoryCandidateRecords = normalizeMemoryCandidateRecords(
+      pick(item, ["memory_candidate_records", "memoryCandidateRecords"], {})
+    );
     return {
       raw: item,
       id,
@@ -1406,6 +1606,17 @@
       routeAttempts,
       capabilityChanges,
       routeMetadata,
+      sdlcProfile,
+      currentSdlcPhase: pick(item, ["current_sdlc_phase", "currentSdlcPhase"], ""),
+      currentSdlcBatch: pick(item, ["current_sdlc_batch", "currentSdlcBatch"], ""),
+      currentSdlcVerifier: pick(item, ["current_sdlc_verifier", "currentSdlcVerifier"], ""),
+      currentSdlcBudget: pick(item, ["current_sdlc_budget", "currentSdlcBudget"], {}) || {},
+      rollbackOrigin: pick(item, ["rollback_origin", "rollbackOrigin"], ""),
+      rollbackReason: pick(item, ["rollback_reason", "rollbackReason"], ""),
+      phaseExecution,
+      phaseVerifications,
+      memoryCandidateRecords,
+      terminalOutcome: pick(item, ["terminal_outcome", "terminalOutcome"], ""),
       lastStopReason,
       lastProviderUsed,
       lastModelUsed,
@@ -1555,6 +1766,33 @@
         pick(item, ["capability_changes", "capabilityChanges"], session.capabilityChanges || [])
       ),
       routeMetadata: pick(item, ["route_metadata", "routeMetadata"], session.routeMetadata || {}) || {},
+      sdlcProfile: normalizeSdlcProfile(
+        pick(item, ["sdlc_profile", "sdlcProfile"], session.sdlcProfile || null)
+      ),
+      currentSdlcPhase: pick(item, ["current_sdlc_phase", "currentSdlcPhase"], session.currentSdlcPhase || ""),
+      currentSdlcBatch: pick(item, ["current_sdlc_batch", "currentSdlcBatch"], session.currentSdlcBatch || ""),
+      currentSdlcVerifier: pick(
+        item,
+        ["current_sdlc_verifier", "currentSdlcVerifier"],
+        session.currentSdlcVerifier || ""
+      ),
+      currentSdlcBudget: pick(item, ["current_sdlc_budget", "currentSdlcBudget"], session.currentSdlcBudget || {}) || {},
+      rollbackOrigin: pick(item, ["rollback_origin", "rollbackOrigin"], session.rollbackOrigin || ""),
+      rollbackReason: pick(item, ["rollback_reason", "rollbackReason"], session.rollbackReason || ""),
+      phaseExecution: normalizePhaseExecutionResults(
+        pick(item, ["phase_execution", "phaseExecution"], session.phaseExecution || {})
+      ),
+      phaseVerifications: normalizePhaseVerificationResults(
+        pick(item, ["phase_verifications", "phaseVerifications"], session.phaseVerifications || {})
+      ),
+      memoryCandidateRecords: normalizeMemoryCandidateRecords(
+        pick(
+          item,
+          ["memory_candidate_records", "memoryCandidateRecords"],
+          session.memoryCandidateRecords || {}
+        )
+      ),
+      terminalOutcome: pick(item, ["terminal_outcome", "terminalOutcome"], session.terminalOutcome || ""),
       latestAttemptId: pick(item, ["latest_attempt_id", "latestAttemptId"], session.latestAttemptId || ""),
       sessionMode: lookupSessionMode(session.id),
       raw: item,
@@ -2061,6 +2299,7 @@
     const stageCards = renderStageCards(session);
     const outputCards = renderOutputCards(session);
     const artifactSections = buildOperatorArtifactSections(session);
+    const sdlcStrip = renderSdlcStrip(session);
     const pendingApproval =
       session.pendingApproval ||
       Object.values(session.stageOutputs || {})
@@ -2090,6 +2329,7 @@
           <div class="operator-stat-subtle">${escapeHtml(String(session.autoAnswerRecords?.length || 0))} auto answers saved</div>
         </article>
       </div>
+      ${sdlcStrip}
       ${renderApprovalScope(pendingApproval)}
       <div class="operator-grid operator-grid-two">
         <section class="operator-section">
@@ -2722,12 +2962,20 @@
       ["Workspace drift", session.workspaceDriftFields?.length ? session.workspaceDriftFields.join(" | ") : "None"],
       ["Current stage", session.currentStage || "None"],
       ["Last completed stage", session.lastCompletedStage || "None"],
+      ["SDLC phase", session.currentSdlcPhase || "None"],
+      ["SDLC batch", session.currentSdlcBatch || "None"],
+      ["SDLC verifier", session.currentSdlcVerifier || "None"],
+      ["Rollback origin", session.rollbackOrigin || "None"],
+      ["Rollback reason", session.rollbackReason || "None"],
+      ["Terminal outcome", session.terminalOutcome || "None"],
+      ["Memory candidates", Object.keys(session.memoryCandidateRecords || {}).length ? Object.values(session.memoryCandidateRecords).map((item) => `${item.phase}:${item.version}`).join(" | ") : "None"],
       ["Pause kind", session.pauseKind || "None"],
       ["Blocked questions", session.blockedQuestions?.length ? session.blockedQuestions.join(" | ") : "None"],
       ["Auto answers", String(session.autoAnswerRecords?.length || 0)],
       ["Route provider", session.routeMetadata?.active_provider || "None"],
       ["Route model", session.routeMetadata?.active_model || "None"],
       ["Route tier", session.routeMetadata?.route_tier || "None"],
+      ["SDLC budget", Object.keys(session.currentSdlcBudget || {}).length ? JSON.stringify(session.currentSdlcBudget) : "None"],
       ["Pause reason", session.pauseReason || "None"],
       ["Pause title", session.pauseTitle || "None"],
       ["Pause detail", session.pauseDetail || "None"],
