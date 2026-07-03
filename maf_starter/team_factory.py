@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 from agent_framework import WorkflowBuilder
 
-from maf_starter.agent_factory import build_agent, build_agent_for_model
+from maf_starter.agent_factory import build_agent_for_model
 from maf_starter.config import Settings, load_settings
 from maf_starter.orchestration import (
     CANONICAL_STAGE_NAMES,

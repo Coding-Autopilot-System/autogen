@@ -72,10 +72,13 @@ class LoopWorkerTests(unittest.IsolatedAsyncioTestCase):
                 self.fan_out = None
                 self.fan_in = None
             def add_fan_out_edges(self, source, targets):
-                self.fan_out = (source, tuple(targets)); return self
+                self.fan_out = (source, tuple(targets))
+                return self
             def add_fan_in_edges(self, sources, target):
-                self.fan_in = (tuple(sources), target); return self
-            def build(self): return self
+                self.fan_in = (tuple(sources), target)
+                return self
+            def build(self):
+                return self
 
         builder = BuilderSpy()
         result = build_maf_fanout_workflow("dispatcher", [1, 2, 3, 4], "aggregator", builder=builder)

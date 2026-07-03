@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Phase 7 end-to-end integration tests.
 
 Validates three Phase 7 success criteria:
@@ -7,6 +5,7 @@ Validates three Phase 7 success criteria:
   2. Local profile accepts all providers without raising.
   3. Async dispatch via WorkerBoundary.submit_async returns run_id without blocking.
 """
+from __future__ import annotations
 
 import asyncio
 import unittest
