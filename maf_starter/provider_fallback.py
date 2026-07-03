@@ -65,7 +65,7 @@ except ModuleNotFoundError:  # pragma: no cover - optional dependency
     AnthropicClient = None
 
 from maf_starter.config import Settings, activate_run_scope, reset_run_scope
-from maf_starter.execution_profile import CLOUD_SAFE_PROFILE, LOCAL_PROFILE, ExecutionProfile
+from maf_starter.execution_profile import LOCAL_PROFILE, ExecutionProfile
 from maf_starter.routing_policy import RoutingPlan, build_routing_plan
 from maf_starter.routing_types import CapabilityChange, ChainStep, RouteAttempt
 

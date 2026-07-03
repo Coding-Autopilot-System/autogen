@@ -6,7 +6,7 @@ from typing import Iterable
 from agent_framework import Message
 
 from maf_starter.config import Settings
-from maf_starter.routing_types import CapabilityChange, ChainStep, RouteAttempt, RouteLane, parse_chain_steps
+from maf_starter.routing_types import CapabilityChange, ChainStep, RouteAttempt, RouteLane
 
 
 SIMPLE_KEYWORDS = (

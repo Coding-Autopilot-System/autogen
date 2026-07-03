@@ -1,0 +1,2 @@
+# Vendored cas-contracts schemas are hashed byte-for-byte — store exactly, no EOL conversion.
+tests/contracts/** -text

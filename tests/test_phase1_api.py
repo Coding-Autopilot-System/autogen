@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 
 from autogen_dashboard.app import create_app
 from autogen_dashboard.dependencies import get_session_service
-from autogen_dashboard.schemas import RepoContext, SessionActionResponse, SessionCreateResponse, SessionDetail
+from autogen_dashboard.schemas import RepoContext, SessionDetail
 
 
 def utc_now() -> datetime:

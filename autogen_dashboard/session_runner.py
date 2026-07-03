@@ -43,7 +43,6 @@ from autogen_dashboard.session_store import SessionStore
 from autogen_starter.config import Settings
 from autogen_starter.providers import ProviderConfigError, collect_provider_statuses, create_model_client
 from maf_starter.approval_policy import (
-    ApprovalScope,
     classify_validation_commands,
     classify_write_operations,
     is_execution_approved,
@@ -54,8 +53,6 @@ from maf_starter.orchestration import (
     AutoAnswerRecord,
     RunOrchestrationState,
     RunStagePauseKind,
-    SpecialistHandoff,
-    SpecialistState,
     StageName,
     StageSummary,
     specialist_role_for_stage,

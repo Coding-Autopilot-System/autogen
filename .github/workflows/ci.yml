@@ -38,6 +38,12 @@ jobs:
       - name: Verify dependency consistency
         run: python -m pip check
 
+      - name: Contract compatibility (pinned cas-contracts v1.1)
+        # Consumer-side gate: fails red if autogen's pinned CAS contract version
+        # or the vendored v1.1 schema release drifts. See
+        # tests/test_contract_compatibility.py for the validated contract surface.
+        run: python -m pytest tests/test_contract_compatibility.py -q --tb=short
+
       - name: Run full test suite
         run: python -m pytest -q --tb=short
 
