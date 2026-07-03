@@ -1,5 +1,8 @@
 # autogen
 
+[![CI](https://github.com/Coding-Autopilot-System/autogen/actions/workflows/ci.yml/badge.svg)](https://github.com/Coding-Autopilot-System/autogen/actions/workflows/ci.yml) [![CodeQL](https://github.com/Coding-Autopilot-System/autogen/actions/workflows/codeql.yml/badge.svg)](https://github.com/Coding-Autopilot-System/autogen/actions/workflows/codeql.yml)
+
+
 [![CI](https://github.com/Coding-Autopilot-System/autogen/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Coding-Autopilot-System/autogen/actions/workflows/ci.yml)
 [![Python 3.12](https://img.shields.io/badge/python-3.12-blue)](https://www.python.org/)
 [![MIT License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
