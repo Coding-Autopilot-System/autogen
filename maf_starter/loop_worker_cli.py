@@ -25,6 +25,8 @@ class WorkerEnvelope:
     contractId: str
     contextBundleId: str
     outputSchema: str
+    branchResults: tuple[dict[str, Any], ...]
+    fanIn: dict[str, Any]
 
 
 def _validate_step_contract(payload: dict[str, Any]) -> tuple[dict[str, Any], tuple[str, ...]]:
@@ -60,13 +62,35 @@ def _validate_step_contract(payload: dict[str, Any]) -> tuple[dict[str, Any], tu
     fan_out = contract["fanOut"]
     if not isinstance(fan_out, dict):
         raise ValueError("fanOut must be an object")
-    roles = tuple(fan_out.get("requiredRoles") or ())
+    branches = fan_out.get("branches")
+    if not isinstance(branches, list) or not branches:
+        raise ValueError("Step contract fanOut must declare branches")
+    roles = tuple(branch.get("role") for branch in branches if isinstance(branch, dict))
     if set(roles) != set(REQUIRED_SPECIALIST_ROLES):
         raise ValueError("Step contract must declare every required specialist role exactly once")
     if fan_out.get("maxConcurrency") != 3:
         raise ValueError("Step contract maxConcurrency must match the bounded runtime of 3")
     if fan_out.get("aggregatorRole") != "loop_verifier":
         raise ValueError("Step contract aggregatorRole must be loop_verifier")
+    aggregation = fan_out.get("aggregation")
+    if not isinstance(aggregation, dict):
+        raise ValueError("Step contract fanOut must declare aggregation rules")
+    if tuple(aggregation.get("requiredRoles") or ()) != roles:
+        raise ValueError("Step contract aggregation requiredRoles must match branch order")
+    if aggregation.get("ruleSet") != "all_required_terminal" or aggregation.get("requireAllRequiredSucceeded") is not True:
+        raise ValueError("Step contract aggregation rules are unsupported")
+    branch_role_set = set(roles)
+    for branch in branches:
+        if not isinstance(branch, dict):
+            raise ValueError("Step contract branches must be objects")
+        depends_on = tuple(branch.get("dependsOnRoles") or ())
+        expected_artifacts = tuple(branch.get("expectedArtifacts") or ())
+        if not expected_artifacts:
+            raise ValueError("Step contract branches must declare expected artifacts")
+        if branch.get("repositoryMutationAllowed") is True:
+            raise ValueError("Loop specialists cannot own repository mutation")
+        if any(dependency not in branch_role_set or dependency == branch.get("role") for dependency in depends_on):
+            raise ValueError("Step contract branches contain invalid dependencies")
     if not contract.get("inputs") or not contract.get("completionCriteria"):
         raise ValueError("Step contract inputs and completion criteria are required")
     return contract, roles
@@ -78,6 +102,7 @@ async def execute_request(payload: dict[str, Any]) -> WorkerEnvelope:
     if missing:
         raise ValueError(f"Missing worker request fields: {', '.join(missing)}")
     contract, roles = _validate_step_contract(payload)
+    fan_out = contract["fanOut"]
 
     active = 0
     peak = 0
@@ -103,6 +128,15 @@ async def execute_request(payload: dict[str, Any]) -> WorkerEnvelope:
         timeout_seconds=30,
     )
     evidence = tuple(uri for result in aggregate.results for uri in result.artifacts)
+    branch_results = tuple(
+        {
+            "role": result.role,
+            "status": result.status,
+            "evidenceUris": tuple(result.artifacts),
+            "required": True,
+        }
+        for result in aggregate.results
+    )
     return WorkerEnvelope(
         aggregate.complete,
         peak,
@@ -112,6 +146,13 @@ async def execute_request(payload: dict[str, Any]) -> WorkerEnvelope:
         contract["contractId"],
         contract["contextBundleId"],
         contract["outputSchema"],
+        branch_results,
+        {
+            "aggregatorRole": fan_out["aggregatorRole"],
+            "branches": branch_results,
+            "allRequiredTerminal": True,
+            "allRequiredSucceeded": aggregate.complete,
+        },
     )
 
 
