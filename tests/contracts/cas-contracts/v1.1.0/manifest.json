@@ -2,34 +2,34 @@
   "version": "1.1.0",
   "schemas": [
     {
-      "id": "https://coding-autopilot-system.github.io/cas-contracts/registry/v1.1/common.schema.json",
+      "id": "https://schemas.coding-autopilot.dev/v1.1/common.schema.json",
       "path": "common.schema.json",
-      "sha256": "111ea168b873aa99a5f2d731f1295320c83c8424156546be9dbdc5624c597562"
+      "sha256": "75d300c99779327d90872373bfc1661ba04ca1bb52335dec45fe926594ea5d7b"
     },
     {
-      "id": "https://coding-autopilot-system.github.io/cas-contracts/registry/v1.1/phase-execution-request.schema.json",
+      "id": "https://schemas.coding-autopilot.dev/v1.1/phase-execution-request.schema.json",
       "path": "phase-execution-request.schema.json",
-      "sha256": "a9dd60ade628f98cdc97fec9900f4b429f81e0fe07413a2ff21cd42188f85fb6"
+      "sha256": "4577f1dc99bd04b0ccd84255d4f34935a686273f4ed4cd030ba32e2caf54315a"
     },
     {
-      "id": "https://coding-autopilot-system.github.io/cas-contracts/registry/v1.1/phase-execution-result.schema.json",
+      "id": "https://schemas.coding-autopilot.dev/v1.1/phase-execution-result.schema.json",
       "path": "phase-execution-result.schema.json",
-      "sha256": "7c56cc51aa0f8ae878a4f8219a4b1bedc20697f57d557797a0907a7163df1f7e"
+      "sha256": "bcffcbcf4e502a1d578ccce3ba0326e91f5562cd1979a83489b394cdeb4b50e1"
     },
     {
-      "id": "https://coding-autopilot-system.github.io/cas-contracts/registry/v1.1/phase-verification-result.schema.json",
+      "id": "https://schemas.coding-autopilot.dev/v1.1/phase-verification-result.schema.json",
       "path": "phase-verification-result.schema.json",
-      "sha256": "800cfceecd61a16883a5be67f0da9ff9fa8865450c62e92676a878189c12b6cc"
+      "sha256": "ec84a47574424a5c148030f87d8a3f3cdd3041ce24056242fb6f81ddfd3c1340"
     },
     {
-      "id": "https://coding-autopilot-system.github.io/cas-contracts/registry/v1.1/sdlc-lifecycle-event.schema.json",
+      "id": "https://schemas.coding-autopilot.dev/v1.1/sdlc-lifecycle-event.schema.json",
       "path": "sdlc-lifecycle-event.schema.json",
-      "sha256": "f746915fc3687496be216d0b8bcfec0398a8c5eebb765ff8c63e7c9ee88b174f"
+      "sha256": "6e397fb7f76703593fcecb95c1b53d6de0657157d7b99272ca2bb310de5d780f"
     },
     {
-      "id": "https://coding-autopilot-system.github.io/cas-contracts/registry/v1.1/sdlc-profile.schema.json",
+      "id": "https://schemas.coding-autopilot.dev/v1.1/sdlc-profile.schema.json",
       "path": "sdlc-profile.schema.json",
-      "sha256": "80e75549b7ef49182aba640576228db6bed674f15847b154bbf83d7953e23334"
+      "sha256": "c435ceadceb9bde7f5c698f9ce896c12f6e5adba3811191a820e472d151ef971"
     }
   ]
 }

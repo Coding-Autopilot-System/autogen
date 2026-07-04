@@ -67,6 +67,18 @@ def _validate(schema_name: str, instance: dict[str, Any]) -> None:
     Draft202012Validator(schema, registry=_registry()).validate(instance)
 
 
+def _upstream_release_is_canonical() -> bool:
+    manifest_path = UPSTREAM_ROOT / "manifest.json"
+    if not manifest_path.exists():
+        return False
+
+    manifest = _load_json(manifest_path)
+    return all(
+        entry["id"].startswith("https://schemas.coding-autopilot.dev/")
+        for entry in manifest["schemas"]
+    )
+
+
 # Shared lifecycle metadata every v1.1 contract requires (common.schema.json#lifecycleMetadata).
 def _lifecycle() -> dict[str, Any]:
     return {
@@ -181,8 +193,8 @@ def test_sdlc_profile_wire_payload_conforms() -> None:
 
 
 @pytest.mark.skipif(
-    not UPSTREAM_ROOT.exists(),
-    reason="sibling cas-contracts checkout not present (expected in isolated CI)",
+    not _upstream_release_is_canonical(),
+    reason="sibling cas-contracts checkout is absent or still on the legacy namespace",
 )
 def test_vendored_release_matches_upstream_source_of_truth() -> None:
     """Local-only drift guard: vendored copy must equal the sibling cas-contracts release.
