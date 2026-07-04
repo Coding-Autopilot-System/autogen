@@ -1,7 +1,12 @@
 import asyncio
+import io
+import json
+import sys
 import unittest
+from contextlib import redirect_stderr
+from unittest.mock import patch
 
-from maf_starter.loop_worker_cli import execute_request
+from maf_starter.loop_worker_cli import MAX_REQUEST_BYTES, execute_request, main
 
 
 class LoopWorkerCliTests(unittest.TestCase):
@@ -22,3 +27,17 @@ class LoopWorkerCliTests(unittest.TestCase):
         self.assertEqual(3, result.peakConcurrency)
         self.assertEqual(("research", "architecture", "security", "test"), result.roles)
         self.assertEqual(4, len(result.evidenceUris))
+
+    def test_cli_rejects_oversized_stdin_before_json_parsing(self) -> None:
+        oversized = json.dumps({"padding": "x" * MAX_REQUEST_BYTES})
+        stderr = io.StringIO()
+
+        with (
+            patch.object(sys, "argv", ["loop_worker_cli"]),
+            patch.object(sys, "stdin", io.StringIO(oversized)),
+            redirect_stderr(stderr),
+        ):
+            exit_code = main()
+
+        self.assertEqual(2, exit_code)
+        self.assertIn("exceeds", stderr.getvalue())
