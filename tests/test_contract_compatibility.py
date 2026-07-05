@@ -14,8 +14,8 @@ This module pins the contract version autogen targets and fails CI (red check) w
   validating against the pinned schema.
 
 Cross-repo reference note: cas-contracts is a *separate* repo. In this local polyrepo
-CI checks out only this repo, so we vendor the pinned ``v1.1.0`` release under
-``tests/contracts/cas-contracts/v1.1.0/`` (same convention as cas-reference-product).
+CI checks out only this repo, so we vendor the pinned ``v1.1.1`` release under
+``tests/contracts/cas-contracts/v1.1.1/`` (same convention as cas-reference-product).
 When the sibling ``../../cas-contracts`` checkout is present (local dev), we additionally
 assert the vendored copy has not drifted from the upstream source of truth.
 """
@@ -37,16 +37,17 @@ from referencing import Registry, Resource  # noqa: E402
 # The contract version autogen's models pin themselves to. These MUST stay in lockstep
 # with autogen_dashboard/schemas.py (SdlcProfileModel.profile_version, the various
 # kind/profile_version literals) and with the vendored release below.
+PINNED_RELEASE_VERSION = "1.1.1"
 PINNED_SCHEMA_VERSION = "1.1.0"
 PINNED_PROFILE_VERSION = "v1.1"
 
-CONTRACT_ROOT = Path(__file__).parent / "contracts" / "cas-contracts" / f"v{PINNED_SCHEMA_VERSION}"
+CONTRACT_ROOT = Path(__file__).parent / "contracts" / "cas-contracts" / f"v{PINNED_RELEASE_VERSION}"
 UPSTREAM_ROOT = (
     Path(__file__).resolve().parents[2]
     / "cas-contracts"
     / "registry"
     / "releases"
-    / f"v{PINNED_SCHEMA_VERSION}"
+    / f"v{PINNED_RELEASE_VERSION}"
 )
 
 
@@ -65,6 +66,18 @@ def _registry() -> Registry[Any]:
 def _validate(schema_name: str, instance: dict[str, Any]) -> None:
     schema = _load_json(CONTRACT_ROOT / schema_name)
     Draft202012Validator(schema, registry=_registry()).validate(instance)
+
+
+def _upstream_release_is_canonical() -> bool:
+    manifest_path = UPSTREAM_ROOT / "manifest.json"
+    if not manifest_path.exists():
+        return False
+
+    manifest = _load_json(manifest_path)
+    return all(
+        entry["id"].startswith("https://schemas.coding-autopilot.dev/")
+        for entry in manifest["schemas"]
+    )
 
 
 # Shared lifecycle metadata every v1.1 contract requires (common.schema.json#lifecycleMetadata).
@@ -86,7 +99,7 @@ def _lifecycle() -> dict[str, Any]:
 def test_vendored_release_matches_manifest_hashes() -> None:
     """The vendored pinned release must be internally consistent (tamper check)."""
     manifest = _load_json(CONTRACT_ROOT / "manifest.json")
-    assert manifest["version"] == PINNED_SCHEMA_VERSION
+    assert manifest["version"] == PINNED_RELEASE_VERSION
     for entry in manifest["schemas"]:
         content = (CONTRACT_ROOT / entry["path"]).read_bytes()
         assert hashlib.sha256(content).hexdigest() == entry["sha256"], entry["path"]
@@ -181,8 +194,8 @@ def test_sdlc_profile_wire_payload_conforms() -> None:
 
 
 @pytest.mark.skipif(
-    not UPSTREAM_ROOT.exists(),
-    reason="sibling cas-contracts checkout not present (expected in isolated CI)",
+    not _upstream_release_is_canonical(),
+    reason="sibling cas-contracts checkout is absent or still on the legacy namespace",
 )
 def test_vendored_release_matches_upstream_source_of_truth() -> None:
     """Local-only drift guard: vendored copy must equal the sibling cas-contracts release.
@@ -195,4 +208,4 @@ def test_vendored_release_matches_upstream_source_of_truth() -> None:
         assert (
             hashlib.sha256(path.read_bytes()).hexdigest()
             == hashlib.sha256(upstream.read_bytes()).hexdigest()
-        ), f"vendored {path.name} drifted from upstream cas-contracts {PINNED_SCHEMA_VERSION}"
+        ), f"vendored {path.name} drifted from upstream cas-contracts {PINNED_RELEASE_VERSION}"

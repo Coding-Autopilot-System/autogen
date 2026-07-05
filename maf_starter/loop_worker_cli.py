@@ -14,6 +14,8 @@ from maf_starter.loop_workers import (
     run_bounded_specialists,
 )
 
+MAX_REQUEST_BYTES = 1_000_000
+
 
 @dataclass(frozen=True)
 class WorkerEnvelope:
@@ -68,7 +70,15 @@ def main() -> int:
     parser.add_argument("--request", help="JSON worker request; stdin is used when omitted")
     args = parser.parse_args()
     try:
-        payload = json.loads(args.request if args.request is not None else sys.stdin.read())
+        if args.request is not None:
+            request_text = args.request
+            request_size = len(request_text.encode("utf-8"))
+        else:
+            request_text = sys.stdin.read(MAX_REQUEST_BYTES + 1)
+            request_size = len(request_text.encode("utf-8"))
+        if request_size > MAX_REQUEST_BYTES:
+            raise ValueError(f"Worker request exceeds {MAX_REQUEST_BYTES} bytes")
+        payload = json.loads(request_text)
         result = asyncio.run(execute_request(payload))
     except (ValueError, json.JSONDecodeError) as error:
         print(json.dumps({"error": str(error)}), file=sys.stderr)
