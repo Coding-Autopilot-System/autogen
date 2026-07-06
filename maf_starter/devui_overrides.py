@@ -36,4 +36,9 @@ def install_devui_ui_overrides(app: FastAPI) -> None:
         body = b"".join([chunk async for chunk in response.body_iterator]).decode("utf-8")
         if "codex-route-overrides" not in body:
             body = body.replace("</head>", f"{ROUTE_STYLE}</head>")
-        return HTMLResponse(body, status_code=response.status_code, headers=dict(response.headers))
+
+        headers = dict(response.headers)
+        if "content-length" in headers:
+            del headers["content-length"]
+
+        return HTMLResponse(body, status_code=response.status_code, headers=headers)
