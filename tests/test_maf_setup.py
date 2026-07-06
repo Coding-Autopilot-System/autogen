@@ -24,13 +24,13 @@ from maf_starter.config import (
 from maf_starter.devui_overrides import OLD_GD_RENDERER
 from maf_starter.devui_overrides import _patch_devui_bundle
 from maf_starter.devui_overrides import install_devui_ui_overrides
+import maf_starter.provider_fallback as provider_fallback
 from maf_starter.provider_fallback import (
     ResponseStream,
     _is_fallback_worthy_error,
     _merge_route_metadata,
     _response_from_updates,
     _resolve_run_scope,
-    _sanitize_messages,
     _wrap_stream_with_fallback,
 )
 from maf_starter.routing_policy import RoutingPlan, build_routing_plan
@@ -182,6 +182,9 @@ class MafSetupTests(RepoScratchTestCase):
                 "search_repo",
                 "request_human_approval",
                 "apply_repo_write_plan",
+                "delegate_task_to_claude",
+                "delegate_task_to_codex",
+                "delegate_task_to_antigravity",
             },
         )
 
@@ -348,7 +351,7 @@ class MafSetupTests(RepoScratchTestCase):
             Message(role="user", text="final"),
         ]
 
-        sanitized = _sanitize_messages(messages)
+        sanitized = provider_fallback._sanitize_messages(messages)
 
         self.assertEqual(len(sanitized), 2)
         self.assertNotIn("reasoning_details", sanitized[0].additional_properties)
@@ -618,3 +621,4 @@ class MafSetupTests(RepoScratchTestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

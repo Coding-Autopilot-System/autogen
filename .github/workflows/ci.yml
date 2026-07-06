@@ -50,8 +50,8 @@ jobs:
 
       - name: Emit branch coverage telemetry
         if: always()
+        shell: python
         run: |
-          python - <<'PY'
           import json
           import sys
           import xml.etree.ElementTree as ET
@@ -78,10 +78,10 @@ jobs:
               "required": required,
           }))
           sys.exit(0 if passed else 1)
-          PY
 
       - name: Compile Python sources
         run: python -m compileall autogen_starter autogen_dashboard maf_starter main.py -q
 
       - name: Validate dashboard JavaScript
         run: node --check autogen_dashboard/static/app.js
+
