@@ -10,3 +10,6 @@ state/
 .tmp-tests/
 *.out.log
 *.err.log
+.coverage
+coverage.xml
+htmlcov/

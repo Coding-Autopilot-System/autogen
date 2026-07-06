@@ -46,8 +46,39 @@ jobs:
 
       - name: Run full test suite
         run: |
-          python -m pip install pytest-cov
-          python -m pytest -q --tb=short --cov=. --cov-report=xml
+          python -m pytest -q --tb=short --cov --cov-branch --cov-report=xml --cov-fail-under=73
+
+      - name: Emit branch coverage telemetry
+        if: always()
+        run: |
+          python - <<'PY'
+          import json
+          import sys
+          import xml.etree.ElementTree as ET
+          from pathlib import Path
+
+          required = 54.6
+          coverage_file = Path("coverage.xml")
+          if not coverage_file.exists():
+              print(json.dumps({
+                  "event": "ci_failure",
+                  "metric": "branch-rate",
+                  "coverage_percent": None,
+                  "required": required,
+                  "reason": "coverage.xml missing",
+              }))
+              sys.exit(1)
+
+          branch_rate = float(ET.parse(coverage_file).getroot().attrib["branch-rate"]) * 100.0
+          passed = branch_rate >= required
+          print(json.dumps({
+              "event": "ci_pass" if passed else "ci_failure",
+              "metric": "branch-rate",
+              "coverage_percent": round(branch_rate, 2),
+              "required": required,
+          }))
+          sys.exit(0 if passed else 1)
+          PY
 
       - name: Compile Python sources
         run: python -m compileall autogen_starter autogen_dashboard maf_starter main.py -q
