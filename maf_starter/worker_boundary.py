@@ -4,6 +4,8 @@ import asyncio
 from enum import Enum
 from typing import Any, Awaitable, Callable
 
+from maf_starter.telemetry import emit_failure_telemetry
+
 
 class WorkerProfile(str, Enum):
     LOCAL = "local"
@@ -58,6 +60,7 @@ class WorkerBoundary:
             self._status[run_id] = "done"
         except Exception as exc:  # noqa: BLE001
             self._status[run_id] = f"error:{exc}"
+            emit_failure_telemetry("worker_task_failed", run_id=run_id, error=str(exc))
 
     def get_status(self, run_id: str) -> _RunStatus | None:
         """Return the current status string for *run_id*, or None if unknown."""
