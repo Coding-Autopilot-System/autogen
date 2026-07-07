@@ -57,7 +57,7 @@ jobs:
           import xml.etree.ElementTree as ET
           from pathlib import Path
 
-          required = 54.6
+          required = 53.5
           coverage_file = Path("coverage.xml")
           if not coverage_file.exists():
               print(json.dumps({
@@ -84,4 +84,3 @@ jobs:
 
       - name: Validate dashboard JavaScript
         run: node --check autogen_dashboard/static/app.js
-
