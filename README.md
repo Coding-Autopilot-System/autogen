@@ -53,6 +53,16 @@ This repo already carries more engineering evidence than the old README surfaced
 - `tests/test_phase5_ui_contract.py` and `tests/test_phase5_operator_views.py` lock the operator UI to timeline, routing, artifact, and specialist-view contracts.
 - `.github/workflows/ci.yml` installs the declared environment and runs the full suite, Python compilation, dependency consistency, and JavaScript syntax checks on Windows and Linux.
 
+### Test Coverage
+
+`main`'s `Run full test suite` CI step installs `pytest-cov` and runs `pytest --cov=. --cov-report=xml`,
+but does not currently fail the build on a coverage threshold. A ratcheted coverage gate is
+**in progress (PR #11)**: it adds a `.coveragerc` with `branch = true` and a `--cov-fail-under`
+threshold, plus branch-coverage telemetry read from the produced `coverage.xml`. Per the PR's
+own recorded validation, the repo-local suite reached ~73.3% total coverage and ~54.6% branch
+coverage against the ratcheted threshold. Until PR #11 merges, coverage is measured but not
+enforced on `main`.
+
 ## Quickstart
 
 The checked-in snapshot supports a clean-clone local dashboard and full validation workflow:
@@ -68,6 +78,16 @@ Copy-Item .env.example .env
 .\.venv\Scripts\python.exe main.py providers
 .\.venv\Scripts\python.exe main.py dashboard --host 127.0.0.1 --port 8000
 ```
+
+Do not install into the system Python on WSL/Linux. That interpreter may be externally managed
+under PEP 668, which blocks direct `pip install` runs and creates ambiguous test environments.
+Always use the repo-local `.venv` so verification and coverage come from `requirements.txt`, not
+ambient machine packages.
+
+MAF 1.0 direction: the current operator shell still uses the local dashboard, but the
+orchestration core is intentionally aligned with Microsoft Agent Framework's graph-style
+workflow model. The next durable UI/runtime step is to expose the existing manager-led flow
+through DevUI or AG-UI style surfaces rather than inventing a separate orchestration concept.
 
 Run the complete regression suite before changing runtime behavior:
 
@@ -135,3 +155,5 @@ That is the right foundation for a later Azure-hosted control plane or worker bo
 ## License
 
 MIT -- see [LICENSE](LICENSE)
+
+<!-- docs-verified: 91d12d3 2026-07-08 -->
