@@ -68,9 +68,12 @@ from maf_starter.config import Settings, activate_run_scope, reset_run_scope
 from maf_starter.execution_profile import LOCAL_PROFILE, ExecutionProfile
 from maf_starter.routing_policy import RoutingPlan, build_routing_plan
 from maf_starter.routing_types import CapabilityChange, ChainStep, RouteAttempt
+from maf_starter.telemetry import emit_failure_telemetry
 
 
 FALLBACK_NOTICE = "[Fallback provider used because the earlier model/provider in the chain failed.]\n"
+MAX_CLI_OUTPUT_BYTES = 1_000_000
+MAX_CLI_PROMPT_BYTES = 1_000_000
 FALLBACK_ERROR_MARKERS = (
     "resource_exhausted",
     "quota",
@@ -132,6 +135,12 @@ def build_fallback_middleware(settings: Settings, *, primary_provider: str, prim
                         error=last_error,
                     )
                 )
+                emit_failure_telemetry(
+                    "provider_failed",
+                    provider=route.primary_provider,
+                    model=route.primary_model,
+                    error=str(exc),
+                )
                 for step in route.fallback_steps:
                     try:
                         context.result = await _execute_chain_step(
@@ -142,6 +151,12 @@ def build_fallback_middleware(settings: Settings, *, primary_provider: str, prim
                             prior_error=last_error,
                             attempt_log=attempt_log,
                             fallback_index=len(attempt_log),
+                        )
+                        emit_failure_telemetry(
+                            "fallback_succeeded",
+                            provider=step.provider,
+                            model=step.model or step.label,
+                            primary_error=str(last_error),
                         )
                         return
                     except Exception as fallback_exc:
@@ -156,8 +171,21 @@ def build_fallback_middleware(settings: Settings, *, primary_provider: str, prim
                                 error=fallback_exc,
                             )
                         )
+                        emit_failure_telemetry(
+                            "fallback_step_failed",
+                            provider=step.provider,
+                            model=step.model or step.label,
+                            error=str(fallback_exc),
+                            fallback_index=len(attempt_log) - 1,
+                        )
                         continue
 
+                emit_failure_telemetry(
+                    "fallback_exhausted",
+                    primary_provider=route.primary_provider,
+                    attempted_providers=[attempt.provider for attempt in attempt_log],
+                    final_error=str(last_error),
+                )
                 raise last_error
         finally:
             reset_run_scope(scope_tokens)
@@ -233,6 +261,12 @@ def _wrap_stream_with_fallback(
                     error=last_error,
                 )
             )
+            emit_failure_telemetry(
+                "provider_failed",
+                provider=route.primary_provider,
+                model=route.primary_model,
+                error=str(exc),
+            )
             for step in route.fallback_steps:
                 try:
                     fallback_result = await _execute_chain_step(
@@ -243,6 +277,12 @@ def _wrap_stream_with_fallback(
                         prior_error=last_error,
                         attempt_log=attempt_log,
                         fallback_index=len(attempt_log),
+                    )
+                    emit_failure_telemetry(
+                        "fallback_succeeded",
+                        provider=step.provider,
+                        model=step.model or step.label,
+                        primary_error=str(last_error),
                     )
                     if isinstance(fallback_result, ResponseStream):
                         async for update in fallback_result:
@@ -274,6 +314,19 @@ def _wrap_stream_with_fallback(
                             error=fallback_exc,
                         )
                     )
+                    emit_failure_telemetry(
+                        "fallback_step_failed",
+                        provider=step.provider,
+                        model=step.model or step.label,
+                        error=str(fallback_exc),
+                        fallback_index=len(attempt_log) - 1,
+                    )
+            emit_failure_telemetry(
+                "fallback_exhausted",
+                primary_provider=route.primary_provider,
+                attempted_providers=[attempt.provider for attempt in attempt_log],
+                final_error=str(last_error),
+            )
             raise last_error
 
         if isinstance(original_stream, ResponseStream):
@@ -791,6 +844,9 @@ def _run_subprocess(
         raise RuntimeError(f"{provider_name} failed: {detail}")
 
     output = completed.stdout.strip()
+    output_bytes = len(output.encode("utf-8", errors="replace"))
+    if output_bytes > MAX_CLI_OUTPUT_BYTES:
+        raise RuntimeError(f"{provider_name} output exceeds {MAX_CLI_OUTPUT_BYTES} bytes")
     if not output:
         raise RuntimeError(f"{provider_name} returned empty output")
 
@@ -818,7 +874,10 @@ def _messages_to_prompt(messages: list[Message] | tuple[Message, ...]) -> str:
     for message in messages:
         rendered.append(f"{str(message.role).upper()}: {_message_text(message)}")
     rendered.append("ASSISTANT:")
-    return "\n\n".join(rendered)
+    prompt = "\n\n".join(rendered)
+    if len(prompt.encode("utf-8", errors="replace")) > MAX_CLI_PROMPT_BYTES:
+        raise ValueError(f"Rendered CLI prompt exceeds {MAX_CLI_PROMPT_BYTES} bytes")
+    return prompt
 
 
 def _message_text(message: Message) -> str:
