@@ -53,6 +53,16 @@ This repo already carries more engineering evidence than the old README surfaced
 - `tests/test_phase5_ui_contract.py` and `tests/test_phase5_operator_views.py` lock the operator UI to timeline, routing, artifact, and specialist-view contracts.
 - `.github/workflows/ci.yml` installs the declared environment and runs the full suite, Python compilation, dependency consistency, and JavaScript syntax checks on Windows and Linux.
 
+### Test Coverage
+
+`main`'s `Run full test suite` CI step installs `pytest-cov` and runs `pytest --cov=. --cov-report=xml`,
+but does not currently fail the build on a coverage threshold. A ratcheted coverage gate is
+**in progress (PR #11)**: it adds a `.coveragerc` with `branch = true` and a `--cov-fail-under`
+threshold, plus branch-coverage telemetry read from the produced `coverage.xml`. Per the PR's
+own recorded validation, the repo-local suite reached ~73.3% total coverage and ~54.6% branch
+coverage against the ratcheted threshold. Until PR #11 merges, coverage is measured but not
+enforced on `main`.
+
 ## Quickstart
 
 The checked-in snapshot supports a clean-clone local dashboard and full validation workflow:
@@ -135,3 +145,5 @@ That is the right foundation for a later Azure-hosted control plane or worker bo
 ## License
 
 MIT -- see [LICENSE](LICENSE)
+
+<!-- docs-verified: e52e6aa9383a11722bbf92f95c21ff39feb3dd65 2026-07-08 -->
