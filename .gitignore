@@ -13,3 +13,9 @@ state/
 .coverage
 coverage.xml
 htmlcov/
+
+.tmp-gh-*.ps1
+
+.tmp-venv*/
+
+TestResults/
