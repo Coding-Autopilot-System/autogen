@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enterprise Swarm Dashboard</title>
+    <link rel="stylesheet" href="fullauto.css">
+</head>
+<body>
+    <div class="dashboard-container">
+        
+        <!-- Header -->
+        <header class="header-row glass-panel">
+            <h1 class="header-title">Swarm Intelligence Control</h1>
+            
+            <div class="tabs">
+                <div class="tab active" onclick="switchTab('swarm-tab')">Swarm Visualizer</div>
+                <div class="tab" onclick="switchTab('roadmap-tab')">Roadmap & Inbox</div>
+                <div class="tab" onclick="switchTab('processes-tab')">System Processes</div>
+            </div>
+        </header>
+
+        <!-- TAB 1: Swarm Visualizer -->
+        <div id="swarm-tab" class="tab-content active">
+            <div class="swarm-visualizer glass-panel" style="padding: 0;">
+                <div class="node-graph-area">
+                    <svg id="svg-layer"></svg>
+                    <div id="graph-nodes-container"></div>
+                </div>
+                <div class="node-details-area">
+                    <h2 class="panel-title" style="margin-bottom: 0;">Node Inspection</h2>
+                    <div id="node-details-content">
+                        <p style="color: var(--text-muted); text-align: center; margin-top: 5rem;">Select a node in the graph to inspect its memory, instructions, and execution trace.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 2: Roadmap & Inbox -->
+        <div id="roadmap-tab" class="tab-content">
+            <div class="grid-2">
+                <div class="glass-panel">
+                    <h2 class="panel-title">GSD Roadmap Steering</h2>
+                    <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1rem;">Current Inbox Files: <span id="inbox-count" style="color: var(--success); font-weight: bold;">0</span></p>
+                    <textarea id="roadmap-editor" rows="15" spellcheck="false" placeholder="Loading roadmap..."></textarea>
+                    <div style="margin-top: 1rem; display: flex; justify-content: flex-end;">
+                        <button id="btn-save-roadmap" class="btn btn-primary" onclick="saveRoadmap()">Save Roadmap</button>
+                    </div>
+                </div>
+                <div class="glass-panel">
+                    <h2 class="panel-title">Watchdog Event Feed</h2>
+                    <pre id="watchdog-logs" style="height: 100%; min-height: 200px;">Waiting for watchdog events...</pre>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 3: Process Manager -->
+        <div id="processes-tab" class="tab-content">
+            <div class="glass-panel">
+                <h2 class="panel-title">Background Services</h2>
+                <p style="color: var(--text-muted); margin-bottom: 2rem;">Manage the daemons attached to the dashboard server. They run independently of this UI.</p>
+                
+                <div class="process-row">
+                    <div>
+                        <h3 style="margin:0 0 0.25rem 0;">9Router Proxy <span id="proxy-status" class="status-badge status-stopped">Stopped</span></h3>
+                        <span style="color: var(--text-muted); font-size: 0.85rem;">Routes LLM requests to free API tiers (OpenRouter, Groq, Cerebras)</span>
+                    </div>
+                    <div>
+                        <button class="btn btn-success" onclick="startProcess('proxy')">Start</button>
+                        <button class="btn btn-danger" onclick="stopProcess('proxy')">Stop</button>
+                    </div>
+                </div>
+                
+                <div class="process-row">
+                    <div>
+                        <h3 style="margin:0 0 0.25rem 0;">Autonomous Daemon <span id="daemon-status" class="status-badge status-stopped">Stopped</span></h3>
+                        <span style="color: var(--text-muted); font-size: 0.85rem;">Polls for roadmap changes and executes them autonomously via GSD Orchestrator</span>
+                    </div>
+                    <div>
+                        <button class="btn btn-success" onclick="startProcess('daemon')">Start</button>
+                        <button class="btn btn-danger" onclick="stopProcess('daemon')">Stop</button>
+                    </div>
+                </div>
+
+                <div class="process-row">
+                    <div>
+                        <h3 style="margin:0 0 0.25rem 0;">Autonomous Watchdog <span id="watchdog-status" class="status-badge status-stopped">Stopped</span></h3>
+                        <span style="color: var(--text-muted); font-size: 0.85rem;">Monitors system health and automatically restarts stuck daemon or proxy loops</span>
+                    </div>
+                    <div>
+                        <button class="btn btn-success" onclick="startProcess('watchdog')">Start</button>
+                        <button class="btn btn-danger" onclick="stopProcess('watchdog')">Stop</button>
+                    </div>
+                </div>
+
+                <div class="process-row">
+                    <div>
+                        <h3 style="margin:0 0 0.25rem 0;">Ollama (Local Engine) <span id="ollama-status" class="status-badge status-stopped">Stopped</span></h3>
+                        <span style="color: var(--text-muted); font-size: 0.85rem;">Local fallback model with Unicode bug fix</span>
+                    </div>
+                    <div>
+                        <button class="btn btn-success" onclick="startProcess('ollama')">Start</button>
+                        <button class="btn btn-danger" onclick="stopProcess('ollama')">Stop</button>
+                    </div>
+                </div>
+                
+            </div>
+        </div>
+        
+    </div>
+
+    <!-- Logic -->
+    <script src="fullauto.js"></script>
+</body>
+</html>
