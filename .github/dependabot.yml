@@ -8,6 +8,11 @@ updates:
       all:
         patterns:
           - "*"
+    # Agent Framework DevUI currently requires FastAPI < 0.138.1.
+    # Keep Dependabot on the compatible line until Microsoft lifts this bound.
+    ignore:
+      - dependency-name: "fastapi"
+        versions: [">= 0.138.1"]
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:

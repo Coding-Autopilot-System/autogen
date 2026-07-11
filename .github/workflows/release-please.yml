@@ -1,0 +1,13 @@
+name: Release Please
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  release-please:
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    uses: Coding-Autopilot-System/.github/.github/workflows/release-please-reusable.yml@64c1673088ff7802f1270a44f03bc4d7a10631f2

@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
+import io
+import json
 import unittest
 
 from maf_starter.worker_boundary import WorkerBoundary, WorkerProfile
@@ -71,19 +74,25 @@ class WorkerBoundaryTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_status_records_error_on_exception(self) -> None:
         boundary = WorkerBoundary()
+        stderr = io.StringIO()
 
         async def failing_workflow():
             raise ValueError("something went wrong")
 
-        boundary.submit_async("run-3", failing_workflow)
-        # Yield so the task can run and fail
-        await asyncio.sleep(0)
+        with contextlib.redirect_stderr(stderr):
+            boundary.submit_async("run-3", failing_workflow)
+            # Yield so the task can run and fail
+            await asyncio.sleep(0)
 
         status = boundary.get_status("run-3")
         assert status is not None
         self.assertTrue(status.startswith("error:"), f"Expected error: prefix, got: {status!r}")
         self.assertIn("something went wrong", status)
         self.assertTrue(boundary.is_done("run-3"))
+        payload = json.loads(stderr.getvalue().strip())
+        self.assertEqual(payload["event"], "worker_task_failed")
+        self.assertEqual(payload["run_id"], "run-3")
+        self.assertEqual(payload["error"], "something went wrong")
 
     def test_get_status_returns_none_for_unknown_run(self) -> None:
         boundary = WorkerBoundary()
