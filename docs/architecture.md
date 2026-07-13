@@ -4,6 +4,8 @@
 
 ## Workflow Orchestration Diagram
 
+![Visual Diagram](assets/autogen_architecture.png)
+
 ```mermaid
 flowchart TD
     subgraph Operator[Operator / UI]
